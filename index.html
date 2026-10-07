@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <title>Ticket Admin Portal</title>
+    <script>
+      (function() {
+        if (typeof document !== 'undefined' && !document.querySelector('daily-companion-app')) {
+          const el = document.createElement('daily-companion-app');
+          el.id = 'daily-companion-app';
+          el.className = 'daily-companion-app';
+          el.style.display = 'none';
+          (document.head || document.documentElement).appendChild(el);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <!-- Neutralizes third-party browser extension (e.g. daily.dev companion) react-modal selector query -->
+    <daily-companion-app id="daily-companion-app" class="daily-companion-app" style="display: none;"></daily-companion-app>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
