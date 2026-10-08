@@ -6,8 +6,11 @@ import { useTicketStore } from '@/stores/ticketStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { TicketComment, TicketStatus } from '@/types/ticket'
 import { safeUrl } from '@/utils/security'
+import { getSourceCategory, getTicketCompany, getTicketSource } from '@/utils/ticket'
 import {
   Bug,
+  Building,
+  Building2,
   Calendar,
   Check,
   CheckSquare,
@@ -16,11 +19,15 @@ import {
   Download,
   Edit2,
   FileText,
+  Globe,
   HelpCircle,
+  Mail,
   MessageSquare,
   Paperclip,
+  Phone,
   RefreshCw,
   Send,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Trash2,
@@ -40,6 +47,7 @@ const previewImage = ref<string | null>(null)
 const hasCopiedKey = ref(false)
 const hasCopiedEmail = ref(false)
 const hasCopiedPhone = ref(false)
+const hasCopiedCompany = ref(false)
 
 // Note composer state
 const noteBody = ref('')
@@ -53,13 +61,14 @@ const isSavingEdit = ref(false)
 const ticket = computed(() => ticketStore.selectedTicket)
 const notes = computed(() => ticketStore.comments || [])
 
+const ticketCompany = computed(() => getTicketCompany(ticket.value))
+const ticketSource = computed(() => getTicketSource(ticket.value))
+const sourceCategory = computed(() => getSourceCategory(ticketSource.value))
+
 const reporterPhone = computed(() => {
   if (!ticket.value) return ''
   return (
-    ticket.value.reporter_phone ||
-    ticket.value.metadata?.reporter_phone ||
-    ticket.value.phone ||
-    ''
+    ticket.value.reporter_phone || ticket.value.metadata?.reporter_phone || ticket.value.phone || ''
   )
 })
 
@@ -115,15 +124,18 @@ async function copyTicketKey(key: string) {
   }
 }
 
-async function copyText(text: string, type: 'email' | 'phone') {
+async function copyText(text: string, type: 'email' | 'phone' | 'company') {
   try {
     await navigator.clipboard.writeText(text)
     if (type === 'email') {
       hasCopiedEmail.value = true
       setTimeout(() => (hasCopiedEmail.value = false), 2000)
-    } else {
+    } else if (type === 'phone') {
       hasCopiedPhone.value = true
       setTimeout(() => (hasCopiedPhone.value = false), 2000)
+    } else if (type === 'company') {
+      hasCopiedCompany.value = true
+      setTimeout(() => (hasCopiedCompany.value = false), 2000)
     }
   } catch (err) {
     console.warn('Clipboard write failed:', err)
@@ -382,10 +394,47 @@ function formatRelativeTime(dateStr?: string | null): string {
           <div
             class="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-2xs"
           >
-            <div class="flex items-center gap-2 mb-2 text-xs text-slate-500 dark:text-slate-400">
-              <Calendar class="w-3.5 h-3.5 text-slate-400" />
-              <span>Created {{ formatDate(ticket.created_at) }}</span>
-              <span v-if="ticket.source" class="text-slate-300 dark:text-slate-700">•</span>
+            <div
+              class="flex flex-wrap items-center gap-2 mb-2.5 text-xs text-slate-500 dark:text-slate-400"
+            >
+              <span class="inline-flex items-center gap-1.5">
+                <Calendar class="w-3.5 h-3.5 text-slate-400" />
+                <span>Created {{ formatDate(ticket.created_at) }}</span>
+              </span>
+              <span class="text-slate-300 dark:text-slate-700">•</span>
+              <!-- Company Pill -->
+              <!-- <span
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/70 dark:border-indigo-800/50 shadow-2xs"
+                :title="`Company: ${ticketCompany}`"
+              >
+                <Building2 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>{{ ticketCompany }}</span>
+              </span> -->
+              <span class="text-slate-300 dark:text-slate-700">•</span>
+              <!-- Source Pill -->
+              <span
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold border shadow-2xs"
+                :class="{
+                  'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/50':
+                    sourceCategory === 'hq',
+                  'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800/50':
+                    sourceCategory === 'branch',
+                  'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/60':
+                    sourceCategory === 'other',
+                }"
+                :title="`Source: ${ticketSource}`"
+              >
+                <ShieldCheck
+                  v-if="sourceCategory === 'hq'"
+                  class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400"
+                />
+                <Building
+                  v-else-if="sourceCategory === 'branch'"
+                  class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
+                />
+                <Globe v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span>{{ ticketSource }}</span>
+              </span>
             </div>
 
             <h2
@@ -814,27 +863,57 @@ function formatRelativeTime(dateStr?: string | null): string {
                 <h5 class="text-sm font-bold text-slate-900 dark:text-white truncate">
                   {{ ticket.reporter_name || 'Anonymous User' }}
                 </h5>
-                <span class="text-xs text-slate-500 dark:text-slate-400"> Ticket Author </span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 truncate block">
+                  Ticket Author • {{ ticketCompany }}
+                </span>
               </div>
             </div>
 
-            <!-- Email & Phone Channels -->
+            <!-- Company, Email & Phone Channels -->
             <div class="space-y-2 text-xs">
+              <!-- Company Row -->
+              <div
+                class="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <Building2 class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <span
+                    class="text-slate-800 dark:text-slate-200 font-medium truncate"
+                    :title="ticketCompany"
+                  >
+                    {{ ticketCompany }}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  @click="copyText(ticketCompany, 'company')"
+                  class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer transition-colors"
+                  :title="hasCopiedCompany ? 'Copied!' : 'Copy Company'"
+                >
+                  <Check v-if="hasCopiedCompany" class="w-3.5 h-3.5 text-emerald-500" />
+                  <Copy v-else class="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <!-- Email Row -->
               <div
                 v-if="ticket.reporter_email"
                 class="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60"
               >
-                <a
-                  :href="`mailto:${ticket.reporter_email}`"
-                  class="text-indigo-600 dark:text-indigo-400 truncate max-w-[180px] font-medium hover:underline"
-                  :title="ticket.reporter_email"
-                >
-                  {{ ticket.reporter_email }}
-                </a>
+                <div class="flex items-center gap-2 min-w-0">
+                  <Mail class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <a
+                    :href="`mailto:${ticket.reporter_email}`"
+                    class="text-indigo-600 dark:text-indigo-400 truncate max-w-[170px] font-medium hover:underline"
+                    :title="ticket.reporter_email"
+                  >
+                    {{ ticket.reporter_email }}
+                  </a>
+                </div>
                 <button
                   type="button"
                   @click="copyText(ticket.reporter_email, 'email')"
-                  class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                  class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer transition-colors"
                   :title="hasCopiedEmail ? 'Copied!' : 'Copy Email'"
                 >
                   <Check v-if="hasCopiedEmail" class="w-3.5 h-3.5 text-emerald-500" />
@@ -842,20 +921,24 @@ function formatRelativeTime(dateStr?: string | null): string {
                 </button>
               </div>
 
+              <!-- Phone Row -->
               <div
                 v-if="reporterPhone"
                 class="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60"
               >
-                <a
-                  :href="`tel:${reporterPhone}`"
-                  class="text-indigo-600 dark:text-indigo-400 truncate font-medium hover:underline"
-                >
-                  {{ reporterPhone }}
-                </a>
+                <div class="flex items-center gap-2 min-w-0">
+                  <Phone class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <a
+                    :href="`tel:${reporterPhone}`"
+                    class="text-indigo-600 dark:text-indigo-400 truncate font-medium hover:underline"
+                  >
+                    {{ reporterPhone }}
+                  </a>
+                </div>
                 <button
                   type="button"
                   @click="copyText(reporterPhone, 'phone')"
-                  class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                  class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer transition-colors"
                   :title="hasCopiedPhone ? 'Copied!' : 'Copy Phone'"
                 >
                   <Check v-if="hasCopiedPhone" class="w-3.5 h-3.5 text-emerald-500" />
@@ -865,7 +948,7 @@ function formatRelativeTime(dateStr?: string | null): string {
             </div>
           </div>
 
-          <!-- Status & Priority Card -->
+          <!-- Ticket Properties Card -->
           <div
             class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-2xs"
           >
@@ -873,7 +956,7 @@ function formatRelativeTime(dateStr?: string | null): string {
               class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5"
             >
               <SlidersHorizontal class="w-3.5 h-3.5 text-indigo-500" />
-              <span>Status & Priority</span>
+              <span>Ticket Properties</span>
             </h4>
 
             <div class="space-y-2 text-xs">
@@ -926,6 +1009,38 @@ function formatRelativeTime(dateStr?: string | null): string {
                   <span>{{ ticket.priority }}</span>
                 </span>
               </div>
+
+              <!-- Source Row
+              <div
+                class="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60"
+              >
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300 pl-1"
+                  >Source</span
+                >
+                <span
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold tracking-wide border shadow-2xs"
+                  :class="{
+                    'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/50':
+                      sourceCategory === 'hq',
+                    'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800/50':
+                      sourceCategory === 'branch',
+                    'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/60':
+                      sourceCategory === 'other',
+                  }"
+                  :title="`Source: ${ticketSource}`"
+                >
+                  <ShieldCheck
+                    v-if="sourceCategory === 'hq'"
+                    class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400"
+                  />
+                  <Building
+                    v-else-if="sourceCategory === 'branch'"
+                    class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
+                  />
+                  <Globe v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span>{{ ticketSource }}</span>
+                </span>
+              </div> -->
             </div>
           </div>
 

@@ -1,20 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Ticket } from '@/types/ticket'
-import { useTicketStore } from '@/stores/ticketStore'
 import { useAuthStore } from '@/stores/authStore'
-import {
-  Clock,
-  User,
-  Paperclip,
-  MoreHorizontal,
-  Bug,
-  Sparkles,
-  HelpCircle,
-  CheckSquare,
-} from 'lucide-vue-next'
+import { useTicketStore } from '@/stores/ticketStore'
+import type { Ticket } from '@/types/ticket'
+import { Bug, CheckSquare, HelpCircle, Paperclip, Sparkles } from 'lucide-vue-next'
+import { computed } from 'vue'
 
 import { formatHtmlPreview } from '@/utils/html'
+import { defineProps } from 'vue'
 
 const props = defineProps<{
   ticket: Ticket

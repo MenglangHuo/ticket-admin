@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTicketStore } from '@/stores/ticketStore'
 import type { Ticket, TicketPriority, TicketStatus } from '@/types/ticket'
+import { getTicketCompany, getTicketPhone, getTicketSource } from '@/utils/ticket'
 import {
   ArrowDown,
   ArrowUp,
@@ -9,8 +10,6 @@ import {
   Building,
   Building2,
   CheckSquare,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Eye,
   Globe,
@@ -18,7 +17,6 @@ import {
   Inbox,
   Paperclip,
   Phone,
-  RotateCcw,
   ShieldCheck,
   Sparkles,
 } from 'lucide-vue-next'
@@ -64,82 +62,6 @@ function toggleSort(field: SortField) {
     sortField.value = field
     sortOrder.value = 'asc'
   }
-}
-
-function getTicketSource(ticket: Ticket): string {
-  const directRole =
-    ticket.metadata?.rolename ||
-    ticket.metadata?.role ||
-    ticket.metadata?.role_name ||
-    ticket.rolename ||
-    ticket.role ||
-    ticket.reporter?.role ||
-    (ticket.reporter as any)?.employee_object?.role
-
-  if (directRole) {
-    return String(directRole).toUpperCase()
-  }
-
-  const src = (ticket.source || '').toLowerCase().trim()
-  if (src === 'admin' || src === 'hq' || src === 'hq admin' || src === 'hq_admin') {
-    return 'HQ ADMIN'
-  }
-  if (src === 'branch' || src === 'branch admin' || src === 'branch_admin') {
-    return 'BRANCH ADMIN'
-  }
-  if (src === 'portal') {
-    if (
-      ticket.reporter_email?.includes('admin@') ||
-      ticket.reporter_name?.toLowerCase().includes('admin')
-    ) {
-      return 'HQ ADMIN'
-    }
-    return 'BRANCH ADMIN'
-  }
-  if (src === 'api' || src === 'client') {
-    return ticket.metadata?.api_client_name || 'CLIENT API'
-  }
-  if (src) {
-    return src.toUpperCase()
-  }
-  return 'HQ ADMIN'
-}
-
-function getTicketCompany(ticket: Ticket): string {
-  return (
-    ticket.company ||
-    ticket.company_name ||
-    (ticket as any).company?.name ||
-    (ticket as any).company?.company_name ||
-    ticket.metadata?.company ||
-    ticket.metadata?.company_name ||
-    'UYFC'
-  )
-}
-
-function getTicketPhone(ticket: Ticket): string {
-  const directPhone =
-    ticket.reporter_phone ||
-    ticket.metadata?.reporter_phone ||
-    ticket.phone ||
-    ticket.metadata?.phone ||
-    ticket.metadata?.personal_phone ||
-    ticket.reporter?.phone ||
-    ticket.reporter?.personal_phone
-
-  if (directPhone && String(directPhone).trim()) {
-    return String(directPhone).trim()
-  }
-
-  const source = getTicketSource(ticket)
-  if (source === 'BRANCH ADMIN') {
-    return '0964096111'
-  }
-  if (source === 'HQ ADMIN') {
-    return '0928989888'
-  }
-
-  return '-'
 }
 
 const sortedTickets = computed(() => {
@@ -277,11 +199,11 @@ function getColWidth(col: TableColumn): number {
   return columnWidths.value[col] ?? defaultColumnWidths[col]
 }
 
-const hasCustomWidths = computed(() => {
-  return (Object.keys(defaultColumnWidths) as TableColumn[]).some(
-    (key) => columnWidths.value[key] !== defaultColumnWidths[key],
-  )
-})
+// const hasCustomWidths = computed(() => {
+//   return (Object.keys(defaultColumnWidths) as TableColumn[]).some(
+//     (key) => columnWidths.value[key] !== defaultColumnWidths[key],
+//   )
+// })
 
 // Dynamic Column Resizing Logic
 const resizingCol = ref<TableColumn | null>(null)
@@ -326,10 +248,10 @@ function resetColWidth(col: TableColumn) {
   }
 }
 
-function resetAllColWidths() {
-  columnWidths.value = { ...defaultColumnWidths }
-  localStorage.setItem('bronx_table_column_widths', JSON.stringify(columnWidths.value))
-}
+// function resetAllColWidths() {
+//   columnWidths.value = { ...defaultColumnWidths }
+//   localStorage.setItem('bronx_table_column_widths', JSON.stringify(columnWidths.value))
+// }
 
 // Horizontal Scroll State & Detection
 const tableContainerRef = ref<HTMLElement | null>(null)
@@ -343,15 +265,15 @@ function checkScroll() {
   canScrollRight.value = el.scrollLeft < el.scrollWidth - el.clientWidth - 6
 }
 
-function scrollTable(direction: 'left' | 'right') {
-  const el = tableContainerRef.value
-  if (!el) return
-  const distance = 260
-  el.scrollBy({
-    left: direction === 'left' ? -distance : distance,
-    behavior: 'smooth',
-  })
-}
+// function scrollTable(direction: 'left' | 'right') {
+//   const el = tableContainerRef.value
+//   if (!el) return
+//   const distance = 260
+//   el.scrollBy({
+//     left: direction === 'left' ? -distance : distance,
+//     behavior: 'smooth',
+//   })
+// }
 
 let resizeObserver: ResizeObserver | null = null
 

@@ -5,7 +5,10 @@ import { useTicketStore } from '@/stores/ticketStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { TicketComment, TicketStatus } from '@/types/ticket'
 import { safeUrl } from '@/utils/security'
+import { getSourceCategory, getTicketCompany, getTicketSource } from '@/utils/ticket'
 import {
+  Building,
+  Building2,
   Calendar,
   Check,
   Clock,
@@ -13,6 +16,7 @@ import {
   Download,
   Edit2,
   FileText,
+  Globe,
   Mail,
   MessageSquare,
   PanelBottom,
@@ -23,6 +27,7 @@ import {
   Phone,
   RefreshCw,
   Send,
+  ShieldCheck,
   Trash2,
   UploadCloud,
   User,
@@ -43,6 +48,7 @@ const previewImage = ref<string | null>(null)
 const hasCopiedKey = ref(false)
 const hasCopiedEmail = ref(false)
 const hasCopiedPhone = ref(false)
+const hasCopiedCompany = ref(false)
 
 // Note composer & edit state
 const noteBody = ref('')
@@ -54,13 +60,14 @@ const isSavingEdit = ref(false)
 const ticket = computed(() => ticketStore.selectedTicket)
 const notes = computed(() => ticketStore.comments || [])
 
+const ticketCompany = computed(() => getTicketCompany(ticket.value))
+const ticketSource = computed(() => getTicketSource(ticket.value))
+const sourceCategory = computed(() => getSourceCategory(ticketSource.value))
+
 const reporterPhone = computed(() => {
   if (!ticket.value) return ''
   return (
-    ticket.value.reporter_phone ||
-    ticket.value.metadata?.reporter_phone ||
-    ticket.value.phone ||
-    ''
+    ticket.value.reporter_phone || ticket.value.metadata?.reporter_phone || ticket.value.phone || ''
   )
 })
 
@@ -242,15 +249,18 @@ async function copyTicketKey(key: string) {
   }
 }
 
-async function copyText(text: string, type: 'email' | 'phone') {
+async function copyText(text: string, type: 'email' | 'phone' | 'company') {
   try {
     await navigator.clipboard.writeText(text)
     if (type === 'email') {
       hasCopiedEmail.value = true
       setTimeout(() => (hasCopiedEmail.value = false), 2000)
-    } else {
+    } else if (type === 'phone') {
       hasCopiedPhone.value = true
       setTimeout(() => (hasCopiedPhone.value = false), 2000)
+    } else if (type === 'company') {
+      hasCopiedCompany.value = true
+      setTimeout(() => (hasCopiedCompany.value = false), 2000)
     }
   } catch (err) {
     console.warn('Clipboard write failed:', err)
@@ -516,6 +526,44 @@ onUnmounted(() => {
                 <Calendar class="w-3.5 h-3.5 text-slate-400" />
                 Submitted {{ formatDate(ticket.created_at) }}
               </span>
+
+              <span class="text-slate-300 dark:text-slate-700">•</span>
+
+              <!-- Company Pill -->
+              <span
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/70 dark:border-indigo-800/50 shadow-2xs"
+                :title="`Company: ${ticketCompany}`"
+              >
+                <Building2 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>{{ ticketCompany }}</span>
+              </span>
+
+              <span class="text-slate-300 dark:text-slate-700">•</span>
+
+              <!-- Source Pill -->
+              <span
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold border shadow-2xs"
+                :class="{
+                  'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/50':
+                    sourceCategory === 'hq',
+                  'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800/50':
+                    sourceCategory === 'branch',
+                  'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/60':
+                    sourceCategory === 'other',
+                }"
+                :title="`Source: ${ticketSource}`"
+              >
+                <ShieldCheck
+                  v-if="sourceCategory === 'hq'"
+                  class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400"
+                />
+                <Building
+                  v-else-if="sourceCategory === 'branch'"
+                  class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
+                />
+                <Globe v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span>{{ ticketSource }}</span>
+              </span>
             </div>
 
             <h2
@@ -531,7 +579,7 @@ onUnmounted(() => {
             empty-text="No description provided for this ticket."
           />
 
-          <!-- Submitter Details Card (Originating Client App & Source & External Ref REMOVED) -->
+          <!-- Submitter Details Card -->
           <div
             class="bg-slate-50/80 dark:bg-slate-950/60 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800/80"
           >
@@ -556,12 +604,61 @@ onUnmounted(() => {
                   <h5 class="text-sm font-bold text-slate-900 dark:text-white">
                     {{ ticket.reporter_name || 'Anonymous User' }}
                   </h5>
-                  <span class="text-xs text-slate-500 dark:text-slate-400"> Ticket Author </span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400">
+                    Ticket Author • {{ ticketCompany }}
+                  </span>
                 </div>
               </div>
 
-              <!-- Contact Channels -->
+              <!-- Contact & Origin Channels -->
               <div class="flex flex-wrap items-center gap-2">
+                <!-- Company Pill with Copy -->
+                <div
+                  class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs shadow-2xs"
+                >
+                  <Building2 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <span
+                    class="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[150px]"
+                    :title="ticketCompany"
+                  >
+                    {{ ticketCompany }}
+                  </span>
+                  <button
+                    type="button"
+                    @click="copyText(ticketCompany, 'company')"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer ml-0.5 transition-colors"
+                    :title="hasCopiedCompany ? 'Company Copied!' : 'Copy Company'"
+                  >
+                    <Check v-if="hasCopiedCompany" class="w-3 h-3 text-emerald-500" />
+                    <Copy v-else class="w-3 h-3" />
+                  </button>
+                </div>
+
+                <!-- Source Badge -->
+                <div
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold tracking-wide border shadow-2xs"
+                  :class="{
+                    'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/50':
+                      sourceCategory === 'hq',
+                    'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800/50':
+                      sourceCategory === 'branch',
+                    'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/60':
+                      sourceCategory === 'other',
+                  }"
+                  :title="`Source: ${ticketSource}`"
+                >
+                  <ShieldCheck
+                    v-if="sourceCategory === 'hq'"
+                    class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0"
+                  />
+                  <Building
+                    v-else-if="sourceCategory === 'branch'"
+                    class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0"
+                  />
+                  <Globe v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+                  <span>{{ ticketSource }}</span>
+                </div>
+
                 <!-- Email link -->
                 <div
                   v-if="ticket.reporter_email"

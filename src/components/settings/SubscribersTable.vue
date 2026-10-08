@@ -9,8 +9,6 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Copy,
   ExternalLink,
@@ -27,7 +25,16 @@ import {
   Users,
   X,
 } from 'lucide-vue-next'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import {
+  computed,
+  defineEmits,
+  defineProps,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  withDefaults,
+} from 'vue'
 import SubscribersTableSkeleton, { type SubscriberColumnKey } from './SubscribersTableSkeleton.vue'
 
 const props = withDefaults(
@@ -130,11 +137,11 @@ function getColWidth(col: SubscriberColumnKey): number {
   return columnWidths.value[col] ?? defaultColumnWidths[col]
 }
 
-const hasCustomWidths = computed(() => {
-  return (Object.keys(defaultColumnWidths) as SubscriberColumnKey[]).some(
-    (key) => columnWidths.value[key] !== defaultColumnWidths[key],
-  )
-})
+// const hasCustomWidths = computed(() => {
+//   return (Object.keys(defaultColumnWidths) as SubscriberColumnKey[]).some(
+//     (key) => columnWidths.value[key] !== defaultColumnWidths[key],
+//   )
+// })
 
 const resizingCol = ref<SubscriberColumnKey | null>(null)
 const startX = ref(0)
@@ -185,10 +192,10 @@ function resetColWidth(col: SubscriberColumnKey) {
   }
 }
 
-function resetAllColWidths() {
-  columnWidths.value = { ...defaultColumnWidths }
-  localStorage.setItem('bronx_subscribers_column_widths', JSON.stringify(columnWidths.value))
-}
+// function resetAllColWidths() {
+//   columnWidths.value = { ...defaultColumnWidths }
+//   localStorage.setItem('bronx_subscribers_column_widths', JSON.stringify(columnWidths.value))
+// }
 
 const totalTableWidth = computed(() => {
   let total = 0
@@ -212,15 +219,15 @@ function checkScroll() {
   canScrollRight.value = el.scrollLeft < el.scrollWidth - el.clientWidth - 6
 }
 
-function scrollTable(direction: 'left' | 'right') {
-  const el = tableContainerRef.value
-  if (!el) return
-  const distance = 240
-  el.scrollBy({
-    left: direction === 'left' ? -distance : distance,
-    behavior: 'smooth',
-  })
-}
+// function scrollTable(direction: 'left' | 'right') {
+//   const el = tableContainerRef.value
+//   if (!el) return
+//   const distance = 240
+//   el.scrollBy({
+//     left: direction === 'left' ? -distance : distance,
+//     behavior: 'smooth',
+//   })
+// }
 
 let resizeObserver: ResizeObserver | null = null
 

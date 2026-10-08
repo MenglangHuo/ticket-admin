@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { type TabItem } from '@/components/common/BaseTabs.vue'
 import CustomDropdown from '@/components/common/CustomDropdown.vue'
 import CustomSelect, { type SelectOption } from '@/components/common/CustomSelect.vue'
 import CreateTicketModal from '@/components/tickets/CreateTicketModal.vue'
