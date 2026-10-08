@@ -88,6 +88,42 @@ async function onDrop(event: DragEvent, newStatus: TicketStatus) {
 
   await ticketStore.transitionTicketStatus(ticketId, newStatus);
 }
+
+function getColumnLoadedCount(status: TicketStatus): number {
+  return ticketStore.kanbanColumns[status]?.length || 0;
+}
+
+function getColumnTotalCount(status: TicketStatus): number {
+  const loaded = getColumnLoadedCount(status);
+  const facetCount = ticketStore.facets?.status?.[status];
+  if (typeof facetCount === 'number') {
+    return Math.max(facetCount, loaded);
+  }
+  return loaded;
+}
+
+function getColumnVisibleCount(status: TicketStatus): number {
+  const loaded = getColumnLoadedCount(status);
+  const limit = ticketStore.columnLimits[status] || 0;
+  return Math.min(loaded, limit);
+}
+
+function canLoadMoreForColumn(status: TicketStatus): boolean {
+  const loaded = getColumnLoadedCount(status);
+  const total = getColumnTotalCount(status);
+  const limit = ticketStore.columnLimits[status] || 0;
+
+  // 1. More loaded tickets in memory than current visible column limit
+  if (loaded > limit) return true;
+
+  // 2. Server has more tickets than loaded in memory
+  if (total > loaded) return true;
+
+  // 3. Explicit column pagination indicates more pages available
+  if (ticketStore.columnPages[status]?.hasMore && total > loaded) return true;
+
+  return false;
+}
 </script>
 
 <template>
@@ -155,15 +191,11 @@ async function onDrop(event: DragEvent, newStatus: TicketStatus) {
           class="p-2.5 px-3 border-t border-slate-200/60 dark:border-slate-800/80 bg-white/50 dark:bg-slate-950/40 rounded-b-2xl flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400"
         >
           <span>
-            Showing {{ Math.min(ticketStore.kanbanColumns[col.id]?.length || 0, ticketStore.columnLimits[col.id]) }} of {{ ticketStore.facets.status[col.id] ?? (ticketStore.kanbanColumns[col.id]?.length || 0) }}
+            Showing {{ getColumnVisibleCount(col.id) }} of {{ getColumnTotalCount(col.id) }}
           </span>
 
           <button
-            v-if="
-              ticketStore.columnPages[col.id]?.hasMore ||
-              (ticketStore.kanbanColumns[col.id]?.length || 0) > ticketStore.columnLimits[col.id] ||
-              (ticketStore.facets.status[col.id] ?? 0) > (ticketStore.kanbanColumns[col.id]?.length || 0)
-            "
+            v-if="canLoadMoreForColumn(col.id)"
             type="button"
             @click="ticketStore.loadMoreForColumn(col.id)"
             :disabled="ticketStore.columnLoadingMore[col.id]"

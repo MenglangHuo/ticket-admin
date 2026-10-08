@@ -85,10 +85,10 @@ function extractResponseData(response: any): {
 
 // State machine allowed transitions mapping
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
-  open: ['in_progress', 'closed'],
-  in_progress: ['resolved', 'closed', 'open'],
-  resolved: ['closed', 'open'],
-  closed: ['open'], // Note: closed -> in_progress is strictly forbidden by the backend
+  open: ['in_progress', 'resolved', 'closed'],
+  in_progress: ['open', 'resolved', 'closed'],
+  resolved: ['open', 'in_progress', 'closed'],
+  closed: ['open'],
 }
 
 export type TableColumnKey =
@@ -301,7 +301,10 @@ export const useTicketStore = defineStore('tickets', () => {
       // If we already have more loaded tickets in memory than the current limit, expand view
       if (currentStatusTickets.length > columnLimits.value[status]) {
         columnLimits.value[status] += 6
-      } else if (columnPages.value[status]?.hasMore) {
+      } else if (
+        columnPages.value[status]?.hasMore ||
+        (facets.value.status[status] ?? 0) > currentStatusTickets.length
+      ) {
         // Fetch tickets strictly for this status from backend API
         const nextPage = (columnPages.value[status]?.page || 0) + 1
         const response = await ticketApi.getTickets({
@@ -319,13 +322,16 @@ export const useTicketStore = defineStore('tickets', () => {
           const freshTickets = parsed.items.filter((t) => !existingIds.has(t.id))
           tickets.value = [...tickets.value, ...freshTickets]
 
+          const totalForStatus = parsed.facets?.status?.[status] ?? parsed.meta.total
+          const loadedForStatus = tickets.value.filter((t) => t.status === status).length
+
           columnPages.value[status] = {
             page: nextPage,
-            hasMore: nextPage < parsed.meta.last_page,
+            hasMore: nextPage < parsed.meta.last_page && (totalForStatus ? loadedForStatus < totalForStatus : true),
           }
           columnLimits.value[status] += freshTickets.length || parsed.items.length
-          if (parsed.facets) {
-            facets.value = parsed.facets
+          if (parsed.facets?.status?.[status] !== undefined) {
+            facets.value.status[status] = parsed.facets.status[status]
           }
           toastStore.success(
             'Loaded',
@@ -490,22 +496,31 @@ export const useTicketStore = defineStore('tickets', () => {
       }
       // Reset per-status column pages on fresh fetch
       const fStatus = parsed.facets?.status
+      const totalTickets = parsed.meta.total ?? tickets.value.length
       columnPages.value = {
         open: {
           page: 0,
-          hasMore: fStatus ? fStatus.open > tickets.value.filter((t) => t.status === 'open').length : true,
+          hasMore: fStatus
+            ? fStatus.open > tickets.value.filter((t) => t.status === 'open').length
+            : totalTickets > tickets.value.filter((t) => t.status === 'open').length,
         },
         in_progress: {
           page: 0,
-          hasMore: fStatus ? fStatus.in_progress > tickets.value.filter((t) => t.status === 'in_progress').length : true,
+          hasMore: fStatus
+            ? fStatus.in_progress > tickets.value.filter((t) => t.status === 'in_progress').length
+            : totalTickets > tickets.value.filter((t) => t.status === 'in_progress').length,
         },
         resolved: {
           page: 0,
-          hasMore: fStatus ? fStatus.resolved > tickets.value.filter((t) => t.status === 'resolved').length : true,
+          hasMore: fStatus
+            ? fStatus.resolved > tickets.value.filter((t) => t.status === 'resolved').length
+            : totalTickets > tickets.value.filter((t) => t.status === 'resolved').length,
         },
         closed: {
           page: 0,
-          hasMore: fStatus ? fStatus.closed > tickets.value.filter((t) => t.status === 'closed').length : true,
+          hasMore: fStatus
+            ? fStatus.closed > tickets.value.filter((t) => t.status === 'closed').length
+            : totalTickets > tickets.value.filter((t) => t.status === 'closed').length,
         },
       }
       notifications.value = tickets.value.filter((t) => t.source === 'api').slice(0, 5)
@@ -555,11 +570,18 @@ export const useTicketStore = defineStore('tickets', () => {
     // 2. Optimistic UI update
     targetTicket.status = newStatus
     targetTicket.updated_at = new Date().toISOString()
-    if (newStatus === 'in_progress' && !targetTicket.first_response_at) {
-      targetTicket.first_response_at = new Date().toISOString()
+    if (newStatus === 'in_progress') {
+      if (!targetTicket.first_response_at) {
+        targetTicket.first_response_at = new Date().toISOString()
+      }
+      targetTicket.resolved_at = null
+      targetTicket.closed_at = null
     }
-    if (newStatus === 'resolved' && !targetTicket.resolved_at) {
-      targetTicket.resolved_at = new Date().toISOString()
+    if (newStatus === 'resolved') {
+      if (!targetTicket.resolved_at) {
+        targetTicket.resolved_at = new Date().toISOString()
+      }
+      targetTicket.closed_at = null
     }
     if (newStatus === 'closed' && !targetTicket.closed_at) {
       targetTicket.closed_at = new Date().toISOString()
@@ -571,6 +593,33 @@ export const useTicketStore = defineStore('tickets', () => {
 
     if (selectedTicket.value?.id === ticketId) {
       selectedTicket.value.status = newStatus
+    }
+
+    // Optimistically update facet counts for status
+    if (facets.value?.status) {
+      if (typeof facets.value.status[oldStatus] === 'number' && facets.value.status[oldStatus] > 0) {
+        facets.value.status[oldStatus]--
+      }
+      if (typeof facets.value.status[newStatus] === 'number') {
+        facets.value.status[newStatus]++
+      }
+    }
+
+    // Ensure the receiving column limit shows the newly moved ticket
+    const newLoaded = tickets.value.filter((t) => t.status === newStatus).length
+    if (columnLimits.value[newStatus] < newLoaded) {
+      columnLimits.value[newStatus] = newLoaded
+    }
+
+    // Synchronize columnPages hasMore for old and new statuses
+    if (columnPages.value[oldStatus]) {
+      const oldLoaded = tickets.value.filter((t) => t.status === oldStatus).length
+      const oldTotal = facets.value?.status?.[oldStatus] ?? oldLoaded
+      columnPages.value[oldStatus].hasMore = oldLoaded < oldTotal
+    }
+    if (columnPages.value[newStatus]) {
+      const newTotal = facets.value?.status?.[newStatus] ?? newLoaded
+      columnPages.value[newStatus].hasMore = newLoaded < newTotal
     }
 
     try {
@@ -593,6 +642,26 @@ export const useTicketStore = defineStore('tickets', () => {
       targetTicket.status = oldStatus
       if (selectedTicket.value?.id === ticketId) {
         selectedTicket.value.status = oldStatus
+      }
+
+      if (facets.value?.status) {
+        if (typeof facets.value.status[oldStatus] === 'number') {
+          facets.value.status[oldStatus]++
+        }
+        if (typeof facets.value.status[newStatus] === 'number' && facets.value.status[newStatus] > 0) {
+          facets.value.status[newStatus]--
+        }
+      }
+
+      if (columnPages.value[oldStatus]) {
+        const rollOldLoaded = tickets.value.filter((t) => t.status === oldStatus).length
+        const rollOldTotal = facets.value?.status?.[oldStatus] ?? rollOldLoaded
+        columnPages.value[oldStatus].hasMore = rollOldLoaded < rollOldTotal
+      }
+      if (columnPages.value[newStatus]) {
+        const rollNewLoaded = tickets.value.filter((t) => t.status === newStatus).length
+        const rollNewTotal = facets.value?.status?.[newStatus] ?? rollNewLoaded
+        columnPages.value[newStatus].hasMore = rollNewLoaded < rollNewTotal
       }
 
       shakingTicketId.value = ticketId
@@ -622,10 +691,20 @@ export const useTicketStore = defineStore('tickets', () => {
     if (!targetTicket) return
 
     const oldPriority = targetTicket.priority
+    if (oldPriority === newPriority) return
     targetTicket.priority = newPriority
 
     if (selectedTicket.value?.id === ticketId) {
       selectedTicket.value.priority = newPriority
+    }
+
+    if (facets.value?.priority) {
+      if (typeof facets.value.priority[oldPriority] === 'number' && facets.value.priority[oldPriority] > 0) {
+        facets.value.priority[oldPriority]--
+      }
+      if (typeof facets.value.priority[newPriority] === 'number') {
+        facets.value.priority[newPriority]++
+      }
     }
 
     try {
@@ -635,6 +714,14 @@ export const useTicketStore = defineStore('tickets', () => {
       targetTicket.priority = oldPriority
       if (selectedTicket.value?.id === ticketId) {
         selectedTicket.value.priority = oldPriority
+      }
+      if (facets.value?.priority) {
+        if (typeof facets.value.priority[oldPriority] === 'number') {
+          facets.value.priority[oldPriority]++
+        }
+        if (typeof facets.value.priority[newPriority] === 'number' && facets.value.priority[newPriority] > 0) {
+          facets.value.priority[newPriority]--
+        }
       }
       toastStore.error('Update Failed', err.response?.data?.message || 'Could not update priority')
     }
@@ -818,6 +905,17 @@ export const useTicketStore = defineStore('tickets', () => {
       }
 
       tickets.value.unshift(createdTicket)
+      const cStatus = createdTicket.status as TicketStatus | undefined
+      const cPriority = createdTicket.priority as TicketPriority | undefined
+      if (facets.value?.status && cStatus && typeof facets.value.status[cStatus] === 'number') {
+        facets.value.status[cStatus]++
+      }
+      if (facets.value?.priority && cPriority && typeof facets.value.priority[cPriority] === 'number') {
+        facets.value.priority[cPriority]++
+      }
+      if (typeof facets.value?.total === 'number') {
+        facets.value.total++
+      }
       const attachMsg =
         payload.files && payload.files.length > 0
           ? ` with ${payload.files.length} attachment(s)`
@@ -844,6 +942,20 @@ export const useTicketStore = defineStore('tickets', () => {
 
     try {
       await ticketApi.deleteTicket(ticketId)
+      const target = tickets.value.find((t) => t.id === ticketId)
+      if (target) {
+        const tStatus = target.status as TicketStatus | undefined
+        const tPriority = target.priority as TicketPriority | undefined
+        if (facets.value?.status && tStatus && typeof facets.value.status[tStatus] === 'number' && facets.value.status[tStatus] > 0) {
+          facets.value.status[tStatus]--
+        }
+        if (facets.value?.priority && tPriority && typeof facets.value.priority[tPriority] === 'number' && facets.value.priority[tPriority] > 0) {
+          facets.value.priority[tPriority]--
+        }
+        if (typeof facets.value?.total === 'number' && facets.value.total > 0) {
+          facets.value.total--
+        }
+      }
       tickets.value = tickets.value.filter((t) => t.id !== ticketId)
       if (selectedTicket.value?.id === ticketId) {
         closeTicketDrawer()

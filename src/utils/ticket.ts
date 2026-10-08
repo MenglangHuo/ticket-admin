@@ -72,7 +72,12 @@ function standardizeSourceRole(source: string): string {
 export function getTicketSource(ticket?: Partial<Ticket> | null): string {
   // 1. Check ticket.source first
   const rawSource = ticket?.source
-  if (rawSource !== undefined && rawSource !== null && String(rawSource).trim() !== '') {
+  if (
+    rawSource !== undefined &&
+    rawSource !== null &&
+    String(rawSource).trim() !== 'api' &&
+    String(rawSource).trim() !== ''
+  ) {
     const src = String(rawSource).trim()
     const lower = src.toLowerCase()
 
@@ -91,7 +96,7 @@ export function getTicketSource(ticket?: Partial<Ticket> | null): string {
       }
       return 'BRANCH ADMIN'
     }
-    if (lower === 'api' || lower === 'client') {
+    if (lower === 'client') {
       return ticket?.metadata?.api_client_name || 'CLIENT API'
     }
     return src.toUpperCase()

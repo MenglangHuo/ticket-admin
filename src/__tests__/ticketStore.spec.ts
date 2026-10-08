@@ -13,23 +13,36 @@ describe('useTicketStore State Machine & Core Logic', () => {
     expect(store.tickets.length).toBe(0);
   });
 
-  it('validates allowed state transitions properly', () => {
+  it('validates allowed state transitions properly according to new flow', () => {
     const store = useTicketStore();
 
-    // open -> in_progress (allowed)
+    // open -> in_progress, resolved, closed
     expect(store.isValidTransition('open', 'in_progress')).toBe(true);
+    expect(store.isValidTransition('open', 'resolved')).toBe(true);
+    expect(store.isValidTransition('open', 'closed')).toBe(true);
 
-    // in_progress -> resolved (allowed)
+    // in_progress -> open, resolved, closed
+    expect(store.isValidTransition('in_progress', 'open')).toBe(true);
     expect(store.isValidTransition('in_progress', 'resolved')).toBe(true);
+    expect(store.isValidTransition('in_progress', 'closed')).toBe(true);
 
-    // resolved -> closed (allowed)
+    // resolved -> open, in_progress, closed
+    expect(store.isValidTransition('resolved', 'open')).toBe(true);
+    expect(store.isValidTransition('resolved', 'in_progress')).toBe(true);
     expect(store.isValidTransition('resolved', 'closed')).toBe(true);
 
-    // closed -> open (reopen allowed)
+    // closed -> open
     expect(store.isValidTransition('closed', 'open')).toBe(true);
 
-    // closed -> in_progress (strictly forbidden by backend state machine)
+    // closed -> in_progress, resolved (disallowed)
     expect(store.isValidTransition('closed', 'in_progress')).toBe(false);
+    expect(store.isValidTransition('closed', 'resolved')).toBe(false);
+
+    // same status transitions (noop allowed)
+    expect(store.isValidTransition('open', 'open')).toBe(true);
+    expect(store.isValidTransition('in_progress', 'in_progress')).toBe(true);
+    expect(store.isValidTransition('resolved', 'resolved')).toBe(true);
+    expect(store.isValidTransition('closed', 'closed')).toBe(true);
   });
 
   it('rejects illegal transition and triggers optimistic rollback', async () => {
@@ -485,6 +498,100 @@ describe('useTicketStore State Machine & Core Logic', () => {
 
     getTicketByIdSpy.mockRestore();
     getCommentsSpy.mockRestore();
+  });
+
+  it('updates facets and column pagination when moving a ticket between statuses (e.g. In Progress to Open/Resolved)', async () => {
+    const { ticketApi } = await import('@/api/ticketApi');
+    const updateSpy = vi.spyOn(ticketApi, 'updateTicket').mockResolvedValueOnce({
+      id: 8,
+      status: 'open',
+    } as any);
+
+    const store = useTicketStore();
+    store.tickets = [
+      {
+        id: 8,
+        public_id: 'uuid-8',
+        ticket_key: 'TCK-8',
+        number: 8,
+        title: 'Submit a Support Ticket',
+        status: 'in_progress',
+        priority: 'high',
+        type: 'enhancement',
+        source: 'portal',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 7,
+        public_id: 'uuid-7',
+        ticket_key: 'TCK-7',
+        number: 7,
+        title: 'Enhance UI Screen',
+        status: 'open',
+        priority: 'medium',
+        type: 'enhancement',
+        source: 'portal',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+    store.facets = {
+      status: { open: 1, in_progress: 1, resolved: 0, closed: 0 },
+      priority: { critical: 0, high: 1, medium: 1, low: 0 },
+      total: 2,
+    };
+    store.columnPages = {
+      open: { page: 0, hasMore: false },
+      in_progress: { page: 0, hasMore: false },
+      resolved: { page: 0, hasMore: false },
+      closed: { page: 0, hasMore: false },
+    };
+
+    const success = await store.transitionTicketStatus(8, 'open');
+    expect(success).toBe(true);
+    expect(store.tickets.find((t) => t.id === 8)?.status).toBe('open');
+    expect(store.facets.status.in_progress).toBe(0);
+    expect(store.facets.status.open).toBe(2);
+    expect(store.columnPages.in_progress.hasMore).toBe(false);
+    expect(store.columnPages.open.hasMore).toBe(false);
+
+    updateSpy.mockRestore();
+  });
+
+  it('rolls back facets and column pagination when transitionTicketStatus fails on API', async () => {
+    const { ticketApi } = await import('@/api/ticketApi');
+    const updateSpy = vi.spyOn(ticketApi, 'updateTicket').mockRejectedValueOnce(new Error('Network error'));
+
+    const store = useTicketStore();
+    store.tickets = [
+      {
+        id: 8,
+        public_id: 'uuid-8',
+        ticket_key: 'TCK-8',
+        number: 8,
+        title: 'Submit a Support Ticket',
+        status: 'in_progress',
+        priority: 'high',
+        type: 'enhancement',
+        source: 'portal',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+    store.facets = {
+      status: { open: 4, in_progress: 1, resolved: 2, closed: 1 },
+      priority: { critical: 0, high: 1, medium: 0, low: 0 },
+      total: 8,
+    };
+
+    const success = await store.transitionTicketStatus(8, 'open');
+    expect(success).toBe(false);
+    expect(store.tickets.find((t) => t.id === 8)?.status).toBe('in_progress');
+    expect(store.facets.status.in_progress).toBe(1);
+    expect(store.facets.status.open).toBe(4);
+
+    updateSpy.mockRestore();
   });
 });
 

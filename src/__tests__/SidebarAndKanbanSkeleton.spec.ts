@@ -159,4 +159,56 @@ describe('TicketKanban Loading Skeletons', () => {
     expect(wrapper.text()).toContain('TCK-1');
     expect(wrapper.text()).toContain('Server connection timeout');
   });
+
+  it('correctly displays column count and avoids Load More button when column is empty after ticket move', async () => {
+    const { ticketApi } = await import('@/api/ticketApi');
+    vi.spyOn(ticketApi, 'updateTicket').mockResolvedValueOnce({ id: 8, status: 'open' } as any);
+
+    const ticketStore = useTicketStore();
+    ticketStore.isLoading = false;
+    ticketStore.tickets = [
+      {
+        id: 8,
+        public_id: 'uuid-8',
+        ticket_key: 'TCK-8',
+        number: 8,
+        title: 'In progress ticket',
+        status: 'in_progress',
+        priority: 'high',
+        type: 'enhancement',
+        source: 'portal',
+        created_at: '2026-10-08T00:00:00.000Z',
+        updated_at: '2026-10-08T00:00:00.000Z',
+      },
+    ];
+    ticketStore.facets = {
+      status: { open: 0, in_progress: 1, resolved: 0, closed: 0 },
+      priority: { critical: 0, high: 1, medium: 0, low: 0 },
+      total: 1,
+    };
+
+    const wrapper = mount(TicketKanban);
+
+    // Initially in progress shows Showing 1 of 1 and All loaded
+    const columns = wrapper.findAll('.min-w-\\[310px\\]');
+    const inProgressColumn = columns.find((c) => c.text().includes('In Progress'));
+    expect(inProgressColumn?.text()).toContain('Showing 1 of 1');
+    expect(inProgressColumn?.text()).toContain('All loaded');
+    expect(inProgressColumn?.text()).not.toContain('Load More');
+
+    // Move ticket to open
+    await ticketStore.transitionTicketStatus(8, 'open');
+
+    // After move, in_progress has 0 tickets:
+    expect(inProgressColumn?.text()).toContain('Showing 0 of 0');
+    expect(inProgressColumn?.text()).toContain('All loaded');
+    expect(inProgressColumn?.text()).not.toContain('Load More');
+    expect(inProgressColumn?.text()).toContain('No tickets in In Progress');
+
+    // Open column now has 1 ticket:
+    const openColumn = columns.find((c) => c.text().includes('Open'));
+    expect(openColumn?.text()).toContain('Showing 1 of 1');
+    expect(openColumn?.text()).toContain('All loaded');
+    expect(openColumn?.text()).not.toContain('Load More');
+  });
 });

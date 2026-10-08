@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import type { TicketStatus } from '@/types/ticket';
 import { useTicketStore } from '@/stores/ticketStore';
 import { ChevronDown, Check, AlertCircle } from 'lucide-vue-next';
@@ -18,12 +18,14 @@ const props = withDefaults(
     size?: 'xs' | 'sm' | 'md';
     showTransitionCheck?: boolean;
     placement?: 'left' | 'right';
+    teleport?: boolean;
   }>(),
   {
     disabled: false,
     size: 'sm',
     showTransitionCheck: true,
     placement: 'left',
+    teleport: true,
   }
 );
 
@@ -34,7 +36,12 @@ const emit = defineEmits<{
 
 const ticketStore = useTicketStore();
 const isOpen = ref(false);
+const isUpward = ref(false);
 const containerRef = ref<HTMLElement | null>(null);
+const triggerRef = ref<HTMLElement | null>(null);
+const menuRef = ref<HTMLElement | null>(null);
+const dropdownStyle = ref<Record<string, string>>({});
+let rafId: number | null = null;
 
 const statuses: StatusConfig[] = [
   {
@@ -73,9 +80,54 @@ function isTransitionAllowed(targetStatus: TicketStatus): boolean {
   return ticketStore.isValidTransition(props.modelValue, targetStatus);
 }
 
-function toggle() {
+function updatePosition() {
+  if (!isOpen.value || !triggerRef.value) return;
+
+  const rect = triggerRef.value.getBoundingClientRect();
+  const menuWidth = menuRef.value?.offsetWidth || 160;
+  const menuHeight = menuRef.value?.offsetHeight || 180;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Decide whether to open upward or downward based on viewport space
+  const spaceBelow = viewportHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward = spaceBelow < menuHeight + 8 && spaceAbove > spaceBelow;
+  isUpward.value = openUpward;
+
+  let top = openUpward ? rect.top - menuHeight - 4 : rect.bottom + 4;
+  let left = props.placement === 'right' ? rect.right - menuWidth : rect.left;
+
+  // Clamp within viewport
+  if (left + menuWidth > viewportWidth - 8) {
+    left = viewportWidth - menuWidth - 8;
+  }
+  if (left < 8) {
+    left = 8;
+  }
+  if (top < 8) {
+    top = 8;
+  }
+  if (top + menuHeight > viewportHeight - 8) {
+    top = viewportHeight - menuHeight - 8;
+  }
+
+  dropdownStyle.value = {
+    position: 'fixed',
+    top: `${Math.round(top)}px`,
+    left: `${Math.round(left)}px`,
+    zIndex: '9999',
+  };
+}
+
+async function toggle() {
   if (props.disabled) return;
   isOpen.value = !isOpen.value;
+  if (isOpen.value && props.teleport) {
+    updatePosition();
+    await nextTick();
+    updatePosition();
+  }
 }
 
 function select(status: TicketStatus) {
@@ -86,17 +138,74 @@ function select(status: TicketStatus) {
 }
 
 function handleClickOutside(e: MouseEvent) {
-  if (containerRef.value && !containerRef.value.contains(e.target as Node)) {
+  const target = e.target as Node;
+  if (
+    containerRef.value &&
+    !containerRef.value.contains(target) &&
+    (!menuRef.value || !menuRef.value.contains(target))
+  ) {
     isOpen.value = false;
   }
 }
 
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && isOpen.value) {
+    isOpen.value = false;
+  }
+}
+
+function handleScroll() {
+  if (!isOpen.value) return;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(() => {
+    if (!isOpen.value || !triggerRef.value) return;
+    const rect = triggerRef.value.getBoundingClientRect();
+    if (
+      rect.bottom < 0 ||
+      rect.top > window.innerHeight ||
+      rect.right < 0 ||
+      rect.left > window.innerWidth
+    ) {
+      isOpen.value = false;
+      return;
+    }
+    updatePosition();
+  });
+}
+
+function handleResize() {
+  if (!isOpen.value) return;
+  updatePosition();
+}
+
+watch(isOpen, async (val) => {
+  if (val && props.teleport) {
+    updatePosition();
+    await nextTick();
+    updatePosition();
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('resize', handleResize, { passive: true });
+  } else {
+    window.removeEventListener('scroll', handleScroll, true);
+    window.removeEventListener('resize', handleResize);
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  }
+});
+
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
+  document.addEventListener('click', handleClickOutside, true);
+  document.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('click', handleClickOutside, true);
+  document.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('scroll', handleScroll, true);
+  window.removeEventListener('resize', handleResize);
+  if (rafId) cancelAnimationFrame(rafId);
 });
 </script>
 
@@ -104,6 +213,7 @@ onUnmounted(() => {
   <div ref="containerRef" class="relative inline-block text-left select-none">
     <!-- Trigger Button -->
     <button
+      ref="triggerRef"
       type="button"
       @click.stop="toggle"
       :disabled="disabled"
@@ -124,54 +234,76 @@ onUnmounted(() => {
     </button>
 
     <!-- Dropdown Menu -->
-    <Transition
-      enter-active-class="transition duration-100 ease-out"
-      enter-from-class="transform scale-95 opacity-0 -translate-y-1"
-      enter-to-class="transform scale-100 opacity-100 translate-y-0"
-      leave-active-class="transition duration-75 ease-in"
-      leave-from-class="transform scale-100 opacity-100 translate-y-0"
-      leave-to-class="transform scale-95 opacity-0 -translate-y-1"
-    >
-      <div
-        v-if="isOpen"
-        class="absolute z-50 mt-1 min-w-[150px] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-white/10 py-1 focus:outline-none"
-        :class="placement === 'right' ? 'right-0' : 'left-0'"
+    <Teleport to="body" :disabled="!teleport">
+      <Transition
+        enter-active-class="transition duration-100 ease-out"
+        :enter-from-class="
+          isUpward
+            ? 'transform scale-95 opacity-0 translate-y-1'
+            : 'transform scale-95 opacity-0 -translate-y-1'
+        "
+        enter-to-class="transform scale-100 opacity-100 translate-y-0"
+        leave-active-class="transition duration-75 ease-in"
+        leave-from-class="transform scale-100 opacity-100 translate-y-0"
+        :leave-to-class="
+          isUpward
+            ? 'transform scale-95 opacity-0 translate-y-1'
+            : 'transform scale-95 opacity-0 -translate-y-1'
+        "
       >
-        <div class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
-          Change Status
-        </div>
-
-        <div class="p-1 space-y-0.5">
+        <div
+          v-if="isOpen"
+          ref="menuRef"
+          :style="teleport ? dropdownStyle : undefined"
+          class="min-w-[150px] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-white/10 py-1 focus:outline-none"
+          :class="[
+            teleport ? 'fixed z-[9999]' : 'absolute z-50 mt-1',
+            !teleport ? (placement === 'right' ? 'right-0' : 'left-0') : '',
+          ]"
+          @click.stop
+        >
           <div
-            v-for="s in statuses"
-            :key="s.value"
-            @click.stop="select(s.value)"
-            class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors"
-            :class="[
-              !isTransitionAllowed(s.value)
-                ? 'opacity-40 cursor-not-allowed text-slate-400'
-                : s.value === modelValue
-                  ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-semibold cursor-default'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70 cursor-pointer'
-            ]"
-            :title="!isTransitionAllowed(s.value) ? `Transition from ${modelValue} to ${s.value} is not allowed` : undefined"
+            class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800"
           >
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full shrink-0" :class="s.dotColor"></span>
-              <span>{{ s.label }}</span>
-            </div>
+            Change Status
+          </div>
 
-            <Check
-              v-if="s.value === modelValue"
-              class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 ml-2"
-            />
-            <AlertCircle
-              v-else-if="!isTransitionAllowed(s.value)"
-              class="w-3 h-3 text-slate-400 shrink-0 ml-2"
-            />
+          <div class="p-1 space-y-0.5">
+            <div
+              v-for="s in statuses"
+              :key="s.value"
+              @click.stop="select(s.value)"
+              class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+              :class="[
+                !isTransitionAllowed(s.value)
+                  ? 'opacity-40 cursor-not-allowed text-slate-400'
+                  : s.value === modelValue
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-semibold cursor-default'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70 cursor-pointer',
+              ]"
+              :title="
+                !isTransitionAllowed(s.value)
+                  ? `Transition from ${modelValue} to ${s.value} is not allowed`
+                  : undefined
+              "
+            >
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0" :class="s.dotColor"></span>
+                <span>{{ s.label }}</span>
+              </div>
+
+              <Check
+                v-if="s.value === modelValue"
+                class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 ml-2"
+              />
+              <AlertCircle
+                v-else-if="!isTransitionAllowed(s.value)"
+                class="w-3 h-3 text-slate-400 shrink-0 ml-2"
+              />
+            </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>

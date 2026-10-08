@@ -1095,7 +1095,7 @@ function formatRelativeTime(dateStr?: string | null): string {
                   class="absolute -left-5 top-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900"
                   :class="ticket.resolved_at ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'"
                 ></div>
-                <div class="font-semibold text-slate-800 dark:text-slate-200">Resolve</div>
+                <div class="font-semibold text-slate-800 dark:text-slate-200">Resolved</div>
                 <div class="text-[11px] text-slate-500 dark:text-slate-400">
                   {{ ticket.resolved_at ? formatDate(ticket.resolved_at) : 'In progress' }}
                 </div>
