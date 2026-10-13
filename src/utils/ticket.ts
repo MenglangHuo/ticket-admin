@@ -75,7 +75,6 @@ export function getTicketSource(ticket?: Partial<Ticket> | null): string {
   if (
     rawSource !== undefined &&
     rawSource !== null &&
-    String(rawSource).trim() !== 'api' &&
     String(rawSource).trim() !== ''
   ) {
     const src = String(rawSource).trim()
@@ -96,7 +95,7 @@ export function getTicketSource(ticket?: Partial<Ticket> | null): string {
       }
       return 'BRANCH ADMIN'
     }
-    if (lower === 'client') {
+    if (lower === 'api' || lower === 'client') {
       return ticket?.metadata?.api_client_name || 'CLIENT API'
     }
     return src.toUpperCase()

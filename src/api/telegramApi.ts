@@ -1,4 +1,5 @@
 import apiClient from './client';
+import mockService from '@/mocks/mockService';
 import type { TelegramSubscriber } from '@/types/settings';
 
 export interface TelegramSubscriberFilterParams {
@@ -83,6 +84,9 @@ export const telegramApi = {
   async getSubscribers(
     params?: TelegramSubscriberFilterParams
   ): Promise<TelegramSubscriberListResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getSubscribers(params);
+    }
     const cleanParams: Record<string, any> = {};
     if (params) {
       if (params.page !== undefined) cleanParams.page = params.page;
@@ -149,6 +153,9 @@ export const telegramApi = {
    * Endpoint: POST /tickets/telegram/invite-link
    */
   async generateInviteLink(): Promise<string> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.generateInviteLink();
+    }
     const response = await apiClient.post<TelegramInviteResponse>('/tickets/telegram/invite-link');
     const resData: any = response.data;
     if (resData?.invite_url) {
@@ -168,6 +175,10 @@ export const telegramApi = {
    * Endpoint: DELETE /tickets/telegram/subscribers/{chatId}
    */
   async removeSubscriber(chatId: string): Promise<void> {
+    if (mockService.isMockDataEnabled()) {
+      mockService.removeSubscriber(chatId);
+      return;
+    }
     await apiClient.delete<TelegramActionResponse>(`/tickets/telegram/subscribers/${chatId}`);
   },
 
@@ -176,6 +187,9 @@ export const telegramApi = {
    * Endpoint: POST /tickets/telegram/subscribers/{chatId}/test
    */
   async sendTestNotification(chatId: string): Promise<TelegramActionResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return { data: null, success: true, message: 'Test notification delivered successfully (Mock Mode)' };
+    }
     const response = await apiClient.post<TelegramActionResponse>(
       `/tickets/telegram/subscribers/${chatId}/test`
     );
@@ -187,6 +201,16 @@ export const telegramApi = {
    * Endpoint: PATCH /tickets/telegram/subscribers/{chatId}/status
    */
   async updateSubscriberStatus(chatId: string, isActive?: boolean): Promise<TelegramSubscriber> {
+    if (mockService.isMockDataEnabled()) {
+      mockService.updateSubscriberStatus(chatId, Boolean(isActive));
+      return {
+        id: chatId,
+        telegram_chat_id: chatId,
+        telegram_username: 'subscriber',
+        is_active: Boolean(isActive),
+        subscribed_at: new Date().toISOString(),
+      };
+    }
     const payload = isActive !== undefined ? { is_active: isActive } : {};
     const response = await apiClient.patch<any>(`/tickets/telegram/subscribers/${chatId}/status`, payload);
     const resData = response.data;
@@ -198,6 +222,9 @@ export const telegramApi = {
    * Endpoint: GET /tickets/telegram/counts
    */
   async getCounts(): Promise<TelegramCounts> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTelegramCounts();
+    }
     const response = await apiClient.get<any>('/tickets/telegram/counts');
     const resData: any = response.data?.data || response.data || {};
     const totalSubscribers = Number(
@@ -221,6 +248,9 @@ export const telegramApi = {
    * Endpoint: GET /tickets/telegram/invites/total-count
    */
   async getTotalInviteCount(): Promise<number> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTelegramCounts().totalTelegramInvites;
+    }
     const response = await apiClient.get<TelegramCountResponse>('/tickets/telegram/invites/total-count');
     const resData: any = response.data;
     if (typeof resData?.total === 'number') return resData.total;
@@ -236,6 +266,9 @@ export const telegramApi = {
    * Endpoint: GET /tickets/telegram/subscribers/total-count
    */
   async getTotalSubscribersCount(): Promise<number> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTelegramCounts().totalSubscribers;
+    }
     const response = await apiClient.get<TelegramCountResponse>('/tickets/telegram/subscribers/total-count');
     const resData: any = response.data;
     if (typeof resData?.total === 'number') return resData.total;

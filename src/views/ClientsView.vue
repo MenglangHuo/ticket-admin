@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import {
   Radio,
   Key,
   Plus,
   Copy,
-  Check
+  Check,
+  Sparkles
 } from 'lucide-vue-next';
 import { useToastStore } from '@/stores/toastStore';
+import mockService from '@/mocks/mockService';
 
 const toastStore = useToastStore();
 const copiedIndex = ref<number | null>(null);
@@ -15,8 +17,29 @@ const copiedIndex = ref<number | null>(null);
 const configuredClientId = (import.meta.env.VITE_CLIENT_ID as string) || '';
 const configuredClientSecret = (import.meta.env.VITE_CLIENT_SECRET as string) || '';
 
-const clients = ref(
-  configuredClientId
+const isMockEnabled = computed(() => mockService.isMockDataEnabled());
+
+const clients = computed(() => {
+  if (mockService.isMockDataEnabled()) {
+    const list = mockService.getClients();
+    if (configuredClientId && !list.some((c) => c.client_id === configuredClientId)) {
+      return [
+        {
+          name: 'Primary API Client (Configured in .env)',
+          client_id: configuredClientId,
+          secret: configuredClientSecret ? `${configuredClientSecret.slice(0, 6)}••••••••` : '••••••••',
+          rate_limit: 'Unlimited / Standard',
+          allowed_types: ['bug', 'enhancement', 'question', 'task'],
+          status: 'active' as const,
+          last_ping: 'Connected',
+        },
+        ...list,
+      ];
+    }
+    return list;
+  }
+
+  return configuredClientId
     ? [
         {
           name: 'Primary API Client (Configured)',
@@ -24,12 +47,12 @@ const clients = ref(
           secret: configuredClientSecret ? `${configuredClientSecret.slice(0, 6)}••••••••` : '••••••••',
           rate_limit: 'Unlimited / Standard',
           allowed_types: ['bug', 'enhancement', 'question', 'task'],
-          status: 'active',
+          status: 'active' as const,
           last_ping: 'Connected',
         },
       ]
-    : []
-);
+    : [];
+});
 
 function copyClientId(id: string, index: number) {
   navigator.clipboard.writeText(id);
@@ -48,6 +71,13 @@ function copyClientId(id: string, index: number) {
         <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
           <Radio class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           <span>Connected API Clients & Webhooks</span>
+          <span
+            v-if="isMockEnabled"
+            class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1"
+          >
+            <Sparkles class="w-3 h-3" />
+            Mock Data
+          </span>
         </h1>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           External client apps authorized to submit tickets via <code class="text-indigo-600 dark:text-indigo-400 font-mono">/api/v1/client/tickets</code>

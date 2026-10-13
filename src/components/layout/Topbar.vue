@@ -135,6 +135,27 @@ onUnmounted(() => {
 
     <!-- Right Controls: Switch Mode Icon & Profile User -->
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+      <!-- Mock Mode / Live API Diagnostics Indicator Badge -->
+      <button
+        type="button"
+        @click="isApiModalOpen = true"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium border transition-colors cursor-pointer"
+        :class="
+          ticketStore.isMockDataActive
+            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
+            : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
+        "
+        :title="ticketStore.isMockDataActive ? 'Mock Data Mode Active (Click to configure)' : 'Live API Mode Active (Click to configure)'"
+      >
+        <span
+          class="w-1.5 h-1.5 rounded-full"
+          :class="ticketStore.isMockDataActive ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'"
+        ></span>
+        <span class="text-[11px] font-semibold hidden sm:inline">
+          {{ ticketStore.isMockDataActive ? 'Mock Data' : 'Live API' }}
+        </span>
+      </button>
+
       <!-- Light / Dark Mode Toggle -->
       <button
         @click="themeStore.toggleTheme"

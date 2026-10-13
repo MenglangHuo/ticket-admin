@@ -143,6 +143,8 @@ export function sanitizeHtml(dirtyHtml?: string | null): string {
               node.removeChild(el);
               continue;
             }
+            // Sanitize children before unwrapping into parent
+            sanitizeNode(el);
             // If it's merely an unapproved non-dangerous tag, unwrap its text/children
             while (el.firstChild) {
               node.insertBefore(el.firstChild, el);

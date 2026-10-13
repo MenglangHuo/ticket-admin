@@ -1,4 +1,5 @@
 import apiClient from './client';
+import mockService from '@/mocks/mockService';
 import type { DashboardReportsResponse } from '@/types/ticket';
 
 export interface ReportFilterParams {
@@ -14,6 +15,9 @@ export interface ReportFilterParams {
 
 export const reportApi = {
   async getReports(params: ReportFilterParams = {}): Promise<DashboardReportsResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getReports(params);
+    }
     const cleanParams: Record<string, any> = {};
     if (params.company_id) cleanParams.company_id = params.company_id;
     if (params.date_from) cleanParams.date_from = params.date_from;

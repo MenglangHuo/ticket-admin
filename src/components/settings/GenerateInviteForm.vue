@@ -18,7 +18,7 @@ import {
   Users,
 } from 'lucide-vue-next';
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'done'): void;
 }>();
 

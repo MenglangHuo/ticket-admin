@@ -37,7 +37,7 @@ import {
 } from 'vue'
 import SubscribersTableSkeleton, { type SubscriberColumnKey } from './SubscribersTableSkeleton.vue'
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     activeTab?: 'subscribers' | 'invite'
   }>(),

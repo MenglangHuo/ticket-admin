@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import SubscribersTable from '@/components/settings/SubscribersTable.vue'
 import GenerateInviteForm from '@/components/settings/GenerateInviteForm.vue'
+import mockService from '@/mocks/mockService'
 import { Users, Link as LinkIcon, Bot, ExternalLink, Send } from 'lucide-vue-next'
 
 type SettingsTab = 'subscribers' | 'invite'
@@ -33,8 +34,16 @@ onMounted(() => {
             <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Telegram Notifications
             </h1>
-            <!-- Gateway Active Status Pill -->
+            <!-- Gateway Active / Mock Status Pill -->
             <span
+              v-if="mockService.isMockDataEnabled()"
+              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200/90 dark:border-amber-500/20"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              Mock Subscribers
+            </span>
+            <span
+              v-else
               class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200/90 dark:border-emerald-500/20"
             >
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>

@@ -13,6 +13,7 @@ import type {
   UpdateCommentPayload,
 } from '@/types/ticket'
 import { ticketApi, type TicketFilterParams } from '@/api/ticketApi'
+import mockService from '@/mocks/mockService'
 import { useToastStore } from './toastStore'
 import { useAuthStore } from './authStore'
 
@@ -468,8 +469,17 @@ export const useTicketStore = defineStore('tickets', () => {
     return allowed ? allowed.includes(to) : false
   }
 
+  const isMockDataActive = ref<boolean>(mockService.isMockDataEnabled())
+
   function toggleMockMode() {
-    toastStore.info('Direct API Mode', 'App is configured to connect directly to the backend API.')
+    const nextState = mockService.toggleMockDataMode()
+    isMockDataActive.value = nextState
+    if (nextState) {
+      toastStore.success('Mock Mode Enabled', 'Showing realistic mock data across all pages.')
+    } else {
+      toastStore.info('Live API Mode', 'Connected to live Laravel backend.')
+    }
+    fetchTickets(1)
   }
 
   // Fetch Tickets from API
@@ -1044,6 +1054,7 @@ export const useTicketStore = defineStore('tickets', () => {
     markNotificationsAsRead,
     shakingTicketId,
     isValidTransition,
+    isMockDataActive,
     toggleMockMode,
     fetchTickets,
     goToPage,

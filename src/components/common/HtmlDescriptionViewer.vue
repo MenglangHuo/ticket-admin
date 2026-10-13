@@ -48,6 +48,32 @@ const isHtmlContent = computed(() => {
           <Code class="w-3.5 h-3.5 text-indigo-500" />
           <span>Description</span>
         </span>
+        <span
+          v-if="isHtmlContent"
+          class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-500/20"
+        >
+          HTML formatted
+        </span>
+      </div>
+
+      <!-- View Switcher -->
+      <div v-if="rawHtml && rawHtml.trim()" class="flex items-center gap-1 bg-slate-200/60 dark:bg-slate-800/80 p-0.5 rounded-lg">
+        <button
+          type="button"
+          @click="viewMode = 'rendered'"
+          class="px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+          :class="viewMode === 'rendered' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'"
+        >
+          Rendered
+        </button>
+        <button
+          type="button"
+          @click="viewMode = 'source'"
+          class="px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+          :class="viewMode === 'source' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'"
+        >
+          CodeMirror Source
+        </button>
       </div>
     </div>
 

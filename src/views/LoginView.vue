@@ -14,13 +14,15 @@ import {
   Mail,
   Moon,
   ShieldCheck,
+  Sparkles,
   Sun,
   Ticket,
   User,
   X,
 } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import mockService from '@/mocks/mockService'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -34,6 +36,19 @@ const showPassword = ref(false)
 const isForgotModalOpen = ref(false)
 const forgotEmail = ref('')
 const isForgotSubmitted = ref(false)
+
+const isMockEnabled = computed(() => mockService.isMockDataEnabled())
+
+function fillDemo(role: 'admin' | 'branch') {
+  if (role === 'admin') {
+    username.value = 'admin'
+    password.value = 'password123'
+  } else {
+    username.value = 'branch_manager'
+    password.value = 'password123'
+  }
+  handleLogin()
+}
 
 async function handleLogin() {
   if (!username.value || !password.value) return
@@ -223,11 +238,46 @@ function handleForgotPassword() {
             <span class="font-medium leading-relaxed">{{ authStore.error }}</span>
           </div>
 
+          <!-- Mock Mode Demo Banner -->
+          <div
+            v-if="isMockEnabled"
+            class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs space-y-2 text-left"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-semibold flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-200">
+                <Sparkles class="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                Mock Mode Active (.env)
+              </span>
+              <span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/20 font-bold text-amber-800 dark:text-amber-200">
+                DEMO
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-400">
+              Backend API is mocked. Click below to sign in instantly:
+            </p>
+            <div class="flex gap-2 pt-0.5">
+              <button
+                type="button"
+                @click="fillDemo('admin')"
+                class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 dark:text-amber-100 text-xs font-semibold transition-colors text-center cursor-pointer shadow-2xs"
+              >
+                Demo HQ Admin
+              </button>
+              <button
+                type="button"
+                @click="fillDemo('branch')"
+                class="flex-1 py-1.5 px-2 rounded-lg bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold transition-colors text-center cursor-pointer shadow-2xs"
+              >
+                Demo Branch User
+              </button>
+            </div>
+          </div>
+
           <!-- Refined Sign-In Button -->
           <button
             type="submit"
             :disabled="authStore.isLoading"
-            class="w-full h-11 px-4 rounded-xl font-semibold text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 shadow-sm shadow-indigo-600/25 hover:shadow-indigo-600/40 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-6"
+            class="w-full h-11 px-4 rounded-xl font-semibold text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 shadow-sm shadow-indigo-600/25 hover:shadow-indigo-600/40 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-4"
           >
             <Loader2 v-if="authStore.isLoading" class="w-4 h-4 animate-spin" />
             <span>{{ authStore.isLoading ? 'Authenticating...' : 'Sign In to Admin Portal' }}</span>

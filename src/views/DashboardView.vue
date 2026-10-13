@@ -4,6 +4,7 @@ import { useReportStore } from '@/stores/reportStore'
 import MetricCard from '@/components/dashboard/MetricCard.vue'
 import StatusDonut from '@/components/dashboard/StatusDonut.vue'
 import DateRangePicker, { type DateRangeResult } from '@/components/common/DateRangePicker.vue'
+import mockService from '@/mocks/mockService'
 import {
   Layers,
   Inbox,
@@ -49,9 +50,9 @@ const lastUpdatedLabel = computed(() => {
   if (diffSec < 60) return `${diffSec}s ago`
   return `${Math.floor(diffSec / 60)}m ago`
 })
+const isMockEnabled = computed(() => mockService.isMockDataEnabled())
 </script>
 
-<
 <template>
   <div class="space-y-3 sm:space-y-3.5">
     <!-- Header with Live Status, View Controls, Refresh, and Date Range Picker -->
@@ -68,8 +69,16 @@ const lastUpdatedLabel = computed(() => {
               <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
                 Overview & Performance
               </h1>
-              <!-- Live Indicator Pill -->
+              <!-- Live or Mock Indicator Pill -->
               <span
+                v-if="isMockEnabled"
+                class="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200/90 dark:border-amber-500/20"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Mock Metrics
+              </span>
+              <span
+                v-else
                 class="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200/90 dark:border-emerald-500/20"
               >
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>

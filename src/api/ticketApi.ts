@@ -1,4 +1,5 @@
 import apiClient, { ROOT_API_URL } from './client';
+import mockService from '@/mocks/mockService';
 import type {
   TicketListResponse,
   TicketSingleResponse,
@@ -29,6 +30,9 @@ export interface TicketFilterParams {
 export const authApi = {
   // Step 1: Generate access token using secret before submitting to login API
   async generateToken(secret?: string): Promise<TokenResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.generateToken();
+    }
     const apiSecret = secret || (import.meta.env.VITE_API_SECRET as string) || '';
     if (!apiSecret && import.meta.env.DEV) {
       console.warn('Security Notice: VITE_API_SECRET is not set in environment.');
@@ -44,6 +48,9 @@ export const authApi = {
 
   // Step 2: Submit login credentials with Bearer token from Step 1
   async loginWithToken(token: string, credentials: { username: string; password: string }): Promise<any> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.login(credentials);
+    }
     const formData = new FormData();
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
@@ -60,6 +67,9 @@ export const authApi = {
 
   // Step 3: Validate two-factor & retrieve user info + passport auth access_token
   async validateTwoFactor(params: { username: string; code?: string; token?: string }): Promise<TwoFactorResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.validateTwoFactor(params);
+    }
     const urlParams = new URLSearchParams();
     urlParams.append('username', params.username);
     urlParams.append('code', params.code || '000000');
@@ -81,6 +91,9 @@ export const authApi = {
 
   // Fallback single-step login
   async login(credentials: { username: string; password: string }): Promise<LoginResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.login(credentials) as any;
+    }
     const response = await apiClient.post<LoginResponse>('/login', credentials, {
       baseURL: ROOT_API_URL,
     });
@@ -90,6 +103,9 @@ export const authApi = {
 
 export const ticketApi = {
   async getTickets(params: TicketFilterParams = {}): Promise<TicketListResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTickets(params);
+    }
     const cleanParams: Record<string, any> = {};
     if (params.page) cleanParams.page = params.page;
     if (params.per_page) cleanParams.per_page = params.per_page;
@@ -107,6 +123,9 @@ export const ticketApi = {
   },
 
   async getTicketById(id: number | string): Promise<TicketSingleResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTicketById(id);
+    }
     const response = await apiClient.get<TicketSingleResponse>(`/tickets/${id}`);
     return response.data;
   },
@@ -123,6 +142,9 @@ export const ticketApi = {
     due_at?: string;
     metadata?: Record<string, any>;
   }): Promise<TicketSingleResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.createTicket(payload);
+    }
     const response = await apiClient.post<TicketSingleResponse>('/tickets', payload);
     return response.data;
   },
@@ -137,16 +159,35 @@ export const ticketApi = {
       description?: string;
     }
   ): Promise<TicketSingleResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.updateTicket(id, data);
+    }
     const response = await apiClient.put<TicketSingleResponse>(`/tickets/${id}`, data);
     return response.data;
   },
 
   async deleteTicket(id: number | string): Promise<{ success: boolean; message: string }> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.deleteTicket(id);
+    }
     const response = await apiClient.delete<{ success: boolean; message: string }>(`/tickets/${id}`);
     return response.data;
   },
 
   async uploadAttachments(ticketId: number | string, files: File[]): Promise<{ data: Attachment[]; success: boolean }> {
+    if (mockService.isMockDataEnabled()) {
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const mockAttachments: Attachment[] = files.map((file) => ({
+        id: Math.floor(Math.random() * 10000) + 100,
+        ticket_id: Number(ticketId),
+        file_name: file.name,
+        file_url: URL.createObjectURL(file),
+        file_size: file.size,
+        mime_type: file.type || 'application/octet-stream',
+        created_at: now,
+      }));
+      return { data: mockAttachments, success: true };
+    }
     const formData = new FormData();
     files.forEach((file) => {
       formData.append('files[]', file);
@@ -165,6 +206,9 @@ export const ticketApi = {
   },
 
   async deleteAttachment(ticketId: number | string, attachmentId: number | string): Promise<{ success: boolean; message: string }> {
+    if (mockService.isMockDataEnabled()) {
+      return { success: true, message: 'Attachment deleted successfully (Mock Mode)' };
+    }
     const response = await apiClient.delete<{ success: boolean; message: string }>(
       `/tickets/${ticketId}/attachments/${attachmentId}`
     );
@@ -175,6 +219,9 @@ export const ticketApi = {
     ticketId: number | string,
     params: { include_internal?: boolean; per_page?: number } = {}
   ): Promise<{ data: TicketComment[]; success: boolean; message?: string }> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTicketComments(ticketId);
+    }
     const response = await apiClient.get<{ data: TicketComment[]; success: boolean; message?: string }>(
       `/tickets/${ticketId}/comments`,
       { params }
@@ -186,6 +233,9 @@ export const ticketApi = {
     ticketId: number | string,
     payload: CreateCommentPayload
   ): Promise<{ data: TicketComment; success: boolean; message?: string }> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.createTicketComment(ticketId, payload);
+    }
     if (payload.files && payload.files.length > 0) {
       const formData = new FormData();
       formData.append('body', payload.body);
@@ -226,6 +276,19 @@ export const ticketApi = {
     commentId: number | string,
     payload: UpdateCommentPayload
   ): Promise<{ data: TicketComment; success: boolean; message?: string }> {
+    if (mockService.isMockDataEnabled()) {
+      return {
+        data: {
+          id: Number(commentId),
+          ticket_id: Number(ticketId),
+          body: payload.body || '',
+          is_internal: Boolean(payload.is_internal),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        success: true,
+      };
+    }
     const response = await apiClient.put<{ data: TicketComment; success: boolean; message?: string }>(
       `/tickets/${ticketId}/comments/${commentId}`,
       payload
@@ -237,6 +300,9 @@ export const ticketApi = {
     ticketId: number | string,
     commentId: number | string
   ): Promise<{ success: boolean; message: string }> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.deleteTicketComment(ticketId, commentId);
+    }
     const response = await apiClient.delete<{ success: boolean; message: string }>(
       `/tickets/${ticketId}/comments/${commentId}`
     );
@@ -248,6 +314,9 @@ export const ticketApi = {
     clientId = (import.meta.env.VITE_CLIENT_ID as string) || '',
     clientSecret = (import.meta.env.VITE_CLIENT_SECRET as string) || ''
   ): Promise<TicketSingleResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.submitClientTicket(payload);
+    }
     const isFormData = payload instanceof FormData;
     const headers: Record<string, string> = {};
     if (clientId) headers['X-Client-ID'] = clientId;
@@ -261,3 +330,4 @@ export const ticketApi = {
     return response.data;
   },
 };
+

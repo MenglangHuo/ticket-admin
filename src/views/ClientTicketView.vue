@@ -4,6 +4,7 @@ import { ticketApi } from '@/api/ticketApi'
 import { useThemeStore } from '@/stores/themeStore'
 import { useToastStore } from '@/stores/toastStore'
 import HtmlDescriptionEditor from '@/components/common/HtmlDescriptionEditor.vue'
+import mockService from '@/mocks/mockService'
 import {
   Ticket,
   Bug,
@@ -282,6 +283,12 @@ function resetForm() {
             </span>
             <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-500/20">
               Client Portal
+            </span>
+            <span
+              v-if="mockService.isMockDataEnabled()"
+              class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-500/20"
+            >
+              Mock Mode
             </span>
           </div>
           <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
