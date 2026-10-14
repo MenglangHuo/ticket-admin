@@ -6,7 +6,6 @@ import { Bug, CheckSquare, HelpCircle, Paperclip, Sparkles } from 'lucide-vue-ne
 import { computed } from 'vue'
 
 import { formatHtmlPreview } from '@/utils/html'
-import { defineProps } from 'vue'
 
 const props = defineProps<{
   ticket: Ticket

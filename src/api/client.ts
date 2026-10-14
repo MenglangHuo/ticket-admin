@@ -1,14 +1,22 @@
 import axios from 'axios';
 
-// Default base URL points to Laravel dev-apis backend (/api)
-const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
-export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '').replace(/\/v\d+$/, '').replace(/\/ticket$/, '');
+// When using reverse proxy (default), the frontend requests relative URLs:
+// - API calls go to '/api' (e.g. http://localhost:4000/api/ticket)
+// - Root auth endpoints go to '' (e.g. http://localhost:4000/two-factor, /login, /token)
+// The Vite dev server (or Nginx in production) proxies them to the backend API origin.
+// Direct absolute URLs can still be enforced by setting VITE_USE_PROXY=false in .env.
+const useReverseProxy = import.meta.env.VITE_USE_PROXY !== 'false';
 
-// Auth base URL for root auth endpoints: /token, /login, /two-factor (NO /api prefix, e.g. http://127.0.0.1:8000)
-export const AUTH_BASE_URL = (
-  import.meta.env.VITE_AUTH_BASE_URL ||
-  API_BASE_URL.replace(/\/api(\/.*)?$/, '')
-).replace(/\/+$/, '');
+const rawApiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+const rawAuthBase = (import.meta.env.VITE_AUTH_BASE_URL as string | undefined)?.trim();
+
+export const API_BASE_URL = useReverseProxy
+  ? (rawApiBase && rawApiBase.startsWith('/') ? rawApiBase.replace(/\/+$/, '') : '/api')
+  : (rawApiBase || 'http://127.0.0.1:8000/api').replace(/\/+$/, '').replace(/\/v\d+$/, '').replace(/\/ticket$/, '');
+
+export const AUTH_BASE_URL = useReverseProxy
+  ? (rawAuthBase && rawAuthBase.startsWith('/') ? rawAuthBase.replace(/\/+$/, '') : '')
+  : (rawAuthBase || API_BASE_URL.replace(/\/api(\/.*)?$/, '')).replace(/\/+$/, '');
 
 // Backward-compatible alias
 export const ROOT_API_URL = AUTH_BASE_URL;
@@ -33,18 +41,35 @@ function isInternalUrl(url?: string, baseURL?: string): boolean {
   if (!url.startsWith('http://') && !url.startsWith('https://')) return true;
 
   try {
-    const targetOrigin = new URL(url).origin;
-    const apiOrigin = new URL(API_BASE_URL).origin;
-    const authOrigin = new URL(AUTH_BASE_URL).origin;
-    const baseOrigin = baseURL && (baseURL.startsWith('http://') || baseURL.startsWith('https://'))
-      ? new URL(baseURL).origin
-      : apiOrigin;
+    const normalizeHost = (host: string) => (host === 'localhost' ? '127.0.0.1' : host);
+    const targetUrl = new URL(url);
+    const targetHost = normalizeHost(targetUrl.hostname);
+    const targetPort = targetUrl.port || (targetUrl.protocol === 'https:' ? '443' : '80');
 
-    return (
-      targetOrigin === apiOrigin ||
-      targetOrigin === authOrigin ||
-      targetOrigin === baseOrigin
-    );
+    const originsToCheck: string[] = [];
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      originsToCheck.push(window.location.origin);
+    }
+    if (API_BASE_URL && (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://'))) {
+      originsToCheck.push(API_BASE_URL);
+    }
+    if (AUTH_BASE_URL && (AUTH_BASE_URL.startsWith('http://') || AUTH_BASE_URL.startsWith('https://'))) {
+      originsToCheck.push(AUTH_BASE_URL);
+    }
+    if (baseURL && (baseURL.startsWith('http://') || baseURL.startsWith('https://'))) {
+      originsToCheck.push(baseURL);
+    }
+
+    return originsToCheck.some((base) => {
+      try {
+        const u = new URL(base);
+        const host = normalizeHost(u.hostname);
+        const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+        return host === targetHost && port === targetPort;
+      } catch {
+        return false;
+      }
+    });
   } catch {
     return false;
   }

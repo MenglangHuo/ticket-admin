@@ -27,13 +27,10 @@ import {
 } from 'lucide-vue-next'
 import {
   computed,
-  defineEmits,
-  defineProps,
   onMounted,
   onUnmounted,
   ref,
   watch,
-  withDefaults,
 } from 'vue'
 import SubscribersTableSkeleton, { type SubscriberColumnKey } from './SubscribersTableSkeleton.vue'
 
