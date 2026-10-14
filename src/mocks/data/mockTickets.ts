@@ -7,6 +7,7 @@ import type {
   TicketSingleResponse,
   TicketComment,
   CreateCommentPayload,
+  Attachment,
 } from '@/types/ticket';
 import type { TicketFilterParams } from '@/api/ticketApi';
 
@@ -625,49 +626,129 @@ export function getMockTicketById(id: number | string): TicketSingleResponse {
   };
 }
 
-export function createMockTicket(payload: {
-  title: string;
-  description?: string;
-  type: string;
-  priority: string;
-  source?: string;
-  reporter_name?: string;
-  reporter_email?: string;
-  reporter_phone?: string;
-  due_at?: string;
-  metadata?: Record<string, any>;
-}): TicketSingleResponse {
+export function createMockTicket(
+  payload:
+    | FormData
+    | {
+        title: string;
+        description?: string;
+        type?: string;
+        priority?: string;
+        source?: string;
+        reporter_name?: string;
+        reporter_email?: string;
+        reporter_phone?: string;
+        phone?: string;
+        due_at?: string;
+        metadata?: Record<string, any>;
+        files?: File[];
+      }
+): TicketSingleResponse {
+  let title = 'Untitled Ticket';
+  let description = '';
+  let type: TicketType = 'task';
+  let priority: TicketPriority = 'medium';
+  let source = 'admin';
+  let reporter_name = 'Admin User';
+  let reporter_email = 'admin@bronx.internal';
+  let reporter_phone = '012 345 678';
+  let due_at: string | null = null;
+  let metadata: Record<string, any> = {};
+  const mockAttachments: Attachment[] = [];
+
+  if (payload instanceof FormData) {
+    title = (payload.get('title') as string) || title;
+    description = (payload.get('description') as string) || '';
+    type = ((payload.get('type') as string) as TicketType) || type;
+    priority = ((payload.get('priority') as string) as TicketPriority) || priority;
+    source = (payload.get('source') as string) || source;
+    reporter_name = (payload.get('reporter_name') as string) || reporter_name;
+    reporter_email = (payload.get('reporter_email') as string) || reporter_email;
+    reporter_phone = (payload.get('reporter_phone') as string) || reporter_phone;
+    due_at = (payload.get('due_at') as string) || null;
+
+    const files = payload.getAll('files[]') as File[];
+    if (files && files.length > 0) {
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      files.forEach((file) => {
+        if (file instanceof File) {
+          mockAttachments.push({
+            id: Math.floor(Math.random() * 10000) + 100,
+            ticket_id: 0,
+            file_name: file.name,
+            file_url: URL.createObjectURL(file),
+            file_size: file.size,
+            mime_type: file.type || 'application/octet-stream',
+            created_at: now,
+          });
+        }
+      });
+    }
+  } else {
+    title = payload.title || title;
+    description = payload.description || '';
+    type = (payload.type as TicketType) || type;
+    priority = (payload.priority as TicketPriority) || priority;
+    source = payload.source || source;
+    reporter_name = payload.reporter_name || reporter_name;
+    reporter_email = payload.reporter_email || reporter_email;
+    reporter_phone = payload.reporter_phone || payload.phone || reporter_phone;
+    due_at = payload.due_at || null;
+    metadata = payload.metadata || {};
+
+    if (payload.files && Array.isArray(payload.files)) {
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      payload.files.forEach((file: File) => {
+        if (file instanceof File) {
+          mockAttachments.push({
+            id: Math.floor(Math.random() * 10000) + 100,
+            ticket_id: 0,
+            file_name: file.name,
+            file_url: URL.createObjectURL(file),
+            file_size: file.size,
+            mime_type: file.type || 'application/octet-stream',
+            created_at: now,
+          });
+        }
+      });
+    }
+  }
+
   const nextId = mockTicketsState.length > 0 ? Math.max(...mockTicketsState.map((t) => t.id)) + 1 : 1;
   const nextNumber = 1000 + nextId;
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+  mockAttachments.forEach((a) => {
+    a.ticket_id = nextId;
+  });
 
   const newTicket: Ticket = {
     id: nextId,
     public_id: `tck_pub_${String(nextId).padStart(3, '0')}`,
     ticket_key: `TCK-${nextNumber}`,
     number: nextNumber,
-    title: payload.title,
-    description: payload.description || '',
-    description_preview: payload.description ? payload.description.replace(/<[^>]*>/g, '').substring(0, 120) : '',
-    type: (payload.type as TicketType) || 'task',
+    title,
+    description,
+    description_preview: description ? description.replace(/<[^>]*>/g, '').substring(0, 120) : '',
+    type,
     status: 'open',
-    priority: (payload.priority as TicketPriority) || 'medium',
-    source: payload.source || 'admin',
+    priority,
+    source,
     company: 'UYFC',
     company_name: 'UYFC Headquarters',
-    reporter_name: payload.reporter_name || 'Admin User',
-    reporter_email: payload.reporter_email || 'admin@bronx.internal',
-    reporter_phone: payload.reporter_phone || '012 345 678',
+    reporter_name,
+    reporter_email,
+    reporter_phone,
     reporter: {
       id: 999,
-      name: payload.reporter_name || 'Admin User',
-      phone: payload.reporter_phone || '012 345 678',
+      name: reporter_name,
+      phone: reporter_phone,
       role: 'ADMIN',
     },
     assignee: null,
-    due_at: payload.due_at || null,
-    metadata: payload.metadata || {},
-    attachments: [],
+    due_at,
+    metadata,
+    attachments: mockAttachments,
     comments: [],
     created_at: now,
     updated_at: now,

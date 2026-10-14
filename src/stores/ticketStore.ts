@@ -878,30 +878,61 @@ export const useTicketStore = defineStore('tickets', () => {
 
     isUpdating.value = true
     try {
-      const response = await ticketApi.createTicket({
-        title: payload.title,
-        description: payload.description,
-        type: payload.type,
-        priority: payload.priority,
-        source: payload.source || 'portal',
-        reporter_name: payload.reporter_name,
-        reporter_email: payload.reporter_email,
-        reporter_phone: payload.reporter_phone,
-        metadata: {
+      const hasFiles = payload.files && payload.files.length > 0
+      let response: any
+
+      if (hasFiles) {
+        const formData = new FormData()
+        formData.append('title', payload.title)
+        if (payload.description) formData.append('description', payload.description)
+        formData.append('type', payload.type)
+        formData.append('priority', payload.priority)
+        formData.append('source', payload.source || 'portal')
+        if (payload.reporter_name) formData.append('reporter_name', payload.reporter_name)
+        if (payload.reporter_email) formData.append('reporter_email', payload.reporter_email)
+        if (payload.reporter_phone) {
+          formData.append('reporter_phone', payload.reporter_phone)
+          formData.append('phone', payload.reporter_phone)
+        }
+        formData.append('metadata[reporter_phone]', payload.reporter_phone || '')
+        formData.append('metadata[api_client_name]', payload.client_name || '')
+        formData.append('metadata[role]', authStore.user?.role || 'HQ ADMIN')
+        formData.append('metadata[rolename]', authStore.user?.role || 'HQ ADMIN')
+        formData.append('metadata[company]', 'UYFC')
+        formData.append('metadata[company_name]', 'UYFC')
+
+        payload.files!.forEach((file) => {
+          formData.append('files[]', file)
+        })
+
+        response = await ticketApi.createTicket(formData)
+      } else {
+        response = await ticketApi.createTicket({
+          title: payload.title,
+          description: payload.description,
+          type: payload.type,
+          priority: payload.priority,
+          source: payload.source || 'portal',
+          reporter_name: payload.reporter_name,
+          reporter_email: payload.reporter_email,
           reporter_phone: payload.reporter_phone,
-          api_client_name: payload.client_name,
-          role: authStore.user?.role || 'HQ ADMIN',
-          rolename: authStore.user?.role || 'HQ ADMIN',
-          company: 'UYFC',
-          company_name: 'UYFC',
-        },
-      })
+          phone: payload.reporter_phone,
+          metadata: {
+            reporter_phone: payload.reporter_phone,
+            api_client_name: payload.client_name,
+            role: authStore.user?.role || 'HQ ADMIN',
+            rolename: authStore.user?.role || 'HQ ADMIN',
+            company: 'UYFC',
+            company_name: 'UYFC',
+          },
+        })
+      }
 
       const createdTicket = (response as any).data || response
 
-      if (payload.files && payload.files.length > 0) {
+      if (hasFiles && (!createdTicket.attachments || createdTicket.attachments.length === 0)) {
         try {
-          const uploadRes = await ticketApi.uploadAttachments(createdTicket.id, payload.files)
+          const uploadRes = await ticketApi.uploadAttachments(createdTicket.id, payload.files!)
           if (uploadRes && uploadRes.data) {
             createdTicket.attachments = uploadRes.data
           }

@@ -15,6 +15,7 @@ withDefaults(
     name?: string
     autocomplete?: string
     enterkeyhint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send'
+    list?: string
   }>(),
   {
     type: 'text',
@@ -79,6 +80,7 @@ function onInput(event: Event) {
         :required="required"
         :autocomplete="autocomplete"
         :enterkeyhint="enterkeyhint"
+        :list="list"
         @input="onInput"
         class="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 rounded-xl border transition-all focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         :class="[

@@ -130,22 +130,35 @@ export const ticketApi = {
     return response.data;
   },
 
-  async createTicket(payload: {
-    title: string;
-    description?: string;
-    type: string;
-    priority: string;
-    source?: string;
-    reporter_name?: string;
-    reporter_email?: string;
-    reporter_phone?: string;
-    due_at?: string;
-    metadata?: Record<string, any>;
-  }): Promise<TicketSingleResponse> {
+  async createTicket(
+    payload:
+      | FormData
+      | {
+          title: string;
+          description?: string;
+          type: string;
+          priority: string;
+          source?: string;
+          reporter_name?: string;
+          reporter_email?: string;
+          reporter_phone?: string;
+          phone?: string;
+          due_at?: string;
+          metadata?: Record<string, any>;
+          files?: File[];
+        }
+  ): Promise<TicketSingleResponse> {
     if (mockService.isMockDataEnabled()) {
-      return mockService.createTicket(payload);
+      return mockService.createTicket(payload as any);
     }
-    const response = await apiClient.post<TicketSingleResponse>('/ticket', payload);
+    const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData;
+    const headers: Record<string, string> = {};
+    if (isFormData) {
+      headers['Content-Type'] = 'multipart/form-data';
+    }
+    const response = await apiClient.post<TicketSingleResponse>('/ticket', payload, {
+      headers,
+    });
     return response.data;
   },
 

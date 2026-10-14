@@ -7,7 +7,7 @@ import TicketKanban from '@/components/tickets/TicketKanban.vue'
 import TicketTable from '@/components/tickets/TicketTable.vue'
 import { useTicketStore, type TableColumnKey } from '@/stores/ticketStore'
 import type { TicketStatus } from '@/types/ticket'
-import { Columns3, List, Search, SlidersHorizontal, X } from 'lucide-vue-next'
+import { Columns3, List, Plus, Search, SlidersHorizontal, X } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 const ticketStore = useTicketStore()
@@ -356,6 +356,17 @@ onUnmounted(() => {
         >
           <X class="w-3.5 h-3.5" />
           <span>Reset</span>
+        </button>
+
+        <!-- New Ticket Button -->
+        <button
+          type="button"
+          @click="ticketStore.isCreateModalOpen = true"
+          class="h-9 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs sm:text-[13px] font-semibold flex items-center gap-1.5 shadow-sm shadow-blue-600/25 transition-all cursor-pointer shrink-0"
+          title="Create a new ticket"
+        >
+          <Plus class="w-4 h-4" />
+          <span>New Ticket</span>
         </button>
       </div>
     </div>

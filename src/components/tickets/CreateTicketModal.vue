@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue';
 import { useTicketStore } from '@/stores/ticketStore';
 import { useToastStore } from '@/stores/toastStore';
+import { useAuthStore } from '@/stores/authStore';
 import type { TicketType, TicketPriority } from '@/types/ticket';
 import CustomSelect, { type SelectOption } from '@/components/common/CustomSelect.vue';
 import BaseInput from '@/components/common/BaseInput.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
+import HtmlDescriptionEditor from '@/components/common/HtmlDescriptionEditor.vue';
 import {
   X,
   PlusCircle,
@@ -13,8 +15,6 @@ import {
   Sparkles,
   HelpCircle,
   CheckSquare,
-  Building2,
-  Globe,
   UploadCloud,
   FileText,
   FileSpreadsheet,
@@ -30,6 +30,7 @@ import {
 
 const ticketStore = useTicketStore();
 const toastStore = useToastStore();
+const authStore = useAuthStore();
 
 const form = reactive({
   title: '',
@@ -42,6 +43,37 @@ const form = reactive({
   reporter_email: 'admin@bronx.test',
   reporter_phone: '012345678',
 });
+
+function initDefaultReporter() {
+  if (authStore.user) {
+    const fullName = [authStore.user.first_name, authStore.user.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (fullName) {
+      form.reporter_name = fullName;
+    } else if (authStore.user.username) {
+      form.reporter_name = authStore.user.username;
+    }
+    if (authStore.user.email) {
+      form.reporter_email = authStore.user.email;
+    }
+    const phone = authStore.user.phone || authStore.user.personal_phone;
+    if (phone) {
+      form.reporter_phone = phone;
+    }
+  }
+}
+
+watch(
+  () => ticketStore.isCreateModalOpen,
+  (isOpen) => {
+    if (isOpen) {
+      initDefaultReporter();
+    }
+  },
+  { immediate: true }
+);
 
 // Attachments state
 interface AttachedFileItem {
@@ -70,11 +102,6 @@ const priorityOptions: SelectOption[] = [
   { label: 'Medium', value: 'medium', dotColor: 'bg-sky-500' },
   { label: 'High', value: 'high', dotColor: 'bg-amber-500' },
   { label: 'Critical', value: 'critical', dotColor: 'bg-rose-500' },
-];
-
-const sourceOptions: SelectOption[] = [
-  { label: 'Internal Portal', value: 'portal', icon: Building2 },
-  { label: 'Client API / Webhook', value: 'api', icon: Globe },
 ];
 
 function triggerFileInput() {
@@ -198,6 +225,7 @@ async function handleSubmit() {
     form.description = '';
     form.type = 'bug';
     form.priority = 'high';
+    form.source = 'portal';
   }
 }
 
@@ -258,8 +286,8 @@ onUnmounted(() => {
             :icon="TicketIcon"
           />
 
-          <!-- Classification Grid: Type, Priority, Source (3 Equal Columns) -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <!-- Classification Grid: Type, Priority (2 Columns) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <!-- Type -->
             <div class="w-full">
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -287,45 +315,21 @@ onUnmounted(() => {
                 placeholder="Select Priority"
               />
             </div>
-
-            <!-- Source -->
-            <div class="w-full">
-              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                Source
-              </label>
-              <CustomSelect
-                v-model="form.source"
-                :options="sourceOptions"
-                :block="true"
-                size="md"
-                placeholder="Select Source"
-              />
-            </div>
           </div>
 
-          <!-- Client Organization / Origin -->
-          <BaseInput
-            v-model="form.client_name"
-            label="Client Organization / Origin"
-            placeholder="e.g. Acme Corp Client Portal"
-            size="md"
-            :icon="Building2"
-          />
-
-          <!-- Description Textarea -->
+          <!-- Description & Details -->
           <div>
-            <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center justify-between mb-2">
               <label class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Description
+                Description & Details
               </label>
-              <span class="text-[11px] text-slate-400">Markdown supported</span>
+              <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">Rich text enabled</span>
             </div>
-            <textarea
+            <HtmlDescriptionEditor
               v-model="form.description"
-              rows="3"
-              placeholder="Provide a detailed description of the issue, error logs, or steps to reproduce..."
-              class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all font-normal resize-y"
-            ></textarea>
+              placeholder="Describe what happened, error messages, steps to reproduce, or requirements..."
+              min-height="160px"
+            />
           </div>
 
           <!-- Attachments Upload Section -->
