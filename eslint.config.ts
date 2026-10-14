@@ -42,6 +42,7 @@ export default defineConfigWithVueTs(
       ],
       'vue/no-unused-components': 'error',
       'vue/no-unused-vars': 'error',
+      'vitest/no-conditional-expect': 'off',
     },
   },
 

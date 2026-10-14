@@ -161,6 +161,11 @@ describe('useAuthStore Login Pipeline', () => {
     const result = await authStore.login('hq_lowercase', 'secret');
 
     expect(result).toBe(true);
+    expect(authStore.hasPendingTwoFactor).toBe(true);
+    expect(twoFactorSpy).not.toHaveBeenCalled();
+
+    const verifyResult = await authStore.verifyTwoFactor('000000');
+    expect(verifyResult).toBe(true);
     expect(twoFactorSpy).toHaveBeenCalledTimes(1);
     expect(authStore.token).toBe('hq_lower_token');
   });
@@ -220,5 +225,113 @@ describe('useAuthStore Login Pipeline', () => {
     expect(result).toBe(false);
     expect(authStore.error).toBe('Invalid username or password');
     expect(authStore.token).toBeNull();
+  });
+
+  it('initiates pending 2FA for HQ ADMIN when no code is passed and handles verification failure & success', async () => {
+    const authStore = useAuthStore();
+
+    vi.spyOn(authApi, 'generateToken').mockResolvedValue({
+      access_token: 'hq_temp_token',
+      success: true,
+    });
+
+    vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
+      id: 10,
+      username: 'hq_master',
+      role: 'HQ ADMIN',
+      email: 'master@bronx.internal',
+      phone: '010111222',
+      success: true,
+    });
+
+    // Step 1: Login without 2FA code
+    const loginResult = await authStore.login('hq_master', 'password');
+    expect(loginResult).toBe(true);
+    expect(authStore.hasPendingTwoFactor).toBe(true);
+    expect(authStore.pendingTwoFactor?.username).toBe('hq_master');
+    expect(authStore.pendingTwoFactor?.maskedEmail).toBe('m***r@bronx.internal');
+    expect(authStore.token).toBeNull(); // Full token is NOT granted yet!
+
+    // Step 2: Attempt verification with invalid code
+    vi.spyOn(authApi, 'validateTwoFactor').mockRejectedValueOnce({
+      response: {
+        data: {
+          message: 'Invalid verification code',
+        },
+      },
+    });
+
+    const failVerify = await authStore.verifyTwoFactor('999999');
+    expect(failVerify).toBe(false);
+    expect(authStore.remainingAttempts).toBe(4);
+    expect(authStore.error).toBe('Invalid verification code');
+    expect(authStore.token).toBeNull();
+
+    // Step 3: Attempt verification with valid code
+    vi.spyOn(authApi, 'validateTwoFactor').mockResolvedValueOnce({
+      id: 10,
+      username: 'hq_master',
+      first_name: 'Master',
+      last_name: 'HQ',
+      email: 'master@bronx.internal',
+      role: 'HQ ADMIN',
+      company_id: 1,
+      auth: {
+        token_type: 'Bearer',
+        access_token: 'hq_master_final_token',
+      },
+    });
+
+    const successVerify = await authStore.verifyTwoFactor('123456', { rememberDevice: true });
+    expect(successVerify).toBe(true);
+    expect(authStore.hasPendingTwoFactor).toBe(false);
+    expect(authStore.token).toBe('hq_master_final_token');
+    expect(localStorage.getItem('bronx_access_token')).toBe('hq_master_final_token');
+    expect(localStorage.getItem('bronx_trusted_device_hq_master')).toBeTruthy();
+  });
+
+  it('cancelTwoFactor clears pending session and resets state', async () => {
+    const authStore = useAuthStore();
+
+    vi.spyOn(authApi, 'generateToken').mockResolvedValue({
+      access_token: 'temp_tok',
+      success: true,
+    });
+
+    vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
+      username: 'hq_user',
+      role: 'HQ ADMIN',
+      success: true,
+    });
+
+    await authStore.login('hq_user', 'password');
+    expect(authStore.hasPendingTwoFactor).toBe(true);
+
+    authStore.cancelTwoFactor();
+    expect(authStore.hasPendingTwoFactor).toBe(false);
+    expect(authStore.pendingTwoFactor).toBeNull();
+    expect(sessionStorage.getItem('bronx_pending_2fa')).toBeNull();
+  });
+
+  it('resendTwoFactorCode extends expiry window', async () => {
+    const authStore = useAuthStore();
+
+    vi.spyOn(authApi, 'generateToken').mockResolvedValue({
+      access_token: 'temp_tok',
+      success: true,
+    });
+
+    vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
+      username: 'hq_user',
+      role: 'HQ ADMIN',
+      success: true,
+    });
+
+    await authStore.login('hq_user', 'password');
+    const oldExpiresAt = authStore.pendingTwoFactor?.expiresAt || 0;
+
+    const resendRes = await authStore.resendTwoFactorCode();
+    expect(resendRes.success).toBe(true);
+    expect(authStore.pendingTwoFactor?.expiresAt).toBeGreaterThanOrEqual(oldExpiresAt);
   });
 });

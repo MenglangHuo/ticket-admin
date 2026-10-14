@@ -190,7 +190,7 @@ describe('telegramApi getSubscribers with pagination and search', () => {
       sort_dir: 'asc',
     });
 
-    expect(getSpy).toHaveBeenCalledWith('/tickets/telegram/subscribers', {
+    expect(getSpy).toHaveBeenCalledWith('/ticket/telegram/subscribers', {
       params: {
         page: 2,
         per_page: 5,

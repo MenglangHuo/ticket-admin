@@ -27,6 +27,7 @@
   - [Installation](#installation)
   - [Environment Setup](#environment-setup)
   - [Running Development Server](#running-development-server)
+- [Mock Data Mode & Diagnostics](#-mock-data-mode--diagnostics)
 - [Environment Variables Reference](#-environment-variables-reference)
 - [Role-Based Access Control (RBAC)](#-role-based-access-control-rbac)
 - [Available Scripts](#-available-scripts)
@@ -45,6 +46,13 @@ Engineered with **Vue 3 (Composition API)**, **TypeScript**, and **Tailwind CSS 
 ---
 
 ## ✨ Key Features
+
+### 🧪 Mock Data Engine & Zero-Backend Mode
+- **Zero-Backend Development**: Test and preview the entire administrative console immediately without running or provisioning backend services.
+- **Full Page Simulation**: Complete mock data coverage across Tickets, Dashboard Analytics, Telegram Settings, Connected Clients, and Login.
+- **Stateful In-Memory Store**: Add comments, create tickets, transition statuses, search, and generate invite links with reactive updates.
+- **Interactive Diagnostics Pill**: Switch between Mock Mode and Live Backend at runtime directly from the top navigation bar.
+- **One-Click Demo Authentication**: Instant sign-in buttons for `HQ ADMIN` and `BRANCH MANAGER` roles on the login screen.
 
 ### 📋 Multi-Modal Ticket Workspace
 - **Kanban Board**: Drag-and-drop cards across workflow columns (`Open`, `In Progress`, `Resolved`, `Closed`) with instant status transitions.
@@ -70,6 +78,10 @@ Engineered with **Vue 3 (Composition API)**, **TypeScript**, and **Tailwind CSS 
 - **Instant Escalation Alerts**: Dispatches incoming ticket alerts directly to private Telegram chats of on-call engineers.
 - **One-Click Invite Generation**: Generate cryptographically secured bot onboarding invite links on demand.
 - **Subscriber Directory**: Inspect active chat IDs, toggle notification subscriptions, and fire automated test pings.
+
+### 🔌 Connected API Clients Management (`/clients`)
+- **Integration Overview**: Inspect registered external consumer applications, authorized endpoints, and active security tokens.
+- **Rate Limit & Scope Auditing**: Monitor assigned requests-per-minute quotas and allowed ticket categories per client.
 
 ### 🌐 Public Client Ingestion Portal (`/client-ticket`)
 - Standalone self-service ticket intake portal for authenticated external clients using `X-Client-ID` and `X-Client-Secret` verification.
@@ -118,6 +130,10 @@ ticket-admin/
 │   │   ├── layout/         # Topbar, Sidebar, Notification & Toast containers
 │   │   ├── settings/       # Telegram bot config, subscribers table & invite form
 │   │   └── tickets/        # Kanban board, table view, modals & ticket cards
+│   ├── mocks/              # Mock data engine & offline development provider
+│   │   ├── config.ts       # Mock flag evaluator, localStorage sync & test isolation
+│   │   ├── mockService.ts  # Unified mock API service facade
+│   │   └── data/           # Realistic datasets (tickets, reports, settings, clients, auth)
 │   ├── router/             # Vue Router routes and authentication guards
 │   ├── stores/             # Pinia centralized stores
 │   │   ├── authStore.ts    # Authentication state, JWT tokens & RBAC permissions
@@ -187,12 +203,61 @@ Open your browser and navigate to:
 http://localhost:5173
 ```
 
+#### Option A: Quick Start with Mock Mode (Default)
+By default, `VITE_ENABLE_MOCK_DATA=true` is enabled in `.env`. You can explore and test all pages immediately without running a backend API:
+1. Navigate to `http://localhost:5173/login`.
+2. Click either **Demo HQ Admin** or **Demo Branch User** to sign in instantly, or use credentials:
+   - **HQ Admin**: `admin` / `password123`
+   - **Branch User**: `branch_user` / `password123`
+3. Explore Tickets, Dashboard Analytics, Telegram Subscribers, Connected API Clients, and the Client Portal.
+
+#### Option B: Connecting to a Live Backend
+1. In your `.env` file, set:
+   ```env
+   VITE_ENABLE_MOCK_DATA=false
+   VITE_API_BASE_URL=http://your-backend-api-host:8000/api/v1
+   VITE_AUTH_BASE_URL=http://your-backend-api-host:8000
+   ```
+2. Restart the dev server (`pnpm dev`) or use the in-app **API Mode Diagnostics** modal in the top navigation bar to toggle between modes on the fly.
+
+---
+
+## 🧪 Mock Data Mode & Diagnostics
+
+TicketAdmin features a comprehensive client-side mock data provider enabling zero-backend development, UI testing, and presentation demos.
+
+### What is Mocked?
+| Page / Area | Route | Mock Capabilities & Dataset |
+| :--- | :--- | :--- |
+| **Tickets Console** | `/tickets` | 12+ preloaded tickets (Bugs, Enhancements, Tasks) with realistic Khmer & English text, full-text search, column toggles, category/priority facets, comment threads, attachments, and Kanban drag-and-drop state. |
+| **Executive Dashboard** | `/dashboard` | Complete KPI summary cards, status donuts, priority breakdowns, top clients volume ranking, and interactive daily trend points. |
+| **Telegram Settings** | `/settings` | Telegram Bot status, 8 team subscribers with active/inactive notification toggles, test dispatch pings, and dynamic cryptographically formatted bot invite links. |
+| **Connected Clients** | `/clients` | 5 external API clients (POS Terminal, Mobile App, Payment Gateway, Webhook Dispatcher) with rate limit badges and authorized category tags. |
+| **Client Portal** | `/client-ticket` | Public ticket intake simulation with form validation, drag-and-drop file upload, and simulated confirmation receipts. |
+| **Authentication & 2FA** | `/login`, `/two-factor` | Primary credential auth, automatic RBAC role routing, dedicated **HQ Admin 2-Factor Authentication Checkpoint** with 6-digit OTP input, rate limiting, challenge expiration, and demo helpers. |
+
+### Runtime Switching & Diagnostics Modal
+You don't need to restart Vite when switching between mock data and your real backend:
+1. Click the status indicator pill in the Topbar:
+   - `Mock Data` (amber pill) indicates mock mode is active.
+   - `Live API` (emerald pill) indicates live backend requests are active.
+2. The **API & Backend Diagnostics Modal** opens with:
+   - An instant switch between **Mock Data Mode** and **Live Backend Mode**.
+   - A real-time **Backend Health Ping** button to check if your API server at `VITE_API_BASE_URL` is responsive.
+   - A **Reset to .env Defaults** button to clear browser overrides.
+3. Your selection persists in browser `localStorage` (`bronx_mock_data_enabled`).
+
+### Vitest Test Suite Isolation
+When running automated unit tests (`pnpm test:unit`), the mock provider automatically stays disabled (`import.meta.env.MODE === 'test'`) to ensure Axios network interceptors and backend error paths remain cleanly testable. Individual test suites can explicitly activate mock mode via `setMockDataOverride(true)` when needed.
+
 ---
 
 ## ⚙️ Environment Variables Reference
 
 | Variable | Type | Default Value | Description |
 | :--- | :--- | :--- | :--- |
+| `VITE_ENABLE_MOCK_DATA` | `boolean` | `true` | Enables client-side mock data provider across all pages without requiring a backend. |
+| `VITE_USE_MOCK_DATA` | `boolean` | `true` | Backward-compatible fallback alias for `VITE_ENABLE_MOCK_DATA`. |
 | `VITE_API_BASE_URL` | `string` | `http://127.0.0.1:8000/api/v1` | Base REST API URL for ticket, report, and subscriber endpoints. |
 | `VITE_AUTH_BASE_URL` | `string` | `http://127.0.0.1:8000` | Host URL for root auth endpoints (`/token`, `/login`, `/two-factor`). |
 | `VITE_API_SECRET` | `string` | `""` | Shared application secret used to retrieve temporary tokens via `POST /token`. |

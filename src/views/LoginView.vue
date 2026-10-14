@@ -31,7 +31,6 @@ const themeStore = useThemeStore()
 
 const username = ref('')
 const password = ref('')
-const twoFactorCode = ref('')
 const showPassword = ref(false)
 const isForgotModalOpen = ref(false)
 const forgotEmail = ref('')
@@ -53,14 +52,23 @@ function fillDemo(role: 'admin' | 'branch') {
 async function handleLogin() {
   if (!username.value || !password.value) return
 
-  const success = await authStore.login(username.value, password.value, twoFactorCode.value)
+  const success = await authStore.login(username.value, password.value)
   if (success) {
+    if (authStore.hasPendingTwoFactor) {
+      toastStore.info(
+        '2FA Verification Required',
+        'HQ Admin security policy requires two-factor authentication.',
+      )
+      router.push({ name: 'two-factor' })
+      return
+    }
+
     const roleName = authStore.user?.role || 'Staff'
     toastStore.success(
       'Welcome To Ticket System!',
       `Signed in as ${authStore.user?.first_name || 'User'} (${roleName})`,
     )
-    router.push('/tickets')
+    router.push('/ticket')
   } else {
     toastStore.error('Authentication Failed', authStore.error || 'Please check your credentials.')
   }
@@ -104,169 +112,135 @@ function handleForgotPassword() {
     <!-- ============================================================== -->
     <!-- TOP FLOATING BAR: THEME SWITCHER                               -->
     <!-- ============================================================== -->
+    <header
+      class="w-full max-w-7xl flex items-center justify-end absolute z-30 top-6 right-6 sm:right-8"
+    >
+      <div class="flex items-center gap-2">
+        <button
+          @click="themeStore.toggleTheme"
+          class="p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95"
+          :title="themeStore.isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+        >
+          <Sun v-if="themeStore.isDark" class="w-4 h-4 text-amber-400" />
+          <Moon v-else class="w-4 h-4 text-indigo-600" />
+        </button>
+      </div>
+    </header>
 
     <!-- ============================================================== -->
     <!-- MAIN CENTERED AUTHENTICATION CARD                              -->
     <!-- ============================================================== -->
-    <main class="w-full max-w-[420px] sm:max-w-[440px] relative z-20 my-auto py-6">
-      <header
-        class="w-full max-w-5xl flex items-center justify-end absolute z-20 top-6 right-4 py-3"
-      >
-        <div class="flex items-center gap-2">
-          <button
-            @click="themeStore.toggleTheme"
-            class="p-2 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95"
-            :title="themeStore.isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
-          >
-            <Sun v-if="themeStore.isDark" class="w-4 h-4 text-amber-400" />
-            <Moon v-else class="w-4 h-4 text-indigo-600" />
-          </button>
-        </div>
-      </header>
+    <main
+      class="w-full max-w-[580px] h-[80vh] min-h-[620px] max-h-[840px] relative z-20 my-auto py-2 flex flex-col justify-center"
+    >
       <!-- Card Container -->
       <div
-        class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl p-7 sm:p-9 border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/80 relative transition-all"
+        class="h-full w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-3xl p-8 sm:p-10 md:p-12 border border-slate-200/80 dark:border-slate-800/80 shadow-2xl shadow-indigo-950/10 dark:shadow-slate-950/80 relative transition-all flex flex-col justify-between overflow-y-auto"
       >
         <!-- Header / Brand Ticket Icon -->
-        <div class="text-center mb-7">
+        <div class="text-center pt-1 pb-1">
           <div
-            class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/25 ring-4 ring-indigo-500/10 dark:ring-indigo-400/10 mb-3.5 transition-transform hover:scale-105 duration-200"
+            class="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-indigo-600 via-indigo-600 to-violet-600 text-white shadow-xl shadow-indigo-600/25 ring-4 ring-indigo-500/10 dark:ring-indigo-400/10 mb-4 transition-transform hover:scale-105 duration-200"
           >
-            <Ticket class="w-7 h-7 text-white stroke-[2.2] -rotate-6" />
+            <Ticket class="w-8 h-8 sm:w-10 sm:h-10 text-white stroke-[2.2] -rotate-6" />
           </div>
-          <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1
+            class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white"
+          >
             Ticket Admin
           </h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
             Sign in to Ticket System Admin Portal
           </p>
         </div>
 
         <!-- Login Form -->
-        <form @submit.prevent="handleLogin" class="space-y-4">
+        <form @submit.prevent="handleLogin" class="space-y-5 my-auto py-2">
           <!-- Username / Email Field -->
           <BaseInput
+            id="username"
+            name="username"
+            autocomplete="username"
+            enterkeyhint="next"
             v-model="username"
             label="Username"
             type="text"
             required
             placeholder="Enter your username"
-            size="md"
+            size="lg"
             :icon="User"
           />
 
           <!-- Password Field with Toggle & Forgot Password Link -->
           <BaseInput
+            id="current-password"
+            name="password"
+            autocomplete="current-password"
+            enterkeyhint="done"
             v-model="password"
             :type="showPassword ? 'text' : 'password'"
             label="Password"
             required
             placeholder="••••••••••••"
-            size="md"
+            size="lg"
             :icon="Lock"
           >
-            <!-- <template #label-right>
-              <button
-                type="button"
-                @click="isForgotModalOpen = true"
-                class="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 hover:underline cursor-pointer"
-              >
-                Forgot password?
-              </button>
-            </template> -->
             <template #suffix>
               <button
                 type="button"
                 @click="showPassword = !showPassword"
-                class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer transition-colors"
+                class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 cursor-pointer transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
                 :title="showPassword ? 'Hide password' : 'Show password'"
+                :aria-label="showPassword ? 'Hide password' : 'Show password'"
               >
-                <EyeOff v-if="showPassword" class="w-4 h-4" />
-                <Eye v-else class="w-4 h-4" />
+                <EyeOff v-if="showPassword" class="w-5 h-5" />
+                <Eye v-else class="w-5 h-5" />
               </button>
             </template>
           </BaseInput>
 
-          <!-- Remember Me & 2FA Helper Row -->
-          <!-- <div class="flex items-center justify-between text-xs pt-0.5">
-            <label
-              class="flex items-center gap-2 cursor-pointer select-none text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-            >
-              <input
-                type="checkbox"
-                v-model="rememberMe"
-                class="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500/20 dark:bg-slate-950 transition-colors cursor-pointer"
-              />
-              <span>Remember this device</span>
-            </label>
-
-            <button
-              type="button"
-              @click="showTwoFactorAdvanced = !showTwoFactorAdvanced"
-              class="text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              <span>2FA Code</span>
-              <ChevronUp v-if="showTwoFactorAdvanced" class="w-3 h-3" />
-              <ChevronDown v-else class="w-3 h-3" />
-            </button>
-          </div> -->
-
-          <!-- Expandable 2FA Security Code Field -->
-          <!-- <div
-            v-if="showTwoFactorAdvanced"
-            class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200/80 dark:border-slate-800 space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150"
-          >
-            <BaseInput
-              v-model="twoFactorCode"
-              label="2FA Security Code"
-              type="text"
-              placeholder="000000"
-              size="sm"
-              :icon="KeyRound"
-            />
-            <p class="text-[10px] text-slate-400 dark:text-slate-500">
-              Default verification code: <code class="font-mono text-indigo-500 font-semibold">000000</code>
-            </p>
-          </div> -->
-
           <!-- Error Message Alert -->
           <div
             v-if="authStore.error"
-            class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2.5 shadow-xs text-left"
+            class="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs sm:text-sm flex items-center gap-3 shadow-xs text-left"
           >
-            <AlertCircle class="w-4 h-4 shrink-0 text-rose-500" />
+            <AlertCircle class="w-5 h-5 shrink-0 text-rose-500" />
             <span class="font-medium leading-relaxed">{{ authStore.error }}</span>
           </div>
 
           <!-- Mock Mode Demo Banner -->
           <div
             v-if="isMockEnabled"
-            class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs space-y-2 text-left"
+            class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-200 text-xs space-y-2.5 text-left"
           >
             <div class="flex items-center justify-between">
-              <span class="font-semibold flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-200">
-                <Sparkles class="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span
+                class="font-semibold flex items-center gap-2 text-xs sm:text-sm text-amber-900 dark:text-amber-100"
+              >
+                <Sparkles class="w-4 h-4 text-amber-500 shrink-0" />
                 Mock Mode Active (.env)
               </span>
-              <span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/20 font-bold text-amber-800 dark:text-amber-200">
+              <span
+                class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-md bg-amber-500/20 font-bold text-amber-800 dark:text-amber-200"
+              >
                 DEMO
               </span>
             </div>
-            <p class="text-[11px] text-slate-600 dark:text-slate-400">
-              Backend API is mocked. Click below to sign in instantly:
+            <p class="text-xs text-slate-600 dark:text-slate-400">
+              Backend API is mocked. Select a test account below:
             </p>
-            <div class="flex gap-2 pt-0.5">
+            <div class="flex gap-2.5 pt-1">
               <button
                 type="button"
                 @click="fillDemo('admin')"
-                class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 dark:text-amber-100 text-xs font-semibold transition-colors text-center cursor-pointer shadow-2xs"
+                class="flex-1 py-2 px-3 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-900 dark:text-indigo-200 text-xs sm:text-sm font-semibold transition-all text-center cursor-pointer shadow-2xs border border-indigo-500/20 hover:scale-[1.01] active:scale-[0.99]"
               >
-                Demo HQ Admin
+                Demo HQ Admin (2FA)
               </button>
               <button
                 type="button"
                 @click="fillDemo('branch')"
-                class="flex-1 py-1.5 px-2 rounded-lg bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold transition-colors text-center cursor-pointer shadow-2xs"
+                class="flex-1 py-2 px-3 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-semibold transition-all text-center cursor-pointer shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
               >
                 Demo Branch User
               </button>
@@ -277,24 +251,22 @@ function handleForgotPassword() {
           <button
             type="submit"
             :disabled="authStore.isLoading"
-            class="w-full h-11 px-4 rounded-xl font-semibold text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 shadow-sm shadow-indigo-600/25 hover:shadow-indigo-600/40 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-4"
+            class="w-full h-12 sm:h-13 px-5 rounded-xl font-semibold text-sm sm:text-base text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/40 active:scale-[0.99] transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
           >
-            <Loader2 v-if="authStore.isLoading" class="w-4 h-4 animate-spin" />
+            <Loader2 v-if="authStore.isLoading" class="w-5 h-5 animate-spin" />
             <span>{{ authStore.isLoading ? 'Authenticating...' : 'Sign In to Admin Portal' }}</span>
-            <ArrowRight v-if="!authStore.isLoading" class="w-4 h-4" />
+            <ArrowRight v-if="!authStore.isLoading" class="w-5 h-5" />
           </button>
         </form>
 
         <!-- Role-Based Quick Test Accounts Helper -->
-        <div class="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800/80">
-          <footer
-            class="w-full max-w-md text-center text-xs text-slate-400 dark:text-slate-500 relative z-20 pb-2"
-          >
-            <div class="flex items-center justify-center gap-1.5 mb-1.5 font-medium">
-              <ShieldCheck class="w-3.5 h-3.5 text-emerald-500" />
+        <div class="pt-4 border-t border-slate-100 dark:border-slate-800/80">
+          <footer class="w-full text-center text-xs text-slate-400 dark:text-slate-500">
+            <div class="flex items-center justify-center gap-2 mb-2 font-medium">
+              <ShieldCheck class="w-4 h-4 text-emerald-500" />
               <span>End-to-End SSL • Multi-Tenant Enterprise Security</span>
             </div>
-            <div class="flex items-center justify-center gap-3 text-[11px]">
+            <div class="flex items-center justify-center gap-3 text-xs">
               <a href="#" class="hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                 >Privacy Policy</a
               >
@@ -349,12 +321,16 @@ function handleForgotPassword() {
 
         <form @submit.prevent="handleForgotPassword" class="space-y-4">
           <BaseInput
+            id="forgot-email"
+            name="email"
+            autocomplete="email"
+            enterkeyhint="send"
             v-model="forgotEmail"
             label="Corporate Email Address"
             type="email"
             required
             placeholder="admin@bronx.internal"
-            size="md"
+            size="lg"
             :icon="Mail"
           />
 

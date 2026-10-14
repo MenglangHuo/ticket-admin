@@ -28,7 +28,7 @@ export const reportApi = {
     if (params.refresh) cleanParams.refresh = 1;
 
     const response = await apiClient.get<{ data?: DashboardReportsResponse } & DashboardReportsResponse>(
-      '/tickets/reports',
+      '/ticket/reports',
       {
         params: cleanParams,
         signal: params.signal,

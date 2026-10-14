@@ -99,7 +99,7 @@ export const telegramApi = {
       if (params.sort_dir) cleanParams.sort_dir = params.sort_dir;
     }
 
-    const response = await apiClient.get<any>('/tickets/telegram/subscribers', {
+    const response = await apiClient.get<any>('/ticket/telegram/subscribers', {
       params: cleanParams,
     });
     const resData = response.data;
@@ -156,7 +156,7 @@ export const telegramApi = {
     if (mockService.isMockDataEnabled()) {
       return mockService.generateInviteLink();
     }
-    const response = await apiClient.post<TelegramInviteResponse>('/tickets/telegram/invite-link');
+    const response = await apiClient.post<TelegramInviteResponse>('/ticket/telegram/invite-link');
     const resData: any = response.data;
     if (resData?.invite_url) {
       return resData.invite_url;
@@ -172,33 +172,33 @@ export const telegramApi = {
 
   /**
    * Remove or soft-deactivate a subscriber by their Telegram chat ID.
-   * Endpoint: DELETE /tickets/telegram/subscribers/{chatId}
+   * Endpoint: DELETE /ticket/telegram/subscribers/{chatId}
    */
   async removeSubscriber(chatId: string): Promise<void> {
     if (mockService.isMockDataEnabled()) {
       mockService.removeSubscriber(chatId);
       return;
     }
-    await apiClient.delete<TelegramActionResponse>(`/tickets/telegram/subscribers/${chatId}`);
+    await apiClient.delete<TelegramActionResponse>(`/ticket/telegram/subscribers/${chatId}`);
   },
 
   /**
    * Send direct test notification to a subscriber's Telegram chat.
-   * Endpoint: POST /tickets/telegram/subscribers/{chatId}/test
+   * Endpoint: POST /ticket/telegram/subscribers/{chatId}/test
    */
   async sendTestNotification(chatId: string): Promise<TelegramActionResponse> {
     if (mockService.isMockDataEnabled()) {
       return { data: null, success: true, message: 'Test notification delivered successfully (Mock Mode)' };
     }
     const response = await apiClient.post<TelegramActionResponse>(
-      `/tickets/telegram/subscribers/${chatId}/test`
+      `/ticket/telegram/subscribers/${chatId}/test`
     );
     return response.data;
   },
 
   /**
    * Enable or disable Telegram notifications on ticket creation for a subscriber (updates is_active field).
-   * Endpoint: PATCH /tickets/telegram/subscribers/{chatId}/status
+   * Endpoint: PATCH /ticket/telegram/subscribers/{chatId}/status
    */
   async updateSubscriberStatus(chatId: string, isActive?: boolean): Promise<TelegramSubscriber> {
     if (mockService.isMockDataEnabled()) {
@@ -212,20 +212,20 @@ export const telegramApi = {
       };
     }
     const payload = isActive !== undefined ? { is_active: isActive } : {};
-    const response = await apiClient.patch<any>(`/tickets/telegram/subscribers/${chatId}/status`, payload);
+    const response = await apiClient.patch<any>(`/ticket/telegram/subscribers/${chatId}/status`, payload);
     const resData = response.data;
     return resData?.data || resData;
   },
 
   /**
    * Fetch consolidated Telegram statistics in a single API call.
-   * Endpoint: GET /tickets/telegram/counts
+   * Endpoint: GET /ticket/telegram/counts
    */
   async getCounts(): Promise<TelegramCounts> {
     if (mockService.isMockDataEnabled()) {
       return mockService.getTelegramCounts();
     }
-    const response = await apiClient.get<any>('/tickets/telegram/counts');
+    const response = await apiClient.get<any>('/ticket/telegram/counts');
     const resData: any = response.data?.data || response.data || {};
     const totalSubscribers = Number(
       resData.totalSubscribers ?? resData.total_subscribers ?? 0
@@ -245,13 +245,13 @@ export const telegramApi = {
 
   /**
    * Fetch total count of Telegram bot invites generated for tenant company.
-   * Endpoint: GET /tickets/telegram/invites/total-count
+   * Endpoint: GET /ticket/telegram/invites/total-count
    */
   async getTotalInviteCount(): Promise<number> {
     if (mockService.isMockDataEnabled()) {
       return mockService.getTelegramCounts().totalTelegramInvites;
     }
-    const response = await apiClient.get<TelegramCountResponse>('/tickets/telegram/invites/total-count');
+    const response = await apiClient.get<TelegramCountResponse>('/ticket/telegram/invites/total-count');
     const resData: any = response.data;
     if (typeof resData?.total === 'number') return resData.total;
     if (typeof resData?.count === 'number') return resData.count;
@@ -263,13 +263,13 @@ export const telegramApi = {
 
   /**
    * Fetch total count of registered Telegram subscribers for tenant company.
-   * Endpoint: GET /tickets/telegram/subscribers/total-count
+   * Endpoint: GET /ticket/telegram/subscribers/total-count
    */
   async getTotalSubscribersCount(): Promise<number> {
     if (mockService.isMockDataEnabled()) {
       return mockService.getTelegramCounts().totalSubscribers;
     }
-    const response = await apiClient.get<TelegramCountResponse>('/tickets/telegram/subscribers/total-count');
+    const response = await apiClient.get<TelegramCountResponse>('/ticket/telegram/subscribers/total-count');
     const resData: any = response.data;
     if (typeof resData?.total === 'number') return resData.total;
     if (typeof resData?.count === 'number') return resData.count;

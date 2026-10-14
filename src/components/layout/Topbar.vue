@@ -25,7 +25,9 @@ const searchInputRef = ref<HTMLInputElement | null>(null)
 const avatarImgError = ref<boolean>(false)
 
 const isDashboard = computed(() => route.path === '/dashboard')
-const isTickets = computed(() => route.path === '/tickets' || route.path === '/')
+const isTickets = computed(
+  () => route.path === '/ticket' || route.path === '/tickets' || route.path === '/',
+)
 const isClients = computed(() => route.path === '/clients')
 const isSettings = computed(() => route.path === '/settings')
 
@@ -136,7 +138,7 @@ onUnmounted(() => {
     <!-- Right Controls: Switch Mode Icon & Profile User -->
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
       <!-- Mock Mode / Live API Diagnostics Indicator Badge -->
-      <button
+      <!-- <button
         type="button"
         @click="isApiModalOpen = true"
         class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium border transition-colors cursor-pointer"
@@ -154,7 +156,7 @@ onUnmounted(() => {
         <span class="text-[11px] font-semibold hidden sm:inline">
           {{ ticketStore.isMockDataActive ? 'Mock Data' : 'Live API' }}
         </span>
-      </button>
+      </button> -->
 
       <!-- Light / Dark Mode Toggle -->
       <button

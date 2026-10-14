@@ -9,7 +9,7 @@
   },
   "rules": {
     "no-unused-vars": "error",
-    "vue/no-unused-components": "error",
-    "vue/no-unused-vars": "error"
+    "vitest/require-mock-type-parameters": "off",
+    "vitest/no-conditional-expect": "off"
   }
 }

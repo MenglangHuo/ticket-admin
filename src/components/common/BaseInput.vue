@@ -10,7 +10,11 @@ withDefaults(
     icon?: any
     disabled?: boolean
     required?: boolean
-    size?: 'sm' | 'md'
+    size?: 'sm' | 'md' | 'lg'
+    id?: string
+    name?: string
+    autocomplete?: string
+    enterkeyhint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send'
   }>(),
   {
     type: 'text',
@@ -40,10 +44,13 @@ function onInput(event: Event) {
     >
       <label
         v-if="label || $slots.label"
+        :for="id"
         class="block"
         :class="
           labelClass ||
-          'text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300'
+          (size === 'lg'
+            ? 'text-xs sm:text-sm font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300'
+            : 'text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300')
         "
       >
         <slot name="label">{{ label }}</slot>
@@ -58,20 +65,31 @@ function onInput(event: Event) {
       <component
         v-if="icon"
         :is="icon"
-        class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 shrink-0 pointer-events-none"
+        class="text-slate-400 absolute top-1/2 -translate-y-1/2 shrink-0 pointer-events-none transition-colors"
+        :class="size === 'lg' ? 'w-5 h-5 left-4' : 'w-4 h-4 left-3.5'"
       />
 
       <input
+        :id="id"
+        :name="name"
         :type="type"
         :value="modelValue"
         :placeholder="placeholder"
         :disabled="disabled"
         :required="required"
+        :autocomplete="autocomplete"
+        :enterkeyhint="enterkeyhint"
         @input="onInput"
         class="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 rounded-xl border transition-all focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         :class="[
-          icon ? 'pl-10' : 'pl-3.5',
-          size === 'md' ? 'h-10 text-sm pr-4' : 'h-8 text-xs pr-3',
+          icon
+            ? (size === 'lg' ? 'pl-12' : (size === 'md' ? 'pl-10' : 'pl-9'))
+            : (size === 'lg' ? 'pl-4' : 'pl-3.5'),
+          size === 'lg'
+            ? ($slots.suffix ? 'h-12 sm:h-13 text-sm sm:text-base pr-12' : 'h-12 sm:h-13 text-sm sm:text-base pr-4')
+            : size === 'md'
+              ? ($slots.suffix ? 'h-10 text-sm pr-10' : 'h-10 text-sm pr-4')
+              : ($slots.suffix ? 'h-8 text-xs pr-8' : 'h-8 text-xs pr-3'),
           error
             ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20'
             : 'border-slate-200 dark:border-slate-800',
@@ -79,7 +97,11 @@ function onInput(event: Event) {
       />
 
       <!-- Suffix Slot -->
-      <div v-if="$slots.suffix" class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+      <div
+        v-if="$slots.suffix"
+        class="absolute top-1/2 -translate-y-1/2 flex items-center"
+        :class="size === 'lg' ? 'right-3.5' : 'right-3'"
+      >
         <slot name="suffix" />
       </div>
     </div>

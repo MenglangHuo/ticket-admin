@@ -205,3 +205,37 @@ export function sanitizeHtml(dirtyHtml?: string | null): string {
     return escapeHtml(trimmed);
   }
 }
+
+/**
+ * Masks an email address for privacy and shoulder-surfing protection in security challenge screens.
+ * e.g. "admin@bronx.internal" -> "a***n@bronx.internal"
+ * e.g. "menglang@bronx.internal" -> "m***g@bronx.internal"
+ */
+export function maskEmail(email?: string | null): string {
+  if (!email || typeof email !== 'string') return '';
+  const trimmed = email.trim();
+  const atIndex = trimmed.indexOf('@');
+  if (atIndex <= 0) return trimmed;
+
+  const localPart = trimmed.slice(0, atIndex);
+  const domainPart = trimmed.slice(atIndex);
+
+  if (localPart.length <= 2) {
+    return `${localPart[0]}*${domainPart}`;
+  }
+  return `${localPart[0]}***${localPart[localPart.length - 1]}${domainPart}`;
+}
+
+/**
+ * Masks a phone number for privacy in 2FA delivery messages.
+ * e.g. "010 334 556" -> "010 ••• •56"
+ */
+export function maskPhone(phone?: string | null): string {
+  if (!phone || typeof phone !== 'string') return '';
+  const trimmed = phone.trim();
+  if (trimmed.length <= 4) return '••••';
+
+  const last2 = trimmed.slice(-2);
+  const first3 = trimmed.slice(0, 3);
+  return `${first3} ••• •${last2}`;
+}

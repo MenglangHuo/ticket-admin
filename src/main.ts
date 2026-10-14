@@ -15,4 +15,8 @@ app.use(router)
 const themeStore = useThemeStore()
 themeStore.initTheme()
 
-app.mount('#app')
+// Wait until router has resolved the initial route before mounting
+// This completely prevents flashes of the admin template on standalone pages (e.g. /login, /two-factor)
+router.isReady().then(() => {
+  app.mount('#app')
+})

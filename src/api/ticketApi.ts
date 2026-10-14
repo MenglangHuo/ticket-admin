@@ -118,7 +118,7 @@ export const ticketApi = {
     if (params.sort_by) cleanParams.sort_by = params.sort_by;
     if (params.sort_dir) cleanParams.sort_dir = params.sort_dir;
 
-    const response = await apiClient.get<TicketListResponse>('/tickets', { params: cleanParams });
+    const response = await apiClient.get<TicketListResponse>('/ticket', { params: cleanParams });
     return response.data;
   },
 
@@ -126,7 +126,7 @@ export const ticketApi = {
     if (mockService.isMockDataEnabled()) {
       return mockService.getTicketById(id);
     }
-    const response = await apiClient.get<TicketSingleResponse>(`/tickets/${id}`);
+    const response = await apiClient.get<TicketSingleResponse>(`/ticket/${id}`);
     return response.data;
   },
 
@@ -145,7 +145,7 @@ export const ticketApi = {
     if (mockService.isMockDataEnabled()) {
       return mockService.createTicket(payload);
     }
-    const response = await apiClient.post<TicketSingleResponse>('/tickets', payload);
+    const response = await apiClient.post<TicketSingleResponse>('/ticket', payload);
     return response.data;
   },
 
@@ -162,7 +162,7 @@ export const ticketApi = {
     if (mockService.isMockDataEnabled()) {
       return mockService.updateTicket(id, data);
     }
-    const response = await apiClient.put<TicketSingleResponse>(`/tickets/${id}`, data);
+    const response = await apiClient.put<TicketSingleResponse>(`/ticket/${id}`, data);
     return response.data;
   },
 
@@ -170,7 +170,7 @@ export const ticketApi = {
     if (mockService.isMockDataEnabled()) {
       return mockService.deleteTicket(id);
     }
-    const response = await apiClient.delete<{ success: boolean; message: string }>(`/tickets/${id}`);
+    const response = await apiClient.delete<{ success: boolean; message: string }>(`/ticket/${id}`);
     return response.data;
   },
 
@@ -194,7 +194,7 @@ export const ticketApi = {
     });
 
     const response = await apiClient.post<{ data: Attachment[]; success: boolean }>(
-      `/tickets/${ticketId}/attachments`,
+      `/ticket/${ticketId}/attachments`,
       formData,
       {
         headers: {
@@ -210,7 +210,7 @@ export const ticketApi = {
       return { success: true, message: 'Attachment deleted successfully (Mock Mode)' };
     }
     const response = await apiClient.delete<{ success: boolean; message: string }>(
-      `/tickets/${ticketId}/attachments/${attachmentId}`
+      `/ticket/${ticketId}/attachments/${attachmentId}`
     );
     return response.data;
   },
@@ -223,7 +223,7 @@ export const ticketApi = {
       return mockService.getTicketComments(ticketId);
     }
     const response = await apiClient.get<{ data: TicketComment[]; success: boolean; message?: string }>(
-      `/tickets/${ticketId}/comments`,
+      `/ticket/${ticketId}/comments`,
       { params }
     );
     return response.data;
@@ -249,7 +249,7 @@ export const ticketApi = {
         formData.append('files[]', file);
       });
       const response = await apiClient.post<{ data: TicketComment; success: boolean; message?: string }>(
-        `/tickets/${ticketId}/comments`,
+        `/ticket/${ticketId}/comments`,
         formData,
         {
           headers: {
@@ -261,7 +261,7 @@ export const ticketApi = {
     }
 
     const response = await apiClient.post<{ data: TicketComment; success: boolean; message?: string }>(
-      `/tickets/${ticketId}/comments`,
+      `/ticket/${ticketId}/comments`,
       {
         body: payload.body,
         is_internal: payload.is_internal,
@@ -290,7 +290,7 @@ export const ticketApi = {
       };
     }
     const response = await apiClient.put<{ data: TicketComment; success: boolean; message?: string }>(
-      `/tickets/${ticketId}/comments/${commentId}`,
+      `/ticket/${ticketId}/comments/${commentId}`,
       payload
     );
     return response.data;
@@ -304,7 +304,7 @@ export const ticketApi = {
       return mockService.deleteTicketComment(ticketId, commentId);
     }
     const response = await apiClient.delete<{ success: boolean; message: string }>(
-      `/tickets/${ticketId}/comments/${commentId}`
+      `/ticket/${ticketId}/comments/${commentId}`
     );
     return response.data;
   },
@@ -324,7 +324,7 @@ export const ticketApi = {
     if (isFormData) {
       headers['Content-Type'] = 'multipart/form-data';
     }
-    const response = await apiClient.post<TicketSingleResponse>('/client/tickets', payload, {
+    const response = await apiClient.post<TicketSingleResponse>('/ticket/client', payload, {
       headers,
     });
     return response.data;

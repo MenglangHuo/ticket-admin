@@ -52,7 +52,7 @@ const navItems = computed(() => [
   {
     name: 'Tickets',
     description: 'Board & Live Queue',
-    path: '/tickets',
+    path: '/ticket',
     icon: KanbanSquare,
     badge: null,
   },

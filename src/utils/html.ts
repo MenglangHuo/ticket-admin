@@ -17,7 +17,7 @@ export function formatHtmlPreview(html?: string | null, maxLength = 120): string
     // 1. Replace block-level tags and line breaks with a space to avoid words colliding
     text = text
       .replace(/<\/(p|div|li|h[1-6]|tr|blockquote|section|article)>/gi, ' ')
-      .replace(/<br\s*[\/]?>/gi, ' ');
+      .replace(/<br\s*[/]?>/gi, ' ');
 
     // 2. Strip remaining HTML tags
     text = text.replace(/<[^>]+>/g, '');

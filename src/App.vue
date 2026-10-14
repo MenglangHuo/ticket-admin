@@ -9,11 +9,24 @@ const route = useRoute()
 const isMobileSidebarOpen = ref<boolean>(false)
 
 const isStandaloneRoute = computed(() => {
+  if (route.meta?.standalone) return true
+
+  const currentPath =
+    route.path && route.path !== '/'
+      ? route.path
+      : typeof window !== 'undefined'
+        ? window.location.pathname
+        : ''
+  const currentName = route.name as string | undefined
+
   return (
-    route.name === 'login' ||
-    route.path === '/login' ||
-    route.name === 'client-ticket' ||
-    route.path === '/client-ticket'
+    currentName === 'login' ||
+    currentName === 'two-factor' ||
+    currentName === 'client-ticket' ||
+    currentPath === '/login' ||
+    currentPath === '/two-factor' ||
+    currentPath === '/two_factor' ||
+    currentPath === '/client-ticket'
   )
 })
 

@@ -1,13 +1,13 @@
 import axios from 'axios';
 
-// Default base URL points to Laravel dev-apis backend (/api or /api/v1)
-const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
-export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
+// Default base URL points to Laravel dev-apis backend (/api)
+const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '').replace(/\/v\d+$/, '').replace(/\/ticket$/, '');
 
-// Auth base URL for root auth endpoints: /token, /login, /two-factor (NO /api or /v1 prefix, e.g. http://127.0.0.1:8000)
+// Auth base URL for root auth endpoints: /token, /login, /two-factor (NO /api prefix, e.g. http://127.0.0.1:8000)
 export const AUTH_BASE_URL = (
   import.meta.env.VITE_AUTH_BASE_URL ||
-  API_BASE_URL.replace(/\/api(\/v\d+)?$/, '')
+  API_BASE_URL.replace(/\/api(\/.*)?$/, '')
 ).replace(/\/+$/, '');
 
 // Backward-compatible alias

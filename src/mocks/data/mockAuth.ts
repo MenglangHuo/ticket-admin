@@ -69,6 +69,31 @@ export function mockLogin(credentials: { username: string; password?: string }):
 }
 
 export function mockValidateTwoFactor(params: { username: string; code?: string }): TwoFactorResponse {
+  const code = (params.code || '').trim();
+
+  // Simulate invalid code for testing failure states
+  if (code === '999999') {
+    const error: any = new Error('Invalid verification code');
+    error.response = {
+      status: 422,
+      data: {
+        message: 'Invalid two-factor verification code. Please check your authenticator and try again.',
+      },
+    };
+    throw error;
+  }
+
+  if (code && code.length !== 6) {
+    const error: any = new Error('Invalid verification code format');
+    error.response = {
+      status: 400,
+      data: {
+        message: 'Verification code must be exactly 6 digits.',
+      },
+    };
+    throw error;
+  }
+
   const user = JSON.parse(JSON.stringify(MOCK_ADMIN_USER)) as TwoFactorResponse;
   user.username = params.username || user.username;
   return user;

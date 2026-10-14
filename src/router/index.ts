@@ -7,17 +7,25 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
-      meta: { guestOnly: true },
+      meta: { guestOnly: true, standalone: true },
+    },
+    {
+      path: '/two-factor',
+      name: 'two-factor',
+      component: () => import('@/views/TwoFactorView.vue'),
+      meta: { requiresPendingTwoFactor: true, standalone: true },
+      alias: ['/two_factor'],
     },
     {
       path: '/',
-      redirect: '/tickets',
+      redirect: '/ticket',
     },
     {
-      path: '/tickets',
-      name: 'tickets',
+      path: '/ticket',
+      name: 'ticket',
       component: () => import('@/views/TicketsView.vue'),
       meta: { requiresAuth: true },
+      alias: ['/tickets'],
     },
     {
       path: '/dashboard',
@@ -41,11 +49,11 @@ const router = createRouter({
       path: '/client-ticket',
       name: 'client-ticket',
       component: () => import('@/views/ClientTicketView.vue'),
-      meta: { public: true },
+      meta: { public: true, standalone: true },
     },
     {
       path: '/:pathMatch(.*)*',
-      redirect: '/tickets',
+      redirect: '/ticket',
     },
   ],
 });
@@ -54,11 +62,34 @@ router.beforeEach((to) => {
   const token = localStorage.getItem('bronx_access_token');
   const isAuthenticated = !!token;
 
+  // Check if there is an active pending 2FA challenge
+  let hasPendingTwoFactor = false;
+  const pendingRaw = sessionStorage.getItem('bronx_pending_2fa');
+  if (pendingRaw) {
+    try {
+      const parsed = JSON.parse(pendingRaw);
+      hasPendingTwoFactor = !!(parsed && (!parsed.expiresAt || Date.now() <= parsed.expiresAt));
+    } catch {
+      hasPendingTwoFactor = false;
+    }
+  }
+
+  // If already authenticated and trying to visit login or two-factor
+  if (isAuthenticated && (to.meta.guestOnly || to.meta.requiresPendingTwoFactor)) {
+    return { name: 'ticket' };
+  }
+
+  // If page requires completed authentication
   if (to.meta.requiresAuth && !isAuthenticated) {
+    if (hasPendingTwoFactor) {
+      return { name: 'two-factor' };
+    }
     return { name: 'login' };
   }
-  if (to.meta.guestOnly && isAuthenticated) {
-    return { name: 'tickets' };
+
+  // If page requires pending two-factor verification
+  if (to.meta.requiresPendingTwoFactor && !hasPendingTwoFactor) {
+    return { name: 'login' };
   }
 });
 
