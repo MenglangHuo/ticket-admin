@@ -73,6 +73,7 @@ export interface Ticket {
   metadata?: TicketMetadata;
   attachments?: Attachment[];
   comments?: TicketComment[];
+  audits?: TicketAudit[];
   created_at: string;
   updated_at: string;
 }
@@ -107,6 +108,51 @@ export interface UpdateCommentPayload {
   body?: string;
   is_internal?: boolean;
   metadata?: Record<string, any>;
+}
+
+export interface TicketAuditEditor {
+  id: number;
+  name?: string | null;
+  profile_url?: string | null;
+  email?: string | null;
+}
+
+export interface TicketAuditDiffItem {
+  old: any;
+  new: any;
+}
+
+export interface TicketAudit {
+  id: number;
+  ticket_id: number;
+  company_id: number;
+  event: string;
+  editor?: TicketAuditEditor | null;
+  modified_fields: string[];
+  old_values: Record<string, any>;
+  new_values: Record<string, any>;
+  diff: Record<string, TicketAuditDiffItem>;
+  reason?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TicketAuditsResponse {
+  data: TicketAudit[] | { content: TicketAudit[]; pagination: TicketPagination };
+  success: boolean;
+  message?: string;
+}
+
+export interface UpdateTicketPayload {
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  type?: TicketType;
+  assignee_id?: number | null;
+  title?: string;
+  description?: string;
+  audit_reason?: string;
 }
 
 export interface PaginationMeta {

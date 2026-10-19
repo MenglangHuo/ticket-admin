@@ -87,6 +87,90 @@ describe('TicketDetailModal & TicketDetailDrawer Enhancements', () => {
       await copyButtons[0]!.trigger('click')
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Siem Reap Branch Office')
     })
+
+    it('switches title to input form and description to HtmlDescriptionEditor without opening new modal popup', async () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket, description: '<p>Initial description</p>' }
+      store.isDrawerOpen = true
+      store.isEditTicketModalOpen = false
+
+      const wrapper = mount(TicketDetailModal, {
+        global: {
+          stubs: {
+            teleport: true,
+            HtmlDescriptionViewer: true,
+            HtmlDescriptionEditor: true,
+            StatusDropdown: true,
+          },
+        },
+      })
+
+      // In view mode: title is in h2, no input
+      expect(wrapper.find('h2').text()).toContain(mockTicket.title)
+      expect(wrapper.find('input[placeholder="Enter ticket title..."]').exists()).toBe(false)
+
+      // Find and click 'Edit Ticket' button
+      const editBtn = wrapper.findAll('button').find((b) => b.text().includes('Edit Ticket'))
+      expect(editBtn).toBeDefined()
+      await editBtn!.trigger('click')
+
+      // Modal popup should NOT open
+      expect(store.isEditTicketModalOpen).toBe(false)
+
+      // Title should now be an input form populated with the title
+      const titleInput = wrapper.find('input[placeholder="Enter ticket title..."]')
+      expect(titleInput.exists()).toBe(true)
+      expect((titleInput.element as HTMLInputElement).value).toBe(mockTicket.title)
+
+      // Description should now be HtmlDescriptionEditor
+      expect(wrapper.findComponent({ name: 'HtmlDescriptionEditor' }).exists()).toBe(true)
+
+      // Clicking Cancel returns to view mode
+      const cancelBtn = wrapper.findAll('button').find((b) => b.text().includes('Cancel'))
+      expect(cancelBtn).toBeDefined()
+      await cancelBtn!.trigger('click')
+
+      expect(wrapper.find('h2').exists()).toBe(true)
+      expect(wrapper.find('input[placeholder="Enter ticket title..."]').exists()).toBe(false)
+    })
+
+    it('saves inline title and description edits via updateTicketDetails', async () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket, description: '<p>Old details</p>' }
+      store.isDrawerOpen = true
+      const updateSpy = vi.spyOn(store, 'updateTicketDetails').mockResolvedValue(true as any)
+
+      const wrapper = mount(TicketDetailModal, {
+        global: {
+          stubs: {
+            teleport: true,
+            HtmlDescriptionViewer: true,
+            HtmlDescriptionEditor: true,
+            StatusDropdown: true,
+          },
+        },
+      })
+
+      // Enter edit mode
+      const editBtn = wrapper.findAll('button').find((b) => b.text().includes('Edit Ticket'))
+      await editBtn!.trigger('click')
+
+      // Modify title
+      const titleInput = wrapper.find('input[placeholder="Enter ticket title..."]')
+      await titleInput.setValue('Updated Database Timeout Issue')
+
+      // Save changes
+      const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+      expect(saveBtn).toBeDefined()
+      await saveBtn!.trigger('click')
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        mockTicket.id,
+        expect.objectContaining({
+          title: 'Updated Database Timeout Issue',
+        }),
+      )
+    })
   })
 
   describe('TicketDetailDrawer', () => {
@@ -134,6 +218,44 @@ describe('TicketDetailModal & TicketDetailDrawer Enhancements', () => {
 
       await copyButtons[0]!.trigger('click')
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Siem Reap Branch Office')
+    })
+
+    it('switches title to input form and description to HtmlDescriptionEditor in drawer mode', async () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket, description: '<p>Initial description</p>' }
+      store.isDrawerOpen = true
+      store.isEditTicketModalOpen = false
+
+      const wrapper = mount(TicketDetailDrawer, {
+        global: {
+          stubs: {
+            teleport: true,
+            HtmlDescriptionViewer: true,
+            HtmlDescriptionEditor: true,
+            StatusDropdown: true,
+          },
+        },
+      })
+
+      // In view mode: title is in h2, no input
+      expect(wrapper.find('h2').text()).toContain(mockTicket.title)
+      expect(wrapper.find('input[placeholder="Enter ticket title..."]').exists()).toBe(false)
+
+      // Find and click 'Edit Ticket' button
+      const editBtn = wrapper.findAll('button').find((b) => b.text().includes('Edit Ticket'))
+      expect(editBtn).toBeDefined()
+      await editBtn!.trigger('click')
+
+      // Modal popup should NOT open
+      expect(store.isEditTicketModalOpen).toBe(false)
+
+      // Title should now be an input form
+      const titleInput = wrapper.find('input[placeholder="Enter ticket title..."]')
+      expect(titleInput.exists()).toBe(true)
+      expect((titleInput.element as HTMLInputElement).value).toBe(mockTicket.title)
+
+      // Description should now be HtmlDescriptionEditor
+      expect(wrapper.findComponent({ name: 'HtmlDescriptionEditor' }).exists()).toBe(true)
     })
   })
 })

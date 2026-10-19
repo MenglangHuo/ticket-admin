@@ -9,13 +9,19 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const port = Number(env.VITE_PORT) || 4000
-  const proxyTarget = (
+  let rawProxyTarget = (
     env.VITE_PROXY_TARGET ||
     env.PROXY_TARGET ||
     (env.VITE_AUTH_BASE_URL && env.VITE_AUTH_BASE_URL.startsWith('http') ? env.VITE_AUTH_BASE_URL : '') ||
     (env.VITE_API_BASE_URL && env.VITE_API_BASE_URL.startsWith('http') ? env.VITE_API_BASE_URL.replace(/\/api(\/.*)?$/, '') : '') ||
     'https://apix.bronxtechnology.site'
-  ).replace(/\/+$/, '')
+  ).trim().replace(/\/+$/, '')
+
+  if (rawProxyTarget && !/^https?:\/\//i.test(rawProxyTarget)) {
+    rawProxyTarget = `http://${rawProxyTarget}`
+  }
+  const proxyTarget = rawProxyTarget
+  console.log(`[vite] Reverse proxy target: ${proxyTarget}`)
 
   const proxyConfig = {
     '/api': {

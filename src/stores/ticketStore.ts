@@ -11,6 +11,8 @@ import type {
   TicketComment,
   CreateCommentPayload,
   UpdateCommentPayload,
+  TicketAudit,
+  UpdateTicketPayload,
 } from '@/types/ticket'
 import { ticketApi, type TicketFilterParams } from '@/api/ticketApi'
 import mockService from '@/mocks/mockService'
@@ -128,6 +130,13 @@ export const useTicketStore = defineStore('tickets', () => {
   const comments = ref<TicketComment[]>([])
   const isCommentsLoading = ref<boolean>(false)
   const isPostingComment = ref<boolean>(false)
+
+  // Audits & Edit State
+  const ticketAudits = ref<TicketAudit[]>([])
+  const isAuditsLoading = ref<boolean>(false)
+  const isEditTicketModalOpen = ref<boolean>(false)
+  const isSavingTicketEdit = ref<boolean>(false)
+  const activeDetailTab = ref<'discussion' | 'audits'>('discussion')
 
   // Modern Modal & Window State
   const detailViewMode = ref<'modal' | 'drawer'>('modal')
@@ -546,8 +555,9 @@ export const useTicketStore = defineStore('tickets', () => {
 
   // Optimistic Status Transition (for Kanban Drag-and-Drop and quick selects)
   async function transitionTicketStatus(
-    ticketId: number,
+    ticketId: number | string,
     newStatus: TicketStatus,
+    reason?: string,
   ): Promise<boolean> {
     if (!authStore.canManageStatus) {
       toastStore.warning(
@@ -557,7 +567,8 @@ export const useTicketStore = defineStore('tickets', () => {
       return false
     }
 
-    const targetTicket = tickets.value.find((t) => t.id === ticketId)
+    const numericId = typeof ticketId === 'number' ? ticketId : Number(ticketId)
+    const targetTicket = tickets.value.find((t) => t.id === numericId)
     if (!targetTicket) return false
 
     const oldStatus = targetTicket.status
@@ -565,7 +576,7 @@ export const useTicketStore = defineStore('tickets', () => {
 
     // 1. Client-side State Machine Pre-validation
     if (!isValidTransition(oldStatus, newStatus)) {
-      shakingTicketId.value = ticketId
+      shakingTicketId.value = isNaN(numericId) ? null : numericId
       setTimeout(() => {
         shakingTicketId.value = null
       }, 500)
@@ -633,7 +644,11 @@ export const useTicketStore = defineStore('tickets', () => {
     }
 
     try {
-      await ticketApi.updateTicket(ticketId, { status: newStatus })
+      const payload: UpdateTicketPayload = {
+        status: newStatus,
+        ...(reason ? { audit_reason: reason } : {}),
+      }
+      await ticketApi.updateTicket(ticketId, payload)
 
       const statusLabels: Record<TicketStatus, string> = {
         open: 'Open',
@@ -646,6 +661,15 @@ export const useTicketStore = defineStore('tickets', () => {
         `Ticket ${targetTicket.ticket_key} updated`,
         `Moved to ${statusLabels[newStatus]}`,
       )
+
+      // Immediately refresh audits if this ticket is currently open in detail modal/drawer
+      if (
+        selectedTicket.value &&
+        (selectedTicket.value.id === Number(ticketId) || String(selectedTicket.value.id) === String(ticketId))
+      ) {
+        await fetchTicketAudits(ticketId)
+      }
+
       return true
     } catch (err: any) {
       // 3. Rollback on API rejection (HTTP 422 or error)
@@ -674,7 +698,7 @@ export const useTicketStore = defineStore('tickets', () => {
         columnPages.value[newStatus].hasMore = rollNewLoaded < rollNewTotal
       }
 
-      shakingTicketId.value = ticketId
+      shakingTicketId.value = isNaN(numericId) ? null : numericId
       setTimeout(() => {
         shakingTicketId.value = null
       }, 500)
@@ -744,6 +768,8 @@ export const useTicketStore = defineStore('tickets', () => {
     isMinimized.value = false
     isDrawerLoading.value = true
     comments.value = []
+    ticketAudits.value = []
+    activeDetailTab.value = 'discussion'
 
     try {
       const response = await ticketApi.getTicketById(ticket.id)
@@ -754,6 +780,8 @@ export const useTicketStore = defineStore('tickets', () => {
       if (idx !== -1) {
         tickets.value[idx] = ticketData
       }
+      // Also fetch audits
+      await fetchTicketAudits(ticket.id)
     } catch (err) {
       console.error('Failed to load full ticket detail:', err)
     } finally {
@@ -774,6 +802,8 @@ export const useTicketStore = defineStore('tickets', () => {
         tickets.value[idx] = ticketData
       }
 
+      await fetchTicketAudits(ticketData.id)
+
       toastStore.success('Refreshed', 'Ticket details updated from server')
     } catch (err: any) {
       toastStore.error('Refresh Failed', err.response?.data?.message || err.message)
@@ -785,6 +815,58 @@ export const useTicketStore = defineStore('tickets', () => {
   function closeTicketDrawer() {
     isDrawerOpen.value = false
     isMinimized.value = false
+  }
+
+  // Audits Operations
+  async function fetchTicketAudits(ticketId: number | string) {
+    isAuditsLoading.value = true
+    try {
+      const response = await ticketApi.getTicketAudits(ticketId)
+      const data = response?.data
+      if (Array.isArray(data)) {
+        ticketAudits.value = data
+      } else if (data && typeof data === 'object' && Array.isArray((data as any).content)) {
+        ticketAudits.value = (data as any).content
+      } else {
+        ticketAudits.value = []
+      }
+    } catch (err: any) {
+      console.error('Failed to load ticket audits:', err)
+      ticketAudits.value = []
+    } finally {
+      isAuditsLoading.value = false
+    }
+  }
+
+  async function updateTicketDetails(
+    ticketId: number | string,
+    payload: UpdateTicketPayload
+  ): Promise<boolean> {
+    isSavingTicketEdit.value = true
+    try {
+      const response = await ticketApi.updateTicket(ticketId, payload)
+      const updated = (response as any).data || response
+
+      if (selectedTicket.value && selectedTicket.value.id === Number(ticketId)) {
+        selectedTicket.value = { ...selectedTicket.value, ...updated }
+      }
+
+      const idx = tickets.value.findIndex((t) => t.id === Number(ticketId))
+      if (idx !== -1) {
+        tickets.value[idx] = { ...tickets.value[idx], ...updated }
+      }
+
+      await fetchTicketAudits(ticketId)
+      toastStore.success('Ticket Updated', 'Modifications saved and logged to audit trail.')
+      isEditTicketModalOpen.value = false
+      return true
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to update ticket'
+      toastStore.error('Update Failed', msg)
+      return false
+    } finally {
+      isSavingTicketEdit.value = false
+    }
   }
 
   // Comments Operations
@@ -1123,5 +1205,12 @@ export const useTicketStore = defineStore('tickets', () => {
     addTicketComment,
     updateTicketComment,
     deleteTicketComment,
+    ticketAudits,
+    isAuditsLoading,
+    isEditTicketModalOpen,
+    isSavingTicketEdit,
+    activeDetailTab,
+    fetchTicketAudits,
+    updateTicketDetails,
   }
 })

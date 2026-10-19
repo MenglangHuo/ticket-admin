@@ -8,6 +8,8 @@ import type {
   TicketComment,
   CreateCommentPayload,
   Attachment,
+  TicketAudit,
+  UpdateTicketPayload,
 } from '@/types/ticket';
 import type { TicketFilterParams } from '@/api/ticketApi';
 
@@ -763,15 +765,71 @@ export function createMockTicket(
   };
 }
 
+const INITIAL_MOCK_AUDITS: Record<number, TicketAudit[]> = {
+  1: [
+    {
+      id: 1,
+      ticket_id: 1,
+      company_id: 1,
+      event: 'updated',
+      editor: {
+        id: 10,
+        name: 'Vannak Admin',
+        email: 'admin@dev.local',
+        profile_url: null,
+      },
+      modified_fields: ['title', 'description', 'priority'],
+      old_values: {
+        title: 'paymnt fail timeout qr',
+        description: 'Customer reported paying with qr code broke.',
+        priority: 'high',
+      },
+      new_values: {
+        title: 'Payment gateway timeout during QR Pay checkout',
+        description: '<h3>Issue Summary</h3><p>Customers at the Central Branch reported intermittent <strong>HTTP 504 Gateway Timeouts</strong> when confirming KHQR dynamic payment tokens.</p>',
+        priority: 'critical',
+      },
+      diff: {
+        title: {
+          old: 'paymnt fail timeout qr',
+          new: 'Payment gateway timeout during QR Pay checkout',
+        },
+        description: {
+          old: 'Customer reported paying with qr code broke.',
+          new: '<h3>Issue Summary</h3><p>Customers at the Central Branch reported intermittent <strong>HTTP 504 Gateway Timeouts</strong> when confirming KHQR dynamic payment tokens.</p>',
+        },
+        priority: {
+          old: 'high',
+          new: 'critical',
+        },
+      },
+      reason: 'Fixed grammatical typos in title, clarified steps to reproduce, and upgraded priority to critical.',
+      ip_address: '192.168.1.45',
+      user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      created_at: '2026-03-15 08:30:00',
+      updated_at: '2026-03-15 08:30:00',
+    },
+  ],
+};
+
+const mockAuditsState: Record<number, TicketAudit[]> = { ...INITIAL_MOCK_AUDITS };
+
+export function getMockTicketAudits(
+  ticketId: number | string,
+  _params: { page?: number; per_page?: number; field?: string } = {}
+) {
+  const numId = Number(ticketId);
+  const audits = mockAuditsState[numId] || [];
+  return {
+    success: true,
+    data: audits,
+    message: 'Audits retrieved successfully (Mock Mode)',
+  };
+}
+
 export function updateMockTicket(
   id: number | string,
-  data: {
-    status?: TicketStatus;
-    priority?: TicketPriority;
-    assignee_id?: number;
-    title?: string;
-    description?: string;
-  }
+  data: UpdateTicketPayload
 ): TicketSingleResponse {
   const numId = Number(id);
   const index = mockTicketsState.findIndex(
@@ -788,17 +846,93 @@ export function updateMockTicket(
   }
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-  if (data.status) existing.status = data.status;
-  if (data.priority) existing.priority = data.priority;
-  if (data.title) existing.title = data.title;
-  if (data.description !== undefined) {
+  // Capture diff for audit
+  const modifiedFields: string[] = [];
+  const oldValues: Record<string, any> = {};
+  const newValues: Record<string, any> = {};
+  const diff: Record<string, { old: any; new: any }> = {};
+
+  if (data.title && data.title !== existing.title) {
+    modifiedFields.push('title');
+    oldValues.title = existing.title;
+    newValues.title = data.title;
+    diff.title = { old: existing.title, new: data.title };
+    existing.title = data.title;
+  }
+
+  if (data.description !== undefined && data.description !== existing.description) {
+    modifiedFields.push('description');
+    oldValues.description = existing.description;
+    newValues.description = data.description;
+    diff.description = { old: existing.description, new: data.description };
     existing.description = data.description;
     existing.description_preview = data.description.replace(/<[^>]*>/g, '').substring(0, 120);
   }
+
+  if (data.priority && data.priority !== existing.priority) {
+    modifiedFields.push('priority');
+    oldValues.priority = existing.priority;
+    newValues.priority = data.priority;
+    diff.priority = { old: existing.priority, new: data.priority };
+    existing.priority = data.priority;
+  }
+
+  if (data.type && data.type !== existing.type) {
+    modifiedFields.push('type');
+    oldValues.type = existing.type;
+    newValues.type = data.type;
+    diff.type = { old: existing.type, new: data.type };
+    existing.type = data.type;
+  }
+
+  if (data.status && data.status !== existing.status) {
+    modifiedFields.push('status');
+    oldValues.status = existing.status;
+    newValues.status = data.status;
+    diff.status = { old: existing.status, new: data.status };
+    existing.status = data.status;
+  }
+
   if (data.assignee_id !== undefined) {
     existing.assignee = data.assignee_id ? { id: data.assignee_id, name: 'Sophea Kem' } : null;
   }
+
   existing.updated_at = now;
+
+  // Record audit if any auditable fields changed
+  if (modifiedFields.length > 0) {
+    if (!mockAuditsState[existing.id]) {
+      mockAuditsState[existing.id] = [];
+    }
+    const newAudit: TicketAudit = {
+      id: Math.floor(Math.random() * 100000) + 10,
+      ticket_id: existing.id,
+      company_id: 1,
+      event: modifiedFields.includes('status') && modifiedFields.length === 1 ? 'status_changed' : 'updated',
+      editor: {
+        id: 99,
+        name: 'Current Admin',
+        email: 'admin@bronx.test',
+        profile_url: null,
+      },
+      modified_fields: modifiedFields,
+      old_values: oldValues,
+      new_values: newValues,
+      diff,
+      reason:
+        data.audit_reason ||
+        (modifiedFields.includes('status') && modifiedFields.length === 1
+          ? `Status changed from '${oldValues.status}' to '${newValues.status}'`
+          : 'Updated ticket details and clarified information'),
+      ip_address: '127.0.0.1',
+      user_agent: 'Browser Client',
+      created_at: now,
+      updated_at: now,
+    };
+    const auditsList = mockAuditsState[existing.id] || [];
+    auditsList.unshift(newAudit);
+    mockAuditsState[existing.id] = auditsList;
+  }
 
   return {
     success: true,

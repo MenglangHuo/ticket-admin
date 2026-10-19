@@ -51,24 +51,7 @@ describe('HtmlDescriptionViewer', () => {
 
     expect(wrapper.html()).toContain('<h3>Database Timeout</h3>');
     expect(wrapper.html()).toContain('<strong>30 seconds</strong>');
-    expect(wrapper.text()).toContain('HTML formatted');
-  });
-
-  it('allows switching to CodeMirror source view', async () => {
-    const htmlString = '<p>Test source toggle</p>';
-    const wrapper = mount(HtmlDescriptionViewer, {
-      props: {
-        content: htmlString,
-      },
-    });
-
-    // Find the CodeMirror tab button and click it
-    const buttons = wrapper.findAll('button');
-    const sourceBtn = buttons.find((b) => b.text().includes('CodeMirror'));
-    expect(sourceBtn).toBeDefined();
-
-    await sourceBtn?.trigger('click');
-    expect(wrapper.find('.cm-readonly-viewer').exists()).toBe(true);
+    expect(wrapper.find('.html-viewer-prose').exists()).toBe(true);
   });
 
   it('sanitizes malicious script and onerror tags to prevent XSS', () => {

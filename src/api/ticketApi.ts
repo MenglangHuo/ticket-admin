@@ -3,15 +3,15 @@ import mockService from '@/mocks/mockService';
 import type {
   TicketListResponse,
   TicketSingleResponse,
-  TicketStatus,
-  TicketPriority,
   LoginResponse,
   TokenResponse,
   TwoFactorResponse,
   Attachment,
   TicketComment,
   CreateCommentPayload,
-  UpdateCommentPayload
+  UpdateCommentPayload,
+  TicketAuditsResponse,
+  UpdateTicketPayload
 } from '@/types/ticket';
 
 export interface TicketFilterParams {
@@ -164,18 +164,26 @@ export const ticketApi = {
 
   async updateTicket(
     id: number | string,
-    data: {
-      status?: TicketStatus;
-      priority?: TicketPriority;
-      assignee_id?: number;
-      title?: string;
-      description?: string;
-    }
+    data: UpdateTicketPayload
   ): Promise<TicketSingleResponse> {
     if (mockService.isMockDataEnabled()) {
       return mockService.updateTicket(id, data);
     }
     const response = await apiClient.put<TicketSingleResponse>(`/ticket/${id}`, data);
+    return response.data;
+  },
+
+  async getTicketAudits(
+    ticketId: number | string,
+    params: { page?: number; per_page?: number; field?: string } = {}
+  ): Promise<TicketAuditsResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTicketAudits(ticketId, params);
+    }
+    const response = await apiClient.get<TicketAuditsResponse>(
+      `/ticket/${ticketId}/audits`,
+      { params }
+    );
     return response.data;
   },
 

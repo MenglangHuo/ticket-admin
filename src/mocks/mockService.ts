@@ -12,6 +12,7 @@ import {
   getMockTicketComments,
   createMockTicketComment,
   deleteMockTicketComment,
+  getMockTicketAudits,
   submitMockClientTicket,
   resetMockTickets,
 } from './data/mockTickets';
@@ -57,6 +58,7 @@ export const mockService = {
   getTicketComments: getMockTicketComments,
   createTicketComment: createMockTicketComment,
   deleteTicketComment: deleteMockTicketComment,
+  getTicketAudits: getMockTicketAudits,
   submitClientTicket: submitMockClientTicket,
   resetTickets: resetMockTickets,
 
