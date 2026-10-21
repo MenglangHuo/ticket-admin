@@ -16,6 +16,17 @@ export interface PendingTwoFactorData {
 
 const PENDING_2FA_STORAGE_KEY = 'bronx_pending_2fa'
 
+// Role Normalization and Validation Helpers
+export function normalizeRole(role: string | null | undefined): string {
+  if (!role) return ''
+  return role.toString().trim().toUpperCase().replace(/[\s-]+/g, '_')
+}
+
+export function isAllowedRole(role: string | null | undefined): boolean {
+  const norm = normalizeRole(role)
+  return norm === 'HQ_ADMIN' || norm === 'TICKET_ADMIN'
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('bronx_access_token'))
   const user = ref<User | null>(
@@ -59,28 +70,34 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Normalized Role string
   const userRole = computed<string>(() => {
-    return (user.value?.role || '').toUpperCase()
+    return normalizeRole(user.value?.role)
   })
 
-  // Role Checks
-  const isPreview = computed<boolean>(() => {
-    const r = userRole.value
-    return !!r && (r.includes('PREVIEW') || r.includes('VIEWER'))
-  })
-
-  const isBranch = computed<boolean>(() => {
-    const r = userRole.value
-    return !!r && r.includes('BRANCH')
+  // Role Checks - Allow ONLY HQ_ADMIN and TICKET_ADMIN for admin dashboard
+  const isTicketAdmin = computed<boolean>(() => {
+    return userRole.value === 'TICKET_ADMIN'
   })
 
   const isHQ = computed<boolean>(() => {
+    return userRole.value === 'HQ_ADMIN'
+  })
+
+  const isAuthorizedAdmin = computed<boolean>(() => {
+    return isHQ.value || isTicketAdmin.value
+  })
+
+  const isBranch = computed<boolean>(() => {
+    return userRole.value.includes('BRANCH')
+  })
+
+  const isPreview = computed<boolean>(() => {
     const r = userRole.value
-    return !!r && (r.includes('HQ') || r.includes('ADMIN'))
+    return r === 'PREVIEW' || r === 'VIEWER'
   })
 
   // Permission Checks:
   // - "new user with role for preview ticket" (Read-only: cannot submit, cannot transition, cannot delete)
-  // - "existing user (branch, hq) for submit ticket" (Can create & submit tickets)
+  // - "existing user (branch, hq, ticket_admin) for submit ticket" (Can create & submit tickets)
   const canSubmitTicket = computed<boolean>(() => {
     return !isPreview.value
   })
@@ -90,7 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   const canDeleteTicket = computed<boolean>(() => {
-    return isHQ.value && !isPreview.value
+    return (isHQ.value || isTicketAdmin.value) && !isPreview.value
   })
 
   const isReadOnly = computed<boolean>(() => {
@@ -99,9 +116,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const roleLabel = computed<string>(() => {
     if (isPreview.value) return 'Preview (Read-Only)'
-    if (isBranch.value) return 'Branch Staff'
+    if (isTicketAdmin.value) return 'Ticket Admin'
     if (isHQ.value) return 'HQ Admin'
-    return user.value?.role || 'HQ Staff'
+    if (isBranch.value) return 'Branch Staff'
+    return user.value?.role || 'Staff'
   })
 
   function setPendingTwoFactor(data: PendingTwoFactorData) {
@@ -121,14 +139,22 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function initAuth() {
-    const stored = localStorage.getItem('bronx_access_token')
-    if (stored) {
-      token.value = stored
+    const storedToken = localStorage.getItem('bronx_access_token')
+    const storedUserRaw = localStorage.getItem('bronx_user')
+    if (storedToken && storedUserRaw) {
       try {
-        user.value = JSON.parse(localStorage.getItem('bronx_user') || 'null')
+        const parsed = JSON.parse(storedUserRaw)
+        if (!isAllowedRole(parsed?.role)) {
+          logout()
+          return
+        }
+        token.value = storedToken
+        user.value = parsed
       } catch {
-        user.value = null
+        logout()
       }
+    } else if (storedToken && !storedUserRaw) {
+      logout()
     }
 
     // Check pending 2FA expiration
@@ -141,11 +167,12 @@ export const useAuthStore = defineStore('auth', () => {
    * Enterprise Login Pipeline:
    * 1. POST /token (background process with secret)
    * 2. POST /login (with Authorization: Bearer {token} & Content-Language: km)
-   * 3. If role is 'HQ ADMIN':
+   * 3. Role Validation: Only HQ_ADMIN and TICKET_ADMIN are permitted. All others are rejected.
+   * 4. If role is 'HQ_ADMIN':
    *    - If twoFactorCode is explicitly provided: completes 2FA directly.
    *    - Otherwise (standard login flow): initiates Pending 2FA session without auto-bypassing,
    *      requiring user to validate code on dedicated /two-factor view.
-   *    If role differs from 'HQ ADMIN' (e.g. 'BRANCH ADMIN', 'TICKET ADMIN'):
+   * 5. If role is 'TICKET_ADMIN':
    *    - Skips two-factor and authenticates directly.
    */
   async function login(
@@ -178,13 +205,18 @@ export const useAuthStore = defineStore('auth', () => {
             ? loginRes.user
             : loginRes
 
-      const userRoleStr = (loginUserData?.role || loginRes?.role || loginRes?.data?.role || '')
-        .toString()
-        .trim()
-        .toUpperCase()
+      const rawRole = (loginUserData?.role || loginRes?.role || loginRes?.data?.role || '').toString()
+      const normalizedRole = normalizeRole(rawRole)
 
-      // Check if role is 'HQ ADMIN'
-      if (userRoleStr === 'HQ ADMIN') {
+      // Validate allowed roles: ONLY 'HQ_ADMIN' and 'TICKET_ADMIN' are allowed. Any other role is rejected!
+      if (!isAllowedRole(normalizedRole)) {
+        logout()
+        error.value = `Access Denied: Your account role (${loginUserData?.role || rawRole || 'User'}) cannot access the dashboard. Only HQ_ADMIN and TICKET_ADMIN roles are permitted.`
+        return false
+      }
+
+      // Check if role is 'HQ_ADMIN'
+      if (normalizedRole === 'HQ_ADMIN') {
         // If twoFactorCode was explicitly provided (e.g. API script or direct invocation)
         if (twoFactorCode && twoFactorCode.trim() !== '') {
           const userProfile = await authApi.validateTwoFactor({
@@ -194,7 +226,7 @@ export const useAuthStore = defineStore('auth', () => {
           })
 
           const finalAccessToken = userProfile.auth?.access_token || appToken
-          setAuthData(finalAccessToken, userProfile)
+          setAuthData(finalAccessToken, { ...userProfile, role: userProfile.role || 'HQ_ADMIN' })
           clearPendingTwoFactor()
           return true
         }
@@ -208,7 +240,7 @@ export const useAuthStore = defineStore('auth', () => {
           username: loginUserData?.username || username,
           appToken,
           user: loginUserData,
-          role: userRoleStr,
+          role: 'HQ_ADMIN',
           expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes challenge session
           maskedEmail: rawEmail ? maskEmail(rawEmail) : undefined,
           maskedPhone: rawPhone ? maskPhone(rawPhone) : undefined,
@@ -217,9 +249,8 @@ export const useAuthStore = defineStore('auth', () => {
         remainingAttempts.value = 5
         lockoutUntil.value = null
         return true
-      } else {
-        // If role differs from 'HQ ADMIN' (e.g. 'BRANCH ADMIN', 'TICKET ADMIN', etc.):
-        // No need to call 'two-factor' endpoint
+      } else if (normalizedRole === 'TICKET_ADMIN') {
+        // If role is 'TICKET_ADMIN': skips two-factor and authenticates directly
         const finalAccessToken =
           loginUserData?.auth?.access_token ||
           loginRes?.auth?.access_token ||
@@ -233,13 +264,17 @@ export const useAuthStore = defineStore('auth', () => {
           first_name: loginUserData?.first_name || '',
           last_name: loginUserData?.last_name || '',
           email: loginUserData?.email || '',
-          role: loginUserData?.role || userRoleStr || 'STAFF',
+          role: loginUserData?.role || 'TICKET_ADMIN',
           company_id: loginUserData?.company_id ?? 1,
         }
 
         setAuthData(finalAccessToken, finalUser)
         clearPendingTwoFactor()
         return true
+      } else {
+        logout()
+        error.value = 'Access Denied: Only HQ_ADMIN and TICKET_ADMIN roles are permitted.'
+        return false
       }
     } catch (err: any) {
       console.warn('Login process encountered error:', err)
@@ -290,7 +325,11 @@ export const useAuthStore = defineStore('auth', () => {
       })
 
       const finalAccessToken = userProfile.auth?.access_token || pendingTwoFactor.value.appToken
-      setAuthData(finalAccessToken, userProfile)
+      const verifiedUser: User = {
+        ...userProfile,
+        role: userProfile.role || pendingTwoFactor.value.role || 'HQ_ADMIN',
+      }
+      setAuthData(finalAccessToken, verifiedUser)
 
       if (options?.rememberDevice) {
         try {
@@ -356,6 +395,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function setAuthData(newToken: string, newUser: User) {
+    if (!isAllowedRole(newUser?.role)) {
+      logout()
+      error.value = `Access Denied: Role "${newUser?.role || 'User'}" cannot access the dashboard. Only HQ_ADMIN and TICKET_ADMIN roles are permitted.`
+      return
+    }
     token.value = newToken
     user.value = newUser
     localStorage.setItem('bronx_access_token', newToken)
@@ -400,6 +444,8 @@ export const useAuthStore = defineStore('auth', () => {
     userRole,
     isHQ,
     isBranch,
+    isTicketAdmin,
+    isAuthorizedAdmin,
     isPreview,
     isReadOnly,
     canSubmitTicket,

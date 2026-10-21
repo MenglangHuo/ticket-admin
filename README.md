@@ -284,7 +284,6 @@ When running automated unit tests (`pnpm test:unit`), the mock provider automati
 | `VITE_API_SECRET` | `string` | `""` | Shared application secret used to retrieve initial access tokens via `POST /token`. |
 | `VITE_CLIENT_ID` | `string` | `""` | Client identifier sent in `X-Client-ID` for public ticket submissions. |
 | `VITE_CLIENT_SECRET` | `string` | `""` | Client secret sent in `X-Client-Secret` for public ticket submissions. |
-| `VITE_TELEGRAM_BOT_USERNAME` | `string` | `""` | Telegram bot handle (e.g. `BronxTicketAlertBot`) displayed in settings. |
 | `VITE_ENABLE_MOCK_DATA` | `boolean` | `false` | Enables client-side mock data provider across all pages without requiring a backend. |
 | `VITE_USE_MOCK_DATA` | `boolean` | `false` | Backward-compatible fallback alias for `VITE_ENABLE_MOCK_DATA`. |
 

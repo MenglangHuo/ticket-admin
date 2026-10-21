@@ -108,6 +108,15 @@ export const authApi = {
   },
 }
 
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = (error) => reject(error)
+    reader.readAsDataURL(file)
+  })
+}
+
 export const ticketApi = {
   async getTickets(params: TicketFilterParams = {}): Promise<TicketListResponse> {
     if (mockService.isMockDataEnabled()) {
@@ -270,39 +279,31 @@ export const ticketApi = {
     if (mockService.isMockDataEnabled()) {
       return mockService.createTicketComment(ticketId, payload)
     }
+
+    const base64Files: string[] = []
     if (payload.files && payload.files.length > 0) {
-      const formData = new FormData()
-      formData.append('body', payload.body)
-      if (typeof payload.is_internal === 'boolean') {
-        formData.append('is_internal', payload.is_internal ? '1' : '0')
+      for (const item of payload.files) {
+        if (typeof item === 'string') {
+          base64Files.push(item)
+        } else if (typeof File !== 'undefined' && item instanceof File) {
+          const b64 = await fileToBase64(item)
+          base64Files.push(b64)
+        }
       }
-      if (payload.metadata) {
-        formData.append('metadata', JSON.stringify(payload.metadata))
-      }
-      payload.files.forEach((file) => {
-        formData.append('files[]', file)
-      })
-      const response = await apiClient.post<{
-        data: TicketComment
-        success: boolean
-        message?: string
-      }>(`/ticket/${ticketId}/comments`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-      return response.data
+    }
+
+    const jsonPayload = {
+      username: payload.username || 'customer_alex',
+      body: payload.body,
+      is_internal: typeof payload.is_internal === 'boolean' ? payload.is_internal : false,
+      files: base64Files,
     }
 
     const response = await apiClient.post<{
       data: TicketComment
       success: boolean
       message?: string
-    }>(`/ticket/${ticketId}/comments`, {
-      body: payload.body,
-      is_internal: payload.is_internal,
-      metadata: payload.metadata,
-    })
+    }>(`/ticket/${ticketId}/comments`, jsonPayload)
     return response.data
   },
 
@@ -363,6 +364,43 @@ export const ticketApi = {
     const response = await apiClient.post<TicketSingleResponse>('/ticket/client', payload, {
       headers,
     })
+    return response.data
+  },
+
+  async getClientTicket(
+    id: number | string,
+    clientId = (import.meta.env.VITE_CLIENT_ID as string) || '',
+    clientSecret = (import.meta.env.VITE_CLIENT_SECRET as string) || '',
+  ): Promise<TicketSingleResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTicketById(id)
+    }
+    const headers: Record<string, string> = {}
+    if (clientId) headers['X-Client-ID'] = clientId
+    if (clientSecret) headers['X-Client-Secret'] = clientSecret
+    const response = await apiClient.get<TicketSingleResponse>(`/ticket/client/tickets/${id}`, {
+      headers,
+    })
+    return response.data
+  },
+
+  async submitClientComment(
+    ticketId: number | string,
+    payload: { body: string },
+    clientId = (import.meta.env.VITE_CLIENT_ID as string) || '',
+    clientSecret = (import.meta.env.VITE_CLIENT_SECRET as string) || '',
+  ): Promise<{ data: TicketComment; success: boolean; message?: string }> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.createTicketComment(ticketId, payload)
+    }
+    const headers: Record<string, string> = {}
+    if (clientId) headers['X-Client-ID'] = clientId
+    if (clientSecret) headers['X-Client-Secret'] = clientSecret
+    const response = await apiClient.post<{
+      data: TicketComment
+      success: boolean
+      message?: string
+    }>(`/ticket/client/tickets/${ticketId}/comments`, payload, { headers })
     return response.data
   },
 }

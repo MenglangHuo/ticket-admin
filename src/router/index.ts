@@ -60,7 +60,26 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('bronx_access_token')
-  const isAuthenticated = !!token
+  const storedUserRaw = localStorage.getItem('bronx_user')
+
+  let userRole = ''
+  if (storedUserRaw) {
+    try {
+      const parsed = JSON.parse(storedUserRaw)
+      userRole = (parsed?.role || '').toString().trim().toUpperCase().replace(/[\s-]+/g, '_')
+    } catch {
+      userRole = ''
+    }
+  }
+
+  const isRoleValid = userRole === 'HQ_ADMIN' || userRole === 'TICKET_ADMIN'
+  const isAuthenticated = !!token && isRoleValid
+
+  // If token exists but user role is unauthorized (e.g. branch_admin), clear tokens immediately
+  if (token && !isRoleValid) {
+    localStorage.removeItem('bronx_access_token')
+    localStorage.removeItem('bronx_user')
+  }
 
   // Check if there is an active pending 2FA challenge
   let hasPendingTwoFactor = false
@@ -83,6 +102,9 @@ router.beforeEach((to) => {
   if (to.meta.requiresAuth && !isAuthenticated) {
     if (hasPendingTwoFactor) {
       return { name: 'two-factor' }
+    }
+    if (token && !isRoleValid) {
+      return { name: 'login', query: { error: 'role_unauthorized' } }
     }
     return { name: 'login' }
   }

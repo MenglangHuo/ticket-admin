@@ -185,6 +185,15 @@ describe('useTicketStore State Machine & Core Logic', () => {
     authStore.setRole('BRANCH')
     expect(authStore.isBranch).toBe(true)
     expect(authStore.canSubmitTicket).toBe(true)
+
+    // 4. Ticket Admin Role
+    authStore.setRole('TICKET ADMIN')
+    expect(authStore.isTicketAdmin).toBe(true)
+    expect(authStore.isHQ).toBe(false)
+    expect(authStore.canSubmitTicket).toBe(true)
+    expect(authStore.canManageStatus).toBe(true)
+    expect(authStore.canDeleteTicket).toBe(true)
+    expect(authStore.roleLabel).toBe('Ticket Admin')
   })
 
   it('updates pagination state with goToPage and changePerPage', async () => {

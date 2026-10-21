@@ -43,6 +43,24 @@ export const MOCK_BRANCH_USER: User = {
   },
 }
 
+export const MOCK_TICKET_ADMIN_USER: User = {
+  id: 3,
+  username: 'ticket_admin',
+  first_name: 'Sophea',
+  last_name: 'Vann',
+  email: 'sophea.vann@uyfc.internal',
+  phone: '011 556 778',
+  role: 'TICKET ADMIN',
+  company_id: 1,
+  department_name: 'Ticket Operations',
+  division_name: 'Support & Helpdesk',
+  auth: {
+    token_type: 'Bearer',
+    access_token: 'mock_jwt_access_token_bronx_ticket_admin',
+    expires_in: 86400,
+  },
+}
+
 export function mockGenerateToken(): TokenResponse {
   return {
     success: true,
@@ -57,8 +75,10 @@ export function mockLogin(credentials: { username: string; password?: string }):
   user: User
   message: string
 } {
-  const isBranch = credentials.username.toLowerCase().includes('branch')
-  const user = isBranch ? MOCK_BRANCH_USER : MOCK_ADMIN_USER
+  const uname = credentials.username.toLowerCase()
+  const isBranch = uname.includes('branch')
+  const isTicket = uname.includes('ticket')
+  const user = isTicket ? MOCK_TICKET_ADMIN_USER : isBranch ? MOCK_BRANCH_USER : MOCK_ADMIN_USER
 
   return {
     success: true,

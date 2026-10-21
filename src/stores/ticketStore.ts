@@ -136,7 +136,7 @@ export const useTicketStore = defineStore('tickets', () => {
   const isAuditsLoading = ref<boolean>(false)
   const isEditTicketModalOpen = ref<boolean>(false)
   const isSavingTicketEdit = ref<boolean>(false)
-  const activeDetailTab = ref<'discussion' | 'audits'>('discussion')
+  const activeDetailTab = ref<'discussion' | 'comments' | 'audits'>('discussion')
 
   // Modern Modal & Window State
   const detailViewMode = ref<'modal' | 'drawer'>('modal')
@@ -922,9 +922,25 @@ export const useTicketStore = defineStore('tickets', () => {
     }
     isPostingComment.value = true
     try {
-      const response = await ticketApi.createTicketComment(ticketId, payload)
+      const username =
+        payload.username ||
+        authStore.user?.username ||
+        authStore.user?.first_name ||
+        'customer_alex'
+      const response = await ticketApi.createTicketComment(ticketId, {
+        ...payload,
+        username,
+      })
       const createdComment = (response as any).data || response
       comments.value.push(createdComment)
+      if (selectedTicket.value) {
+        if (!selectedTicket.value.comments) {
+          selectedTicket.value.comments = []
+        }
+        if (!selectedTicket.value.comments.some((c) => c.id === createdComment.id)) {
+          selectedTicket.value.comments.push(createdComment)
+        }
+      }
       toastStore.success(
         payload.is_internal ? 'Internal Note Added' : 'Reply Sent',
         payload.is_internal

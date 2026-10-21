@@ -20,13 +20,14 @@ import {
   User,
   X,
 } from 'lucide-vue-next'
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import mockService from '@/mocks/mockService'
 import EnvironmentBadge from '@/components/common/EnvironmentBadge.vue'
 import { isProduction } from '@/config/environment'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
@@ -40,9 +41,23 @@ const isForgotSubmitted = ref(false)
 
 const isMockEnabled = computed(() => mockService.isMockDataEnabled())
 
-function fillDemo(role: 'admin' | 'branch') {
+onMounted(() => {
+  if (route.query.error === 'role_unauthorized' || route.query.error === 'role_forbidden') {
+    authStore.error =
+      'Access Denied: This role cannot access the dashboard. Only HQ_ADMIN and TICKET_ADMIN roles are permitted.'
+    toastStore.error(
+      'Access Denied',
+      'This role cannot access the dashboard. Only HQ_ADMIN and TICKET_ADMIN are permitted.',
+    )
+  }
+})
+
+function fillDemo(role: 'admin' | 'branch' | 'ticket') {
   if (role === 'admin') {
     username.value = 'admin'
+    password.value = 'password123'
+  } else if (role === 'ticket') {
+    username.value = 'ticket_admin'
     password.value = 'password123'
   } else {
     username.value = 'branch_manager'
@@ -72,7 +87,7 @@ async function handleLogin() {
     )
     router.push('/ticket')
   } else {
-    toastStore.error('Authentication Failed', authStore.error || 'Please check your credentials.')
+    toastStore.error('Access Denied', authStore.error || 'Please check your credentials.')
   }
 }
 
@@ -232,20 +247,28 @@ function handleForgotPassword() {
             <p class="text-xs text-slate-600 dark:text-slate-400">
               Backend API is mocked. Select a test account below:
             </p>
-            <div class="flex gap-2.5 pt-1">
+            <div class="grid grid-cols-3 gap-2 pt-1">
               <button
                 type="button"
                 @click="fillDemo('admin')"
-                class="flex-1 py-2 px-3 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-900 dark:text-indigo-200 text-xs sm:text-sm font-semibold transition-all text-center cursor-pointer shadow-2xs border border-indigo-500/20 hover:scale-[1.01] active:scale-[0.99]"
+                class="py-2 px-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-900 dark:text-indigo-200 text-xs font-semibold transition-all text-center cursor-pointer shadow-2xs border border-indigo-500/20 hover:scale-[1.01] active:scale-[0.99]"
               >
-                Demo HQ Admin (2FA)
+                HQ Admin
+              </button>
+              <button
+                type="button"
+                @click="fillDemo('ticket')"
+                class="py-2 px-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-900 dark:text-purple-200 text-xs font-semibold transition-all text-center cursor-pointer shadow-2xs border border-purple-500/20 hover:scale-[1.01] active:scale-[0.99]"
+              >
+                Ticket Admin
               </button>
               <button
                 type="button"
                 @click="fillDemo('branch')"
-                class="flex-1 py-2 px-3 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-semibold transition-all text-center cursor-pointer shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
+                class="py-2 px-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-900 dark:text-rose-200 text-xs font-semibold transition-all text-center cursor-pointer shadow-2xs border border-rose-500/20 hover:scale-[1.01] active:scale-[0.99]"
+                title="Branch users are rejected from accessing admin dashboard"
               >
-                Demo Branch User
+                Branch (Reject)
               </button>
             </div>
           </div>
@@ -366,6 +389,5 @@ function handleForgotPassword() {
         </div>
       </div>
     </div>
-
   </div>
 </template>

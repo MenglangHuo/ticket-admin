@@ -24,7 +24,11 @@ import {
   updateMockSubscriberStatus,
   getMockTelegramCounts,
   resetMockSubscribers,
+  getMockTelegramBotInfo,
+  updateMockTelegramBotConfig,
+  resetMockBotInfo,
 } from './data/mockSettings'
+
 import { MOCK_API_CLIENTS } from './data/mockClients'
 import {
   mockGenerateToken,
@@ -72,6 +76,9 @@ export const mockService = {
   updateSubscriberStatus: updateMockSubscriberStatus,
   getTelegramCounts: getMockTelegramCounts,
   resetSubscribers: resetMockSubscribers,
+  getTelegramBotInfo: getMockTelegramBotInfo,
+  updateTelegramBotConfig: updateMockTelegramBotConfig,
+  resetBotInfo: resetMockBotInfo,
 
   // API Clients
   getClients: () => [...MOCK_API_CLIENTS],

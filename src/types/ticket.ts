@@ -88,19 +88,22 @@ export interface CommentAuthor {
 export interface TicketComment {
   id: number
   ticket_id: number
+  username?: string
   body: string
   is_internal: boolean
   author?: CommentAuthor | null
   attachments?: Attachment[]
+  files?: (string | Attachment)[]
   metadata?: Record<string, any>
   created_at: string
   updated_at: string
 }
 
 export interface CreateCommentPayload {
+  username?: string
   body: string
   is_internal?: boolean
-  files?: File[]
+  files?: (File | string)[]
   metadata?: Record<string, any>
 }
 

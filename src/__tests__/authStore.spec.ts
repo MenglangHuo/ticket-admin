@@ -126,6 +126,9 @@ describe('useAuthStore Login Pipeline', () => {
     expect(twoFactorSpy).not.toHaveBeenCalled()
     expect(authStore.token).toBe('ticket_admin_token_789')
     expect(authStore.user?.role).toBe('TICKET ADMIN')
+    expect(authStore.isTicketAdmin).toBe(true)
+    expect(authStore.isHQ).toBe(false)
+    expect(authStore.roleLabel).toBe('Ticket Admin')
     expect(localStorage.getItem('bronx_access_token')).toBe('ticket_admin_token_789')
   })
 

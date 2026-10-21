@@ -55,6 +55,9 @@ function standardizeSourceRole(source: string): string {
   if (lower === 'admin' || lower === 'hq' || lower === 'hq admin' || lower === 'hq_admin') {
     return 'HQ ADMIN'
   }
+  if (lower === 'ticket' || lower === 'ticket admin' || lower === 'ticket_admin') {
+    return 'TICKET ADMIN'
+  }
   if (lower === 'branch' || lower === 'branch admin' || lower === 'branch_admin') {
     return 'BRANCH ADMIN'
   }
@@ -78,6 +81,9 @@ export function getTicketSource(ticket?: Partial<Ticket> | null): string {
 
     if (lower === 'admin' || lower === 'hq' || lower === 'hq admin' || lower === 'hq_admin') {
       return 'HQ ADMIN'
+    }
+    if (lower === 'ticket' || lower === 'ticket admin' || lower === 'ticket_admin') {
+      return 'TICKET ADMIN'
     }
     if (lower === 'branch' || lower === 'branch admin' || lower === 'branch_admin') {
       return 'BRANCH ADMIN'

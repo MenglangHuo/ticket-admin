@@ -133,11 +133,12 @@ apiClient.interceptors.request.use(
   },
 )
 
-// Response interceptor: handle 401 unauthorized
+// Response interceptor: handle 401 unauthorized & 403 forbidden
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    if (status === 401 || status === 403) {
       if (window.location.pathname === '/client-ticket') {
         return Promise.reject(error)
       }
@@ -145,7 +146,8 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('bronx_user')
       // If not already on login page, redirect
       if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+        const errorParam = status === 403 ? '?error=role_forbidden' : ''
+        window.location.href = `/login${errorParam}`
       }
     }
     return Promise.reject(error)

@@ -24,13 +24,15 @@ import {
   Trash2,
   Users,
   X,
+  Bot,
 } from 'lucide-vue-next'
+
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import SubscribersTableSkeleton, { type SubscriberColumnKey } from './SubscribersTableSkeleton.vue'
 
 withDefaults(
   defineProps<{
-    activeTab?: 'subscribers' | 'invite'
+    activeTab?: 'config' | 'subscribers' | 'invite'
   }>(),
   {
     activeTab: 'subscribers',
@@ -38,7 +40,7 @@ withDefaults(
 )
 
 const emit = defineEmits<{
-  (e: 'changeTab', tab: 'subscribers' | 'invite'): void
+  (e: 'changeTab', tab: 'config' | 'subscribers' | 'invite'): void
   (e: 'openInviteModal'): void
   (e: 'goToInviteTab'): void
 }>()
@@ -518,6 +520,24 @@ function formatDate(dateStr?: string) {
       <div
         class="inline-flex items-center p-1 bg-slate-100/90 dark:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-700/60 select-none self-start shrink-0"
       >
+        <button
+          type="button"
+          @click="emit('changeTab', 'config')"
+          class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer"
+          :class="
+            activeTab === 'config'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-semibold'
+              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+          "
+        >
+          <Bot class="w-3.5 h-3.5" />
+          <span>Bot Config</span>
+          <span
+            class="w-1.5 h-1.5 rounded-full"
+            :class="(settingsStore.botInfo?.is_active ?? true) ? 'bg-emerald-500' : 'bg-amber-500'"
+          ></span>
+        </button>
+
         <button
           type="button"
           @click="emit('changeTab', 'subscribers')"

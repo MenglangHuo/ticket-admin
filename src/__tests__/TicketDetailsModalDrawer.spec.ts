@@ -257,5 +257,55 @@ describe('TicketDetailModal & TicketDetailDrawer Enhancements', () => {
       // Description should now be HtmlDescriptionEditor
       expect(wrapper.findComponent({ name: 'HtmlDescriptionEditor' }).exists()).toBe(true)
     })
+
+    it('renders TicketCommentsSection in TicketDetailDrawer with all 3 tabs', async () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket }
+      store.isDrawerOpen = true
+
+      const wrapper = mount(TicketDetailDrawer, {
+        global: {
+          stubs: {
+            teleport: true,
+            HtmlDescriptionViewer: true,
+            HtmlDescriptionEditor: true,
+            StatusDropdown: true,
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      expect(wrapper.findComponent({ name: 'TicketCommentsSection' }).exists()).toBe(true)
+      const text = wrapper.text()
+      expect(text).toContain('Discussion')
+      expect(text).toContain('All Comments')
+      expect(text).toContain('Audit History')
+    })
+  })
+
+  describe('TicketDetailModal Comments Integration', () => {
+    it('renders TicketCommentsSection in TicketDetailModal with all 3 tabs', async () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket }
+      store.isDrawerOpen = true
+
+      const wrapper = mount(TicketDetailModal, {
+        global: {
+          stubs: {
+            teleport: true,
+            HtmlDescriptionViewer: true,
+            HtmlDescriptionEditor: true,
+            StatusDropdown: true,
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      expect(wrapper.findComponent({ name: 'TicketCommentsSection' }).exists()).toBe(true)
+      const text = wrapper.text()
+      expect(text).toContain('Discussion')
+      expect(text).toContain('All Comments')
+      expect(text).toContain('Audit History')
+    })
   })
 })

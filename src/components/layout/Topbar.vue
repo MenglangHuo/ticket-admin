@@ -197,6 +197,12 @@ onUnmounted(() => {
             Preview
           </span>
           <span
+            v-else-if="authStore.isTicketAdmin"
+            class="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"
+          >
+            Ticket Admin
+          </span>
+          <span
             v-else-if="authStore.isBranch"
             class="text-[10px] font-semibold text-sky-600 dark:text-sky-400"
           >
@@ -208,6 +214,5 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-
   </header>
 </template>

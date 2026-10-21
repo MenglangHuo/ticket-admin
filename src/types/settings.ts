@@ -21,3 +21,36 @@ export interface TelegramBotConfig {
   daemonCommand: string
   deliverySuccessRate: number
 }
+
+export interface TelegramBotInfo {
+  id?: number
+  company_id?: number
+  bot_token?: string
+  bot_token_masked?: string
+  bot_username: string
+  chat_id: string
+  webhook_secret?: string
+  invite_expiry_days: number
+  is_active: boolean
+  is_configured?: boolean
+  source?: string
+  telegram_object?: Record<string, any> | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface TelegramBotConfigPayload {
+  bot_token?: string
+  bot_username: string
+  chat_id: string
+  webhook_secret?: string
+  invite_expiry_days: number
+  is_active: boolean
+}
+
+export interface TelegramBotInfoResponse {
+  success: boolean
+  message?: string
+  data: TelegramBotInfo
+  timestamp?: string
+}

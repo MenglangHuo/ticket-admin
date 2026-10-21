@@ -5,7 +5,7 @@ import ModernModal from '@/components/common/ModernModal.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useTicketStore } from '@/stores/ticketStore'
 import { useToastStore } from '@/stores/toastStore'
-import type { TicketComment, TicketStatus } from '@/types/ticket'
+import type { TicketStatus } from '@/types/ticket'
 import { safeUrl } from '@/utils/security'
 import { getSourceCategory, getTicketCompany, getTicketSource } from '@/utils/ticket'
 import {
@@ -18,18 +18,14 @@ import {
   Clock,
   Copy,
   Download,
-  Edit2,
   Edit3,
   FileText,
   Globe,
   HelpCircle,
-  History,
   Mail,
-  MessageSquare,
   Paperclip,
   Phone,
   RefreshCw,
-  Send,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -41,27 +37,17 @@ import {
 import { computed, ref, watch } from 'vue'
 import StatusDropdown from './StatusDropdown.vue'
 import EditTicketModal from './EditTicketModal.vue'
-import TicketAuditTimeline from './TicketAuditTimeline.vue'
+import TicketCommentsSection from './TicketCommentsSection.vue'
 
 const ticketStore = useTicketStore()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 
-const commentFileInputRef = ref<HTMLInputElement | null>(null)
 const previewImage = ref<string | null>(null)
 const hasCopiedKey = ref(false)
 const hasCopiedEmail = ref(false)
 const hasCopiedPhone = ref(false)
 const hasCopiedCompany = ref(false)
-
-// Note composer state
-const noteBody = ref('')
-const noteFiles = ref<File[]>([])
-
-// Editing note state
-const editingNoteId = ref<number | null>(null)
-const editNoteBody = ref('')
-const isSavingEdit = ref(false)
 
 // Inline ticket title & description editing state
 const isEditingTicket = ref(false)
@@ -145,41 +131,6 @@ const reporterPhone = computed(() => {
   )
 })
 
-// 1 Comment per admin per ticket logic
-const userComment = computed<TicketComment | null>(() => {
-  if (!notes.value || notes.value.length === 0) return null
-  const currentUserId = authStore.user?.id
-  if (currentUserId) {
-    const found = notes.value.find((c) => c.author?.id === currentUserId)
-    if (found) return found
-  }
-  const currentUserEmail = authStore.user?.email
-  if (currentUserEmail) {
-    const found = notes.value.find(
-      (c) => c.author?.email && c.author.email.toLowerCase() === currentUserEmail.toLowerCase(),
-    )
-    if (found) return found
-  }
-  const currentUsername = authStore.user?.username
-  if (currentUsername) {
-    const found = notes.value.find(
-      (c) => c.author?.name && c.author.name.toLowerCase() === currentUsername.toLowerCase(),
-    )
-    if (found) return found
-  }
-  if (notes.value.length === 1 && (authStore.isHQ || authStore.userRole.includes('ADMIN'))) {
-    return notes.value[0] || null
-  }
-  return null
-})
-
-const hasUserCommented = computed(() => !!userComment.value)
-
-const otherComments = computed(() => {
-  if (!userComment.value) return notes.value
-  return notes.value.filter((c) => c.id !== userComment.value?.id)
-})
-
 async function handleStatusChange(newStatus: TicketStatus) {
   if (!ticket.value) return
   await ticketStore.transitionTicketStatus(ticket.value.id, newStatus)
@@ -215,86 +166,6 @@ async function copyText(text: string, type: 'email' | 'phone' | 'company') {
   }
 }
 
-// Note file attachments
-function onNoteFileSelect(event: Event) {
-  const target = event.target as HTMLInputElement
-  if (!target.files || target.files.length === 0) return
-
-  const newFiles = Array.from(target.files)
-  noteFiles.value = [...noteFiles.value, ...newFiles]
-  target.value = ''
-}
-
-function removeNoteFile(index: number) {
-  noteFiles.value.splice(index, 1)
-}
-
-// Post note (Internal admin note - 1 comment per ticket)
-async function submitNote() {
-  if (!ticket.value) return
-  if (hasUserCommented.value) {
-    toastStore.warning(
-      'Comment limit reached',
-      'Only 1 comment per ticket is allowed. You can update your existing comment.',
-    )
-    return
-  }
-  if (!noteBody.value.trim() && noteFiles.value.length === 0) {
-    toastStore.warning('Note is empty', 'Please type a note or attach a file.')
-    return
-  }
-
-  const success = await ticketStore.addTicketComment(ticket.value.id, {
-    body: noteBody.value.trim(),
-    is_internal: true,
-    files: noteFiles.value,
-  })
-
-  if (success) {
-    noteBody.value = ''
-    noteFiles.value = []
-  }
-}
-
-// Keyboard shortcut (Ctrl/Cmd + Enter to post)
-function handleNoteKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault()
-    submitNote()
-  }
-}
-
-// Start inline editing
-function startEditNote(comment: TicketComment) {
-  editingNoteId.value = comment.id
-  editNoteBody.value = comment.body
-}
-
-function cancelEditNote() {
-  editingNoteId.value = null
-  editNoteBody.value = ''
-}
-
-async function saveEditNote(commentId: number) {
-  if (!ticket.value || !editNoteBody.value.trim()) return
-  isSavingEdit.value = true
-  const success = await ticketStore.updateTicketComment(ticket.value.id, commentId, {
-    body: editNoteBody.value.trim(),
-    is_internal: true,
-  })
-  isSavingEdit.value = false
-  if (success) {
-    cancelEditNote()
-  }
-}
-
-async function handleDeleteNote(commentId: number) {
-  if (!ticket.value) return
-  if (confirm('Are you sure you want to delete this note?')) {
-    await ticketStore.deleteTicketComment(ticket.value.id, commentId)
-  }
-}
-
 function formatFileSize(bytes?: number): string {
   if (!bytes) return '0 B'
   const k = 1024
@@ -313,23 +184,6 @@ function formatDate(dateStr?: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-function formatRelativeTime(dateStr?: string | null): string {
-  if (!dateStr) return ''
-  const now = new Date()
-  const date = new Date(dateStr)
-  const diffMs = now.getTime() - date.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
-  const diffMin = Math.floor(diffSec / 60)
-  const diffHr = Math.floor(diffMin / 60)
-  const diffDays = Math.floor(diffHr / 24)
-
-  if (diffSec < 60) return 'Just now'
-  if (diffMin < 60) return `${diffMin}m ago`
-  if (diffHr < 24) return `${diffHr}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return formatDate(dateStr)
 }
 </script>
 
@@ -679,371 +533,8 @@ function formatRelativeTime(dateStr?: string | null): string {
             </div>
           </div>
 
-          <!-- ========================================================= -->
-          <!-- TABS: DISCUSSION & COMMENTS vs AUDIT TRAIL & HISTORY     -->
-          <!-- ========================================================= -->
-          <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-            <button
-              type="button"
-              @click="ticketStore.activeDetailTab = 'discussion'"
-              class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              :class="
-                ticketStore.activeDetailTab === 'discussion'
-                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-              "
-            >
-              <MessageSquare class="w-3.5 h-3.5" />
-              <span>Discussion & Notes</span>
-              <span
-                class="px-1.5 py-0.2 rounded-full text-[10px]"
-                :class="
-                  ticketStore.activeDetailTab === 'discussion'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                "
-              >
-                {{ notes.length }}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              @click="ticketStore.activeDetailTab = 'audits'"
-              class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              :class="
-                ticketStore.activeDetailTab === 'audits'
-                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-              "
-            >
-              <History class="w-3.5 h-3.5" />
-              <span>Audit History</span>
-              <span
-                class="px-1.5 py-0.2 rounded-full text-[10px]"
-                :class="
-                  ticketStore.activeDetailTab === 'audits'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                "
-              >
-                {{ ticketStore.ticketAudits.length }}
-              </span>
-            </button>
-          </div>
-
-          <!-- TAB 1: DISCUSSION & ADMIN COMMENTS -->
-          <div v-show="ticketStore.activeDetailTab === 'discussion'" class="space-y-3">
-            <!-- Loading indicator -->
-            <div
-              v-if="ticketStore.isCommentsLoading"
-              class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-2"
-            >
-              <RefreshCw class="w-4 h-4 animate-spin text-indigo-500" />
-              <span>Loading comments...</span>
-            </div>
-
-            <!-- Other Staff Comments (shown if other team members commented) -->
-            <div v-if="otherComments.length > 0" class="space-y-2">
-              <div
-                class="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 px-1"
-              >
-                <MessageSquare class="w-3.5 h-3.5 text-indigo-500" />
-                <span>Other Staff Comments ({{ otherComments.length }})</span>
-              </div>
-              <div
-                v-for="comment in otherComments"
-                :key="comment.id"
-                class="rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 p-3 sm:p-3.5 space-y-1.5"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      {{ comment.author?.name || 'Staff' }}
-                    </span>
-                    <span class="text-slate-300 dark:text-slate-600 text-xs">•</span>
-                    <span
-                      class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0"
-                      :title="formatDate(comment.created_at)"
-                    >
-                      {{ formatRelativeTime(comment.created_at) }}
-                    </span>
-                  </div>
-                  <button
-                    v-if="!authStore.isReadOnly && authStore.isHQ"
-                    type="button"
-                    @click="handleDeleteNote(comment.id)"
-                    class="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors"
-                    title="Delete comment"
-                  >
-                    <Trash2 class="w-3 h-3" />
-                  </button>
-                </div>
-                <p
-                  class="text-xs sm:text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words"
-                >
-                  {{ comment.body }}
-                </p>
-                <div
-                  v-if="comment.attachments && comment.attachments.length > 0"
-                  class="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-wrap gap-1.5"
-                >
-                  <div
-                    v-for="att in comment.attachments"
-                    :key="att.id"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 shadow-2xs"
-                  >
-                    <Paperclip class="w-3 h-3 text-indigo-500 shrink-0" />
-                    <span class="max-w-[120px] truncate" :title="att.file_name">{{
-                      att.file_name
-                    }}</span>
-                    <span class="text-[10px] text-slate-400"
-                      >({{ formatFileSize(att.file_size) }})</span
-                    >
-                    <a
-                      :href="safeUrl(att.file_url)"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download
-                      class="text-indigo-600 hover:text-indigo-500 p-0.5"
-                    >
-                      <Download class="w-3 h-3" />
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- STATE A: User already has commented -> Display comment card with Edit button -->
-            <div
-              v-if="hasUserCommented && userComment"
-              class="rounded-2xl border border-indigo-200/90 dark:border-indigo-900/60 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
-            >
-              <!-- Card Header -->
-              <div
-                class="px-3.5 py-2.5 sm:px-4 sm:py-2.5 bg-indigo-50/70 dark:bg-indigo-950/40 border-b border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between gap-2"
-              >
-                <div class="flex items-center gap-2 min-w-0">
-                  <MessageSquare
-                    class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0"
-                  />
-                  <span class="text-xs font-bold text-slate-800 dark:text-slate-200"
-                    >Admin Comment</span
-                  >
-                  <span
-                    class="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 shrink-0"
-                  >
-                    Your Comment
-                  </span>
-                  <span class="text-slate-300 dark:text-slate-600 text-xs">•</span>
-                  <span
-                    class="text-[11px] text-slate-400 dark:text-slate-500 truncate"
-                    :title="formatDate(userComment.created_at)"
-                  >
-                    {{ formatRelativeTime(userComment.created_at) }}
-                  </span>
-                </div>
-
-                <!-- Actions: Edit & Delete -->
-                <div v-if="!authStore.isReadOnly" class="flex items-center gap-1 shrink-0">
-                  <button
-                    v-if="editingNoteId !== userComment.id"
-                    type="button"
-                    @click="startEditNote(userComment)"
-                    class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg text-indigo-600 dark:text-indigo-400 hover:text-white hover:bg-indigo-600 dark:hover:bg-indigo-600 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 shadow-2xs transition-all cursor-pointer"
-                    title="Edit comment"
-                  >
-                    <Edit2 class="w-3 h-3" />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    type="button"
-                    @click="handleDeleteNote(userComment.id)"
-                    class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors"
-                    title="Delete comment"
-                  >
-                    <Trash2 class="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <!-- Card Body: Inline Edit Mode vs Display Mode -->
-              <div class="p-3.5 sm:p-4">
-                <!-- Inline Edit Form -->
-                <div v-if="editingNoteId === userComment.id" class="space-y-2.5">
-                  <textarea
-                    v-model="editNoteBody"
-                    rows="3"
-                    placeholder="Update your comment..."
-                    class="w-full text-xs sm:text-[13px] p-3 rounded-xl bg-slate-50/50 dark:bg-slate-950 border border-indigo-300 dark:border-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 text-slate-800 dark:text-slate-200 resize-y"
-                  ></textarea>
-
-                  <div class="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      @click="cancelEditNote"
-                      class="px-3 py-1.5 text-xs rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      @click="saveEditNote(userComment.id)"
-                      :disabled="isSavingEdit || !editNoteBody.trim()"
-                      class="px-3.5 py-1.5 text-xs rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
-                    >
-                      {{ isSavingEdit ? 'Saving...' : 'Save Changes' }}
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Display Mode -->
-                <div v-else>
-                  <p
-                    class="text-xs sm:text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words"
-                  >
-                    {{ userComment.body }}
-                  </p>
-
-                  <!-- Attachments on user comment -->
-                  <div
-                    v-if="userComment.attachments && userComment.attachments.length > 0"
-                    class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap gap-1.5"
-                  >
-                    <div
-                      v-for="att in userComment.attachments"
-                      :key="att.id"
-                      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs shadow-2xs text-slate-700 dark:text-slate-300"
-                    >
-                      <Paperclip class="w-3 h-3 text-indigo-500 shrink-0" />
-                      <span class="max-w-[140px] truncate" :title="att.file_name">
-                        {{ att.file_name }}
-                      </span>
-                      <span class="text-[10px] text-slate-400"
-                        >({{ formatFileSize(att.file_size) }})</span
-                      >
-                      <a
-                        :href="safeUrl(att.file_url)"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download
-                        class="text-indigo-600 hover:text-indigo-500 p-0.5 rounded transition-colors"
-                        title="Download"
-                      >
-                        <Download class="w-3 h-3" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- STATE B: User has NOT commented yet -> Display "Add Admin Comment" directly -->
-            <div
-              v-else
-              class="rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs focus-within:border-indigo-500/80 dark:focus-within:border-indigo-500/80 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all"
-            >
-              <!-- Composer Header -->
-              <div
-                class="px-3.5 py-2.5 bg-slate-50/80 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between"
-              >
-                <div class="flex items-center gap-2">
-                  <MessageSquare class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Add Admin Comment
-                  </h3>
-                </div>
-                <span
-                  class="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-200/60 dark:border-indigo-800/60"
-                >
-                  1 comment allowed
-                </span>
-              </div>
-
-              <!-- Textarea Body -->
-              <div class="p-3">
-                <textarea
-                  v-model="noteBody"
-                  @keydown="handleNoteKeydown"
-                  rows="3"
-                  placeholder="Write your comment for this ticket..."
-                  class="w-full text-xs sm:text-[13px] p-2 bg-transparent border-none focus:outline-none text-slate-800 dark:text-slate-100 placeholder:text-slate-400 resize-y min-h-[64px]"
-                ></textarea>
-
-                <!-- Attachment preview chips -->
-                <div v-if="noteFiles.length > 0" class="px-2 pb-2 flex flex-wrap gap-1.5">
-                  <div
-                    v-for="(f, i) in noteFiles"
-                    :key="i"
-                    class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-2xs"
-                  >
-                    <Paperclip class="w-3 h-3 text-slate-400 shrink-0" />
-                    <span class="max-w-[130px] truncate">{{ f.name }}</span>
-                    <button
-                      type="button"
-                      @click="removeNoteFile(i)"
-                      class="text-slate-400 hover:text-rose-500 p-0.5 cursor-pointer ml-0.5 transition-colors"
-                    >
-                      <X class="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Action Bar -->
-              <div
-                class="px-3.5 py-2 bg-slate-50/70 dark:bg-slate-950/60 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2"
-              >
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    @click="commentFileInputRef?.click()"
-                    class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 px-2.5 py-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                    title="Attach file"
-                  >
-                    <Paperclip class="w-3.5 h-3.5" />
-                    <span class="text-xs">Attach file</span>
-                  </button>
-                  <input
-                    ref="commentFileInputRef"
-                    type="file"
-                    multiple
-                    class="hidden"
-                    @change="onNoteFileSelect"
-                  />
-
-                  <span class="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline">
-                    Press
-                    <kbd class="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px]"
-                      >Ctrl+Enter</kbd
-                    >
-                    to submit
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  @click="submitNote"
-                  :disabled="
-                    ticketStore.isPostingComment || (!noteBody.trim() && noteFiles.length === 0)
-                  "
-                  class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm shadow-indigo-600/20 transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <Send v-if="!ticketStore.isPostingComment" class="w-3 h-3" />
-                  <span
-                    v-else
-                    class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"
-                  ></span>
-                  <span>Submit Comment</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB 2: AUDIT TRAIL & HISTORY -->
-          <div v-show="ticketStore.activeDetailTab === 'audits'">
-            <TicketAuditTimeline />
-          </div>
+          <!-- Discussion, All Comments & Audit History Section -->
+          <TicketCommentsSection :ticket="ticket" @preview-image="previewImage = $event" />
         </div>
 
         <!-- RIGHT COLUMN: Submitter Info & SLA Milestones (35%) -->
@@ -1057,13 +548,13 @@ function formatRelativeTime(dateStr?: string | null): string {
             <h4
               class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5"
             >
-              <User class="w-3.5 h-3.5 text-indigo-500" />
+              <User class="w-3.5 h-3.5 text-slate-500" />
               <span>Submitter Information</span>
             </h4>
 
             <div class="flex items-center gap-3 mb-3">
               <div
-                class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-sm flex items-center justify-center border border-indigo-200 dark:border-indigo-800/60 shrink-0"
+                class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-slate-600 dark:text-slate-400 font-bold text-sm flex items-center justify-center border border-indigo-200 dark:border-indigo-800/60 shrink-0"
               >
                 {{ (ticket.reporter_name || 'U').charAt(0).toUpperCase() }}
               </div>
@@ -1084,7 +575,7 @@ function formatRelativeTime(dateStr?: string | null): string {
                 class="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60"
               >
                 <div class="flex items-center gap-2 min-w-0">
-                  <Building2 class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <Building2 class="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <span
                     class="text-slate-800 dark:text-slate-200 font-medium truncate"
                     :title="ticketCompany"
@@ -1109,10 +600,10 @@ function formatRelativeTime(dateStr?: string | null): string {
                 class="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60"
               >
                 <div class="flex items-center gap-2 min-w-0">
-                  <Mail class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <Mail class="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <a
                     :href="`mailto:${ticket.reporter_email}`"
-                    class="text-indigo-600 dark:text-indigo-400 truncate max-w-[170px] font-medium hover:underline"
+                    class="text-slate-600 dark:text-slate -400 truncate max-w-[170px] font-medium hover:underline"
                     :title="ticket.reporter_email"
                   >
                     {{ ticket.reporter_email }}
@@ -1135,10 +626,10 @@ function formatRelativeTime(dateStr?: string | null): string {
                 class="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60"
               >
                 <div class="flex items-center gap-2 min-w-0">
-                  <Phone class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <Phone class="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <a
                     :href="`tel:${reporterPhone}`"
-                    class="text-indigo-600 dark:text-indigo-400 truncate font-medium hover:underline"
+                    class="text-slate-600 dark:text-slate-400 truncate font-medium hover:underline"
                   >
                     {{ reporterPhone }}
                   </a>

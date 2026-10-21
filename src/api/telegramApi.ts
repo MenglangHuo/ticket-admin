@@ -1,6 +1,10 @@
 import apiClient from './client'
 import mockService from '@/mocks/mockService'
-import type { TelegramSubscriber } from '@/types/settings'
+import type {
+  TelegramSubscriber,
+  TelegramBotConfigPayload,
+  TelegramBotInfoResponse,
+} from '@/types/settings'
 
 export interface TelegramSubscriberFilterParams {
   page?: number
@@ -303,6 +307,33 @@ export const telegramApi = {
     if (typeof resData?.data?.count === 'number') return resData.data.count
     if (typeof resData?.data === 'number') return resData.data
     return 0
+  },
+
+  /**
+   * Fetch current Telegram Bot configuration & information.
+   * Endpoint: GET /ticket/telegram/info
+   */
+  async getBotInfo(): Promise<TelegramBotInfoResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getTelegramBotInfo()
+    }
+    const response = await apiClient.get<TelegramBotInfoResponse>('/ticket/telegram/info')
+    return response.data
+  },
+
+  /**
+   * Update Telegram Bot configuration.
+   * Endpoint: PUT /ticket/telegram/config
+   */
+  async updateBotConfig(payload: TelegramBotConfigPayload): Promise<TelegramBotInfoResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.updateTelegramBotConfig(payload)
+    }
+    const response = await apiClient.put<TelegramBotInfoResponse>(
+      '/ticket/telegram/config',
+      payload,
+    )
+    return response.data
   },
 }
 

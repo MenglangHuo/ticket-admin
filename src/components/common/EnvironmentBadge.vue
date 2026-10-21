@@ -13,37 +13,32 @@ const colorStyles = computed(() => {
   switch (profile.value.color) {
     case 'emerald':
       return {
-        badge:
-          'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+        badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
         dot: 'bg-emerald-500',
         ring: 'ring-emerald-500/30',
       }
     case 'amber':
       return {
-        badge:
-          'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
+        badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
         dot: 'bg-amber-500',
         ring: 'ring-amber-500/30',
       }
     case 'rose':
       return {
-        badge:
-          'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30',
+        badge: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30',
         dot: 'bg-rose-500 animate-pulse',
         ring: 'ring-rose-500/30',
       }
     case 'purple':
       return {
-        badge:
-          'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30',
+        badge: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30',
         dot: 'bg-purple-500',
         ring: 'ring-purple-500/30',
       }
     case 'sky':
     default:
       return {
-        badge:
-          'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30',
+        badge: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30',
         dot: 'bg-sky-500',
         ring: 'ring-sky-500/30',
       }

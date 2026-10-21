@@ -289,3 +289,140 @@ describe('settingsStore endpoint decoupling tests', () => {
     expect(store.subscribers).toHaveLength(1)
   })
 })
+
+describe('telegramApi getBotInfo and updateBotConfig endpoints', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.restoreAllMocks()
+  })
+
+  it('getBotInfo calls GET /ticket/telegram/info and returns bot info data', async () => {
+    const mockResponse = {
+      success: true,
+      message: 'Retrieved successfully.',
+      data: {
+        id: 1,
+        company_id: 1,
+        bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
+        bot_token_masked: '54535517...cfs4',
+        bot_username: 'menglang6969Bot',
+        chat_id: '-1004247055582',
+        webhook_secret: 'BronxTelegramSecret2026Key99',
+        invite_expiry_days: 7,
+        is_active: true,
+        is_configured: true,
+        source: 'database',
+        telegram_object: null,
+        created_at: '2026-10-21T03:49:31.000000Z',
+        updated_at: '2026-10-21T03:51:43.000000Z',
+      },
+      timestamp: '2026-10-21 10:55:00',
+    }
+
+    const getSpy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
+      data: mockResponse,
+    })
+
+    const res = await telegramApi.getBotInfo()
+    expect(getSpy).toHaveBeenCalledWith('/ticket/telegram/info')
+    expect(res.success).toBe(true)
+    expect(res.data.bot_username).toBe('menglang6969Bot')
+    expect(res.data.chat_id).toBe('-1004247055582')
+    expect(res.data.bot_token_masked).toBe('54535517...cfs4')
+  })
+
+  it('updateBotConfig calls PUT /ticket/telegram/config with expected payload', async () => {
+    const payload = {
+      bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
+      bot_username: 'menglang6969Bot',
+      chat_id: '-1004247055582',
+      webhook_secret: 'BronxTelegramSecret2026Key99',
+      invite_expiry_days: 7,
+      is_active: true,
+    }
+
+    const mockResponse = {
+      success: true,
+      message: 'Updated successfully.',
+      data: {
+        id: 1,
+        company_id: 1,
+        bot_token: payload.bot_token,
+        bot_token_masked: '54535517...cfs4',
+        bot_username: payload.bot_username,
+        chat_id: payload.chat_id,
+        webhook_secret: payload.webhook_secret,
+        invite_expiry_days: payload.invite_expiry_days,
+        is_active: payload.is_active,
+        is_configured: true,
+        source: 'database',
+        telegram_object: null,
+        created_at: '2026-10-21T03:49:31.000000Z',
+        updated_at: '2026-10-21T03:55:00.000000Z',
+      },
+      timestamp: '2026-10-21 10:55:00',
+    }
+
+    const putSpy = vi.spyOn(apiClient, 'put').mockResolvedValueOnce({
+      data: mockResponse,
+    })
+
+    const res = await telegramApi.updateBotConfig(payload)
+    expect(putSpy).toHaveBeenCalledWith('/ticket/telegram/config', payload)
+    expect(res.success).toBe(true)
+    expect(res.data.bot_username).toBe('menglang6969Bot')
+    expect(res.data.chat_id).toBe('-1004247055582')
+  })
+
+  it('settingsStore fetchBotInfo and updateBotConfig update store state', async () => {
+    const store = useSettingsStore()
+
+    const mockBotData = {
+      id: 1,
+      company_id: 1,
+      bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
+      bot_token_masked: '54535517...cfs4',
+      bot_username: 'menglang6969Bot',
+      chat_id: '-1004247055582',
+      webhook_secret: 'BronxTelegramSecret2026Key99',
+      invite_expiry_days: 7,
+      is_active: true,
+      is_configured: true,
+      source: 'database',
+      created_at: '2026-10-21T03:49:31.000000Z',
+      updated_at: '2026-10-21T03:51:43.000000Z',
+    }
+
+    vi.spyOn(telegramApi, 'getBotInfo').mockResolvedValueOnce({
+      success: true,
+      data: mockBotData,
+    })
+
+    await store.fetchBotInfo()
+    expect(store.botInfo).toEqual(mockBotData)
+    expect(store.botConfig.botUsername).toBe('menglang6969Bot')
+    expect(store.botConfig.tokenConfigured).toBe(true)
+
+    // Test updateBotConfig
+    const updatedPayload = {
+      ...mockBotData,
+      bot_username: 'newBotName',
+      is_active: false,
+    }
+
+    vi.spyOn(telegramApi, 'updateBotConfig').mockResolvedValueOnce({
+      success: true,
+      data: {
+        ...mockBotData,
+        bot_username: 'newBotName',
+        is_active: false,
+      },
+    })
+
+    const updatedResult = await store.updateBotConfig(updatedPayload)
+    expect(updatedResult.bot_username).toBe('newBotName')
+    expect(store.botInfo?.bot_username).toBe('newBotName')
+    expect(store.botInfo?.is_active).toBe(false)
+    expect(store.botConfig.botUsername).toBe('newBotName')
+  })
+})

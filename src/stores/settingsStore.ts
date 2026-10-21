@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { TelegramSubscriber, TelegramBotConfig } from '@/types/settings'
+import type {
+  TelegramSubscriber,
+  TelegramBotConfig,
+  TelegramBotInfo,
+  TelegramBotConfigPayload,
+} from '@/types/settings'
 import {
   telegramApi,
   type TelegramSubscriberFilterParams,
@@ -13,12 +18,18 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // Telegram Bot Configuration
   const botConfig = ref<TelegramBotConfig>({
-    botUsername: (import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string) || '',
+    botUsername: '',
     tokenConfigured: true,
     webhookStatus: 'connected',
     daemonCommand: 'php artisan outbox:process',
     deliverySuccessRate: 99.8,
   })
+
+  // Full Telegram Bot Info from /ticket/telegram/info
+  const botInfo = ref<TelegramBotInfo | null>(null)
+  const isBotInfoLoading = ref(false)
+  const isSavingBotConfig = ref(false)
+  const botInfoError = ref<string | null>(null)
 
   // Live subscribers from backend database
   const subscribers = ref<TelegramSubscriber[]>([])
@@ -209,8 +220,86 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  let botInfoPromise: Promise<TelegramBotInfo | null> | null = null
+
+  /**
+   * Fetch Telegram Bot information from GET /ticket/telegram/info
+   */
+  async function fetchBotInfo(force = false): Promise<TelegramBotInfo | null> {
+    if (!force && botInfo.value) {
+      return botInfo.value
+    }
+    if (botInfoPromise) return botInfoPromise
+
+    isBotInfoLoading.value = true
+    botInfoError.value = null
+
+    botInfoPromise = (async () => {
+      try {
+        const res = await telegramApi.getBotInfo()
+        const info = res?.data || null
+        botInfo.value = info
+        if (info?.bot_username) {
+          botConfig.value.botUsername = info.bot_username
+        }
+        if (info) {
+          botConfig.value.tokenConfigured = Boolean(
+            info.is_configured ?? info.bot_token ?? info.bot_token_masked,
+          )
+        }
+        return info
+      } catch (err: any) {
+        const message =
+          err.response?.data?.message || err.message || 'Failed to retrieve Telegram bot info'
+        botInfoError.value = message
+        return null
+      } finally {
+        isBotInfoLoading.value = false
+        botInfoPromise = null
+      }
+    })()
+
+    return botInfoPromise
+  }
+
+  /**
+   * Update Telegram Bot configuration via PUT /ticket/telegram/config
+   */
+  async function updateBotConfig(payload: TelegramBotConfigPayload): Promise<TelegramBotInfo> {
+    isSavingBotConfig.value = true
+    try {
+      const res = await telegramApi.updateBotConfig(payload)
+      const updated = res.data
+      botInfo.value = updated
+      if (updated?.bot_username) {
+        botConfig.value.botUsername = updated.bot_username
+      }
+      if (updated) {
+        botConfig.value.tokenConfigured = Boolean(
+          updated.is_configured ?? updated.bot_token ?? updated.bot_token_masked,
+        )
+      }
+      toastStore.success(
+        'Bot Configuration Saved',
+        res.message || 'Telegram Bot information was updated successfully.',
+      )
+      return updated
+    } catch (err: any) {
+      const message =
+        err.response?.data?.message || err.message || 'Failed to update Telegram Bot configuration'
+      toastStore.error('Update Failed', message)
+      throw err
+    } finally {
+      isSavingBotConfig.value = false
+    }
+  }
+
   return {
     botConfig,
+    botInfo,
+    isBotInfoLoading,
+    isSavingBotConfig,
+    botInfoError,
     subscribers,
     pagination,
     isLoading,
@@ -222,6 +311,8 @@ export const useSettingsStore = defineStore('settings', () => {
     totalSubscribersCount,
     fetchMetrics,
     fetchSubscribers,
+    fetchBotInfo,
+    updateBotConfig,
     generateInviteLink,
     removeSubscriber,
     toggleSubscriberNotification,

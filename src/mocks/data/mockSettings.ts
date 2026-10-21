@@ -1,4 +1,9 @@
-import type { TelegramSubscriber } from '@/types/settings'
+import type {
+  TelegramSubscriber,
+  TelegramBotInfo,
+  TelegramBotConfigPayload,
+  TelegramBotInfoResponse,
+} from '@/types/settings'
 import type {
   TelegramSubscriberFilterParams,
   TelegramSubscriberListResponse,
@@ -160,7 +165,7 @@ export function getMockSubscribers(
 
 export function generateMockInviteLink(): string {
   mockInvitesCounter++
-  const botUser = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string) || 'BronxTicketAlertBot'
+  const botUser = mockBotInfoState.bot_username || 'BronxTicketAlertBot'
   const cleanBot = botUser.replace(/^@/, '')
   const randToken = Math.random().toString(36).substring(2, 10)
   return `https://t.me/${cleanBot}?start=inv_${randToken}`
@@ -186,5 +191,76 @@ export function getMockTelegramCounts(): TelegramCounts {
     totalSubscribers: mockSubscribersState.length,
     activeSubscribers: activeCount,
     totalTelegramInvites: mockInvitesCounter,
+  }
+}
+
+export const INITIAL_MOCK_BOT_INFO: TelegramBotInfo = {
+  id: 1,
+  company_id: 1,
+  bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
+  bot_token_masked: '54535517...cfs4',
+  bot_username: 'menglang6969Bot',
+  chat_id: '-1004247055582',
+  webhook_secret: 'BronxTelegramSecret2026Key99',
+  invite_expiry_days: 7,
+  is_active: true,
+  is_configured: true,
+  source: 'database',
+  telegram_object: null,
+  created_at: '2026-10-21T03:49:31.000000Z',
+  updated_at: '2026-10-21T03:51:43.000000Z',
+}
+
+let mockBotInfoState: TelegramBotInfo = JSON.parse(JSON.stringify(INITIAL_MOCK_BOT_INFO))
+
+export function resetMockBotInfo(): void {
+  mockBotInfoState = JSON.parse(JSON.stringify(INITIAL_MOCK_BOT_INFO))
+}
+
+function maskToken(token?: string): string {
+  if (!token) return ''
+  if (token.length <= 12) return token
+  return `${token.substring(0, 8)}...${token.substring(token.length - 4)}`
+}
+
+export function getMockTelegramBotInfo(): TelegramBotInfoResponse {
+  return {
+    success: true,
+    message: 'Retrieved successfully.',
+    data: { ...mockBotInfoState },
+    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+  }
+}
+
+export function updateMockTelegramBotConfig(
+  payload: TelegramBotConfigPayload,
+): TelegramBotInfoResponse {
+  const now = new Date().toISOString()
+  const token = payload.bot_token || mockBotInfoState.bot_token
+  mockBotInfoState = {
+    ...mockBotInfoState,
+    bot_token: token,
+    bot_token_masked: maskToken(token),
+    bot_username: payload.bot_username || mockBotInfoState.bot_username,
+    chat_id: payload.chat_id || mockBotInfoState.chat_id,
+    webhook_secret:
+      payload.webhook_secret !== undefined
+        ? payload.webhook_secret
+        : mockBotInfoState.webhook_secret,
+    invite_expiry_days:
+      payload.invite_expiry_days !== undefined
+        ? payload.invite_expiry_days
+        : mockBotInfoState.invite_expiry_days,
+    is_active:
+      payload.is_active !== undefined ? Boolean(payload.is_active) : mockBotInfoState.is_active,
+    is_configured: Boolean(token && payload.bot_username && payload.chat_id),
+    updated_at: now,
+  }
+
+  return {
+    success: true,
+    message: 'Retrieved successfully.',
+    data: { ...mockBotInfoState },
+    timestamp: now.replace('T', ' ').substring(0, 19),
   }
 }

@@ -993,19 +993,50 @@ export function createMockTicketComment(
 ): { data: TicketComment; success: boolean; message: string } {
   const numId = Number(ticketId)
   const ticket = mockTicketsState.find((t) => t.id === numId)
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+
+  const attachments: Attachment[] = []
+  if (payload.files && payload.files.length > 0) {
+    payload.files.forEach((fileOrStr, idx) => {
+      if (typeof fileOrStr === 'string') {
+        attachments.push({
+          id: Math.floor(Math.random() * 10000) + 500,
+          ticket_id: numId,
+          file_name: `snapshot_${idx + 1}.png`,
+          file_url: fileOrStr,
+          file_size: 1024,
+          mime_type: 'image/png',
+          created_at: now,
+        })
+      } else if (typeof File !== 'undefined' && fileOrStr instanceof File) {
+        attachments.push({
+          id: Math.floor(Math.random() * 10000) + 500,
+          ticket_id: numId,
+          file_name: fileOrStr.name,
+          file_url: typeof URL !== 'undefined' ? URL.createObjectURL(fileOrStr) : '',
+          file_size: fileOrStr.size,
+          mime_type: fileOrStr.type || 'application/octet-stream',
+          created_at: now,
+        })
+      }
+    })
+  }
 
   const newComment: TicketComment = {
     id: Math.floor(Math.random() * 10000) + 1000,
     ticket_id: numId,
+    username: payload.username,
     body: payload.body,
     is_internal: Boolean(payload.is_internal),
     author: {
       id: 1,
-      name: 'Menglang Huo',
-      email: 'menglang@bronx.internal',
+      name: payload.username || 'Menglang Huo',
+      email: payload.username ? `${payload.username}@client.portal` : 'menglang@bronx.internal',
     },
-    created_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
-    updated_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    attachments,
+    files: attachments,
+    created_at: now,
+    updated_at: now,
   }
 
   if (ticket) {

@@ -109,7 +109,9 @@ export function getStoredEnvironment(): AppEnvironmentKey {
     // If running in development (e.g. npm run dev), clear and ignore stale 'production' stored in localStorage
     if (
       stored === 'production' &&
-      (defaultEnv === 'development' || envKey === 'development' || import.meta.env.MODE === 'development')
+      (defaultEnv === 'development' ||
+        envKey === 'development' ||
+        import.meta.env.MODE === 'development')
     ) {
       localStorage.removeItem(STORAGE_KEY_ENV)
       return 'development'
@@ -158,7 +160,9 @@ export function hasEnvironmentOverride(): boolean {
     const stored = localStorage.getItem(STORAGE_KEY_ENV)
     if (
       stored === 'production' &&
-      (defaultEnv === 'development' || envKey === 'development' || import.meta.env.MODE === 'development')
+      (defaultEnv === 'development' ||
+        envKey === 'development' ||
+        import.meta.env.MODE === 'development')
     ) {
       return false
     }
@@ -199,9 +203,7 @@ export function resolveEnvironmentProfile(
     const rawAuth = (import.meta.env.VITE_AUTH_BASE_URL as string | undefined)?.trim()
     const rawProxy = (import.meta.env.VITE_PROXY_TARGET as string | undefined)?.trim()
 
-    const apiBase =
-      rawApi ||
-      (rawProxy ? `${rawProxy.replace(/\/+$/, '')}/api` : preset.apiBaseUrl)
+    const apiBase = rawApi || (rawProxy ? `${rawProxy.replace(/\/+$/, '')}/api` : preset.apiBaseUrl)
 
     const authBase =
       rawAuth !== undefined
@@ -392,7 +394,7 @@ export function resetEnvironmentToDefault(clearSession = false): EnvironmentProf
  * List all available preset environments
  */
 export function getAvailableEnvironments(): EnvironmentProfile[] {
-  return (['development', 'production', 'mock', 'custom'] as AppEnvironmentKey[]).map(
-    (key) => resolveEnvironmentProfile(key, customApiUrlRef.value, customAuthUrlRef.value),
+  return (['development', 'production', 'mock', 'custom'] as AppEnvironmentKey[]).map((key) =>
+    resolveEnvironmentProfile(key, customApiUrlRef.value, customAuthUrlRef.value),
   )
 }
