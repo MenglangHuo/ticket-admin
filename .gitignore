@@ -39,4 +39,14 @@ __screenshots__/
 *.timestamp-*-*.mjs
 
 !.vscode/settings.json
+
+# Environment Variables & Local Overrides
 .env
+.env.local
+.env.*.local
+
+# Explicitly track environment mode presets and templates
+!.env.example
+!.env.development
+!.env.production
+!.env.mock

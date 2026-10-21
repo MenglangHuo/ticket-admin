@@ -19,7 +19,7 @@ const props = withDefaults(
     loading: false,
     progressPercent: 40,
     variant: 'indigo',
-  }
+  },
 )
 
 const variantStyles = computed(() => {
@@ -76,7 +76,9 @@ const clampedProgress = computed(() => {
   >
     <!-- Top Row: Title (Left) + Pastel Icon Box (Right) -->
     <div class="flex items-center justify-between gap-2">
-      <span class="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
+      <span
+        class="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 truncate"
+      >
         {{ title }}
       </span>
 
@@ -91,8 +93,14 @@ const clampedProgress = computed(() => {
 
     <!-- Numeric Value -->
     <div class="mt-1">
-      <div v-if="loading" class="animate-pulse h-6 w-20 bg-slate-100 dark:bg-slate-800 rounded"></div>
-      <div v-else class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white font-sans">
+      <div
+        v-if="loading"
+        class="animate-pulse h-6 w-20 bg-slate-100 dark:bg-slate-800 rounded"
+      ></div>
+      <div
+        v-else
+        class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white font-sans"
+      >
         {{ value }}
       </div>
     </div>
@@ -106,17 +114,26 @@ const clampedProgress = computed(() => {
           :class="variantStyles.progressBar"
           :style="{ width: `${clampedProgress}%` }"
         ></div>
-        <div v-else class="h-full w-1/3 bg-slate-200 dark:bg-slate-700 animate-pulse rounded-full"></div>
+        <div
+          v-else
+          class="h-full w-1/3 bg-slate-200 dark:bg-slate-700 animate-pulse rounded-full"
+        ></div>
       </div>
     </div>
 
     <!-- Bottom Row: Subtitle (Left) + Trend / Metric Tag (Right) -->
-    <div class="mt-2 flex items-center justify-between text-[11px] font-medium text-slate-400 dark:text-slate-500">
+    <div
+      class="mt-2 flex items-center justify-between text-[11px] font-medium text-slate-400 dark:text-slate-500"
+    >
       <span class="truncate">
         {{ subtitle || '' }}
       </span>
 
-      <div v-if="trend" class="flex items-center gap-0.5 shrink-0 font-semibold" :class="variantStyles.trendColor">
+      <div
+        v-if="trend"
+        class="flex items-center gap-0.5 shrink-0 font-semibold"
+        :class="variantStyles.trendColor"
+      >
         <svg
           v-if="trend.isPositive !== false"
           class="w-3 h-3 stroke-[2.5]"

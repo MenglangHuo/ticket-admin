@@ -85,13 +85,25 @@ function onInput(event: Event) {
         class="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 rounded-xl border transition-all focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         :class="[
           icon
-            ? (size === 'lg' ? 'pl-12' : (size === 'md' ? 'pl-10' : 'pl-9'))
-            : (size === 'lg' ? 'pl-4' : 'pl-3.5'),
+            ? size === 'lg'
+              ? 'pl-12'
+              : size === 'md'
+                ? 'pl-10'
+                : 'pl-9'
+            : size === 'lg'
+              ? 'pl-4'
+              : 'pl-3.5',
           size === 'lg'
-            ? ($slots.suffix ? 'h-12 sm:h-13 text-sm sm:text-base pr-12' : 'h-12 sm:h-13 text-sm sm:text-base pr-4')
+            ? $slots.suffix
+              ? 'h-12 sm:h-13 text-sm sm:text-base pr-12'
+              : 'h-12 sm:h-13 text-sm sm:text-base pr-4'
             : size === 'md'
-              ? ($slots.suffix ? 'h-10 text-sm pr-10' : 'h-10 text-sm pr-4')
-              : ($slots.suffix ? 'h-8 text-xs pr-8' : 'h-8 text-xs pr-3'),
+              ? $slots.suffix
+                ? 'h-10 text-sm pr-10'
+                : 'h-10 text-sm pr-4'
+              : $slots.suffix
+                ? 'h-8 text-xs pr-8'
+                : 'h-8 text-xs pr-3',
           error
             ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20'
             : 'border-slate-200 dark:border-slate-800',

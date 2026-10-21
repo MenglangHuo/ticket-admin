@@ -1,4 +1,4 @@
-import type { User, TokenResponse, TwoFactorResponse } from '@/types/ticket';
+import type { User, TokenResponse, TwoFactorResponse } from '@/types/ticket'
 
 export const MOCK_ADMIN_USER: User = {
   id: 1,
@@ -23,7 +23,7 @@ export const MOCK_ADMIN_USER: User = {
     is_expert: true,
     accept_card: true,
   },
-};
+}
 
 export const MOCK_BRANCH_USER: User = {
   id: 2,
@@ -41,60 +41,64 @@ export const MOCK_BRANCH_USER: User = {
     access_token: 'mock_jwt_access_token_bronx_branch',
     expires_in: 86400,
   },
-};
+}
 
 export function mockGenerateToken(): TokenResponse {
   return {
     success: true,
     access_token: 'mock_app_token_secret_initial_key',
     message: 'Application token generated (Mock Mode)',
-  };
+  }
 }
 
 export function mockLogin(credentials: { username: string; password?: string }): {
-  success: boolean;
-  access_token: string;
-  user: User;
-  message: string;
+  success: boolean
+  access_token: string
+  user: User
+  message: string
 } {
-  const isBranch = credentials.username.toLowerCase().includes('branch');
-  const user = isBranch ? MOCK_BRANCH_USER : MOCK_ADMIN_USER;
+  const isBranch = credentials.username.toLowerCase().includes('branch')
+  const user = isBranch ? MOCK_BRANCH_USER : MOCK_ADMIN_USER
 
   return {
     success: true,
     access_token: user.auth?.access_token || 'mock_jwt_token',
     user: JSON.parse(JSON.stringify(user)),
     message: 'Authentication successful (Mock Mode)',
-  };
+  }
 }
 
-export function mockValidateTwoFactor(params: { username: string; code?: string }): TwoFactorResponse {
-  const code = (params.code || '').trim();
+export function mockValidateTwoFactor(params: {
+  username: string
+  code?: string
+}): TwoFactorResponse {
+  const code = (params.code || '').trim()
 
   // Simulate invalid code for testing failure states
   if (code === '999999') {
-    const error: any = new Error('Invalid verification code');
+    const error: any = new Error('Invalid verification code')
     error.response = {
       status: 422,
       data: {
-        message: 'Invalid two-factor verification code. Please check your authenticator and try again.',
+        message:
+          'Invalid two-factor verification code. Please check your authenticator and try again.',
       },
-    };
-    throw error;
+    }
+    throw error
   }
 
   if (code && code.length !== 6) {
-    const error: any = new Error('Invalid verification code format');
+    const error: any = new Error('Invalid verification code format')
     error.response = {
       status: 400,
       data: {
         message: 'Verification code must be exactly 6 digits.',
       },
-    };
-    throw error;
+    }
+    throw error
   }
 
-  const user = JSON.parse(JSON.stringify(MOCK_ADMIN_USER)) as TwoFactorResponse;
-  user.username = params.username || user.username;
-  return user;
+  const user = JSON.parse(JSON.stringify(MOCK_ADMIN_USER)) as TwoFactorResponse
+  user.username = params.username || user.username
+  return user
 }

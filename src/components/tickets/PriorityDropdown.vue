@@ -1,103 +1,107 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
-import type { TicketPriority } from '@/types/ticket';
-import { ChevronDown, Check } from 'lucide-vue-next';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import type { TicketPriority } from '@/types/ticket'
+import { ChevronDown, Check } from 'lucide-vue-next'
 
 interface PriorityConfig {
-  value: TicketPriority;
-  label: string;
-  dotColor: string;
-  badgeStyle: string;
+  value: TicketPriority
+  label: string
+  dotColor: string
+  badgeStyle: string
 }
 
 const props = withDefaults(
   defineProps<{
-    modelValue: TicketPriority;
-    disabled?: boolean;
-    size?: 'xs' | 'sm' | 'md';
-    placement?: 'left' | 'right';
-    teleport?: boolean;
+    modelValue: TicketPriority
+    disabled?: boolean
+    size?: 'xs' | 'sm' | 'md'
+    placement?: 'left' | 'right'
+    teleport?: boolean
   }>(),
   {
     disabled: false,
     size: 'sm',
     placement: 'left',
     teleport: true,
-  }
-);
+  },
+)
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: TicketPriority): void;
-  (e: 'change', value: TicketPriority): void;
-}>();
+  (e: 'update:modelValue', value: TicketPriority): void
+  (e: 'change', value: TicketPriority): void
+}>()
 
-const isOpen = ref(false);
-const isUpward = ref(false);
-const containerRef = ref<HTMLElement | null>(null);
-const triggerRef = ref<HTMLElement | null>(null);
-const menuRef = ref<HTMLElement | null>(null);
-const dropdownStyle = ref<Record<string, string>>({});
-let rafId: number | null = null;
+const isOpen = ref(false)
+const isUpward = ref(false)
+const containerRef = ref<HTMLElement | null>(null)
+const triggerRef = ref<HTMLElement | null>(null)
+const menuRef = ref<HTMLElement | null>(null)
+const dropdownStyle = ref<Record<string, string>>({})
+let rafId: number | null = null
 
 const priorities: PriorityConfig[] = [
   {
     value: 'critical',
     label: 'Critical',
     dotColor: 'bg-rose-500',
-    badgeStyle: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30',
+    badgeStyle:
+      'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30',
   },
   {
     value: 'high',
     label: 'High',
     dotColor: 'bg-amber-500',
-    badgeStyle: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30',
+    badgeStyle:
+      'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30',
   },
   {
     value: 'medium',
     label: 'Medium',
     dotColor: 'bg-sky-500',
-    badgeStyle: 'bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/30',
+    badgeStyle:
+      'bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/30',
   },
   {
     value: 'low',
     label: 'Low',
     dotColor: 'bg-slate-400',
-    badgeStyle: 'bg-slate-100 dark:bg-slate-700/30 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-700/40',
+    badgeStyle:
+      'bg-slate-100 dark:bg-slate-700/30 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-700/40',
   },
-];
+]
 
 const currentConfig = computed(() => {
-  return priorities.find((p) => p.value === props.modelValue) || priorities[2]!;
-});
+  return priorities.find((p) => p.value === props.modelValue) || priorities[2]!
+})
 
 function updatePosition() {
-  if (!isOpen.value || !triggerRef.value) return;
+  if (!isOpen.value || !triggerRef.value) return
 
-  const rect = triggerRef.value.getBoundingClientRect();
-  const menuWidth = menuRef.value?.offsetWidth || 150;
-  const menuHeight = menuRef.value?.offsetHeight || 170;
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
+  const rect = triggerRef.value.getBoundingClientRect()
+  const menuWidth = menuRef.value?.offsetWidth || 150
+  const menuHeight = menuRef.value?.offsetHeight || 170
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
 
-  const spaceBelow = viewportHeight - rect.bottom;
-  const spaceAbove = rect.top;
-  const openUpward = spaceBelow < menuHeight + 8 && spaceAbove > spaceBelow;
-  isUpward.value = openUpward;
+  const spaceBelow = viewportHeight - rect.bottom
+  const spaceAbove = rect.top
+  const openUpward = spaceBelow < menuHeight + 8 && spaceAbove > spaceBelow
+  isUpward.value = openUpward
 
-  let top = openUpward ? rect.top - menuHeight - 4 : rect.bottom + 4;
-  let left = props.placement === 'right' ? rect.right - menuWidth : rect.left;
+  let top = openUpward ? rect.top - menuHeight - 4 : rect.bottom + 4
+  let left = props.placement === 'right' ? rect.right - menuWidth : rect.left
 
   if (left + menuWidth > viewportWidth - 8) {
-    left = viewportWidth - menuWidth - 8;
+    left = viewportWidth - menuWidth - 8
   }
   if (left < 8) {
-    left = 8;
+    left = 8
   }
   if (top < 8) {
-    top = 8;
+    top = 8
   }
   if (top + menuHeight > viewportHeight - 8) {
-    top = viewportHeight - menuHeight - 8;
+    top = viewportHeight - menuHeight - 8
   }
 
   dropdownStyle.value = {
@@ -105,95 +109,95 @@ function updatePosition() {
     top: `${Math.round(top)}px`,
     left: `${Math.round(left)}px`,
     zIndex: '9999',
-  };
+  }
 }
 
 async function toggle() {
-  if (props.disabled) return;
-  isOpen.value = !isOpen.value;
+  if (props.disabled) return
+  isOpen.value = !isOpen.value
   if (isOpen.value && props.teleport) {
-    updatePosition();
-    await nextTick();
-    updatePosition();
+    updatePosition()
+    await nextTick()
+    updatePosition()
   }
 }
 
 function select(priority: TicketPriority) {
-  emit('update:modelValue', priority);
-  emit('change', priority);
-  isOpen.value = false;
+  emit('update:modelValue', priority)
+  emit('change', priority)
+  isOpen.value = false
 }
 
 function handleClickOutside(e: MouseEvent) {
-  const target = e.target as Node;
+  const target = e.target as Node
   if (
     containerRef.value &&
     !containerRef.value.contains(target) &&
     (!menuRef.value || !menuRef.value.contains(target))
   ) {
-    isOpen.value = false;
+    isOpen.value = false
   }
 }
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && isOpen.value) {
-    isOpen.value = false;
+    isOpen.value = false
   }
 }
 
 function handleScroll() {
-  if (!isOpen.value) return;
-  if (rafId) cancelAnimationFrame(rafId);
+  if (!isOpen.value) return
+  if (rafId) cancelAnimationFrame(rafId)
   rafId = requestAnimationFrame(() => {
-    if (!isOpen.value || !triggerRef.value) return;
-    const rect = triggerRef.value.getBoundingClientRect();
+    if (!isOpen.value || !triggerRef.value) return
+    const rect = triggerRef.value.getBoundingClientRect()
     if (
       rect.bottom < 0 ||
       rect.top > window.innerHeight ||
       rect.right < 0 ||
       rect.left > window.innerWidth
     ) {
-      isOpen.value = false;
-      return;
+      isOpen.value = false
+      return
     }
-    updatePosition();
-  });
+    updatePosition()
+  })
 }
 
 function handleResize() {
-  if (!isOpen.value) return;
-  updatePosition();
+  if (!isOpen.value) return
+  updatePosition()
 }
 
 watch(isOpen, async (val) => {
   if (val && props.teleport) {
-    updatePosition();
-    await nextTick();
-    updatePosition();
-    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
-    window.addEventListener('resize', handleResize, { passive: true });
+    updatePosition()
+    await nextTick()
+    updatePosition()
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
+    window.addEventListener('resize', handleResize, { passive: true })
   } else {
-    window.removeEventListener('scroll', handleScroll, true);
-    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('scroll', handleScroll, true)
+    window.removeEventListener('resize', handleResize)
     if (rafId) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
+      cancelAnimationFrame(rafId)
+      rafId = null
     }
   }
-});
+})
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside, true);
-  document.addEventListener('keydown', handleKeydown);
-});
+  document.addEventListener('click', handleClickOutside, true)
+  document.addEventListener('keydown', handleKeydown)
+})
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside, true);
-  document.removeEventListener('keydown', handleKeydown);
-  window.removeEventListener('scroll', handleScroll, true);
-  window.removeEventListener('resize', handleResize);
-  if (rafId) cancelAnimationFrame(rafId);
-});
+  document.removeEventListener('click', handleClickOutside, true)
+  document.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('scroll', handleScroll, true)
+  window.removeEventListener('resize', handleResize)
+  if (rafId) cancelAnimationFrame(rafId)
+})
 </script>
 
 <template>

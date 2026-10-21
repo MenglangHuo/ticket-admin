@@ -4,12 +4,7 @@ import { useTicketStore } from '@/stores/ticketStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { TicketPriority, TicketType } from '@/types/ticket'
 import CustomSelect, { type SelectOption } from '@/components/common/CustomSelect.vue'
-import {
-  X,
-  Edit3,
-  Sparkles,
-  ShieldAlert,
-} from 'lucide-vue-next'
+import { X, Edit3, Sparkles, ShieldAlert } from 'lucide-vue-next'
 
 const ticketStore = useTicketStore()
 const toastStore = useToastStore()
@@ -49,7 +44,7 @@ watch(
       form.audit_reason = ''
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 const typeOptions: SelectOption[] = [
@@ -177,30 +172,26 @@ async function handleSubmit() {
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Issue Type
             </label>
-            <CustomSelect
-              v-model="form.type"
-              :options="typeOptions"
-              size="md"
-            />
+            <CustomSelect v-model="form.type" :options="typeOptions" size="md" />
           </div>
 
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Priority Level
             </label>
-            <CustomSelect
-              v-model="form.priority"
-              :options="priorityOptions"
-              size="md"
-            />
+            <CustomSelect v-model="form.priority" :options="priorityOptions" size="md" />
           </div>
         </div>
 
         <!-- Description Field -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+          <label
+            class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between"
+          >
             <span>Description</span>
-            <span class="text-[11px] font-normal text-slate-400">Supports text & HTML formatting</span>
+            <span class="text-[11px] font-normal text-slate-400"
+              >Supports text & HTML formatting</span
+            >
           </label>
           <textarea
             v-model="form.description"
@@ -211,13 +202,12 @@ async function handleSubmit() {
         </div>
 
         <!-- Audit Reason Field (Highlighted UX) -->
-        <div
-          class="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2.5"
-        >
+        <div class="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2.5">
           <div class="flex items-center gap-2">
             <Sparkles class="w-4 h-4 text-amber-500 shrink-0" />
             <label class="text-xs font-bold text-amber-900 dark:text-amber-200">
-              Audit Reason / Note <span class="font-normal text-amber-700 dark:text-amber-400">(Recommended)</span>
+              Audit Reason / Note
+              <span class="font-normal text-amber-700 dark:text-amber-400">(Recommended)</span>
             </label>
           </div>
 
@@ -245,10 +235,13 @@ async function handleSubmit() {
           </div>
 
           <!-- Compliance Note -->
-          <p class="text-[10px] text-amber-800/80 dark:text-amber-300/70 flex items-center gap-1.5 pt-1">
+          <p
+            class="text-[10px] text-amber-800/80 dark:text-amber-300/70 flex items-center gap-1.5 pt-1"
+          >
             <ShieldAlert class="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span>
-              Your staff identity, timestamp, IP address, and exact change diff will be permanently recorded in the audit trail.
+              Your staff identity, timestamp, IP address, and exact change diff will be permanently
+              recorded in the audit trail.
             </span>
           </p>
         </div>

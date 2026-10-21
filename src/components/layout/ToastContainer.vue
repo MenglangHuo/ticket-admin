@@ -1,14 +1,8 @@
 <script setup lang="ts">
-import { useToastStore } from '@/stores/toastStore';
-import {
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  X
-} from 'lucide-vue-next';
+import { useToastStore } from '@/stores/toastStore'
+import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-vue-next'
 
-const toastStore = useToastStore();
+const toastStore = useToastStore()
 </script>
 
 <template>
@@ -26,9 +20,12 @@ const toastStore = useToastStore();
         :key="toast.id"
         class="pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-xl backdrop-blur-md transition-all"
         :class="{
-          'bg-slate-900/95 border-emerald-500/40 text-emerald-300 shadow-emerald-950/20': toast.type === 'success',
-          'bg-slate-900/95 border-rose-500/40 text-rose-300 shadow-rose-950/20': toast.type === 'error',
-          'bg-slate-900/95 border-amber-500/40 text-amber-300 shadow-amber-950/20': toast.type === 'warning',
+          'bg-slate-900/95 border-emerald-500/40 text-emerald-300 shadow-emerald-950/20':
+            toast.type === 'success',
+          'bg-slate-900/95 border-rose-500/40 text-rose-300 shadow-rose-950/20':
+            toast.type === 'error',
+          'bg-slate-900/95 border-amber-500/40 text-amber-300 shadow-amber-950/20':
+            toast.type === 'warning',
           'bg-slate-900/95 border-sky-500/40 text-sky-300 shadow-sky-950/20': toast.type === 'info',
         }"
       >

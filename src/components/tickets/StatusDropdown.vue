@@ -1,24 +1,24 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
-import type { TicketStatus } from '@/types/ticket';
-import { useTicketStore } from '@/stores/ticketStore';
-import { ChevronDown, Check, AlertCircle } from 'lucide-vue-next';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import type { TicketStatus } from '@/types/ticket'
+import { useTicketStore } from '@/stores/ticketStore'
+import { ChevronDown, Check, AlertCircle } from 'lucide-vue-next'
 
 interface StatusConfig {
-  value: TicketStatus;
-  label: string;
-  dotColor: string;
-  badgeStyle: string;
+  value: TicketStatus
+  label: string
+  dotColor: string
+  badgeStyle: string
 }
 
 const props = withDefaults(
   defineProps<{
-    modelValue: TicketStatus;
-    disabled?: boolean;
-    size?: 'xs' | 'sm' | 'md';
-    showTransitionCheck?: boolean;
-    placement?: 'left' | 'right';
-    teleport?: boolean;
+    modelValue: TicketStatus
+    disabled?: boolean
+    size?: 'xs' | 'sm' | 'md'
+    showTransitionCheck?: boolean
+    placement?: 'left' | 'right'
+    teleport?: boolean
   }>(),
   {
     disabled: false,
@@ -26,90 +26,94 @@ const props = withDefaults(
     showTransitionCheck: true,
     placement: 'left',
     teleport: true,
-  }
-);
+  },
+)
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: TicketStatus): void;
-  (e: 'change', value: TicketStatus): void;
-}>();
+  (e: 'update:modelValue', value: TicketStatus): void
+  (e: 'change', value: TicketStatus): void
+}>()
 
-const ticketStore = useTicketStore();
-const isOpen = ref(false);
-const isUpward = ref(false);
-const containerRef = ref<HTMLElement | null>(null);
-const triggerRef = ref<HTMLElement | null>(null);
-const menuRef = ref<HTMLElement | null>(null);
-const dropdownStyle = ref<Record<string, string>>({});
-let rafId: number | null = null;
+const ticketStore = useTicketStore()
+const isOpen = ref(false)
+const isUpward = ref(false)
+const containerRef = ref<HTMLElement | null>(null)
+const triggerRef = ref<HTMLElement | null>(null)
+const menuRef = ref<HTMLElement | null>(null)
+const dropdownStyle = ref<Record<string, string>>({})
+let rafId: number | null = null
 
 const statuses: StatusConfig[] = [
   {
     value: 'open',
     label: 'Open',
     dotColor: 'bg-indigo-500',
-    badgeStyle: 'text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/10',
+    badgeStyle:
+      'text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/10',
   },
   {
     value: 'in_progress',
     label: 'In Progress',
     dotColor: 'bg-amber-500',
-    badgeStyle: 'text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10',
+    badgeStyle:
+      'text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10',
   },
   {
     value: 'resolved',
     label: 'Resolved',
     dotColor: 'bg-emerald-500',
-    badgeStyle: 'text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10',
+    badgeStyle:
+      'text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10',
   },
   {
     value: 'closed',
     label: 'Closed',
     dotColor: 'bg-slate-500',
-    badgeStyle: 'text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/40',
+    badgeStyle:
+      'text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/40',
   },
-];
+]
 
 const currentConfig = computed(() => {
-  return statuses.find((s) => s.value === props.modelValue) || statuses[0]!;
-});
+  return statuses.find((s) => s.value === props.modelValue) || statuses[0]!
+})
 
 function isTransitionAllowed(targetStatus: TicketStatus): boolean {
-  if (!props.showTransitionCheck) return true;
-  if (props.modelValue === targetStatus) return true;
-  return ticketStore.isValidTransition(props.modelValue, targetStatus);
+  if (!props.showTransitionCheck) return true
+  if (props.modelValue === targetStatus) return true
+  return ticketStore.isValidTransition(props.modelValue, targetStatus)
 }
 
 function updatePosition() {
-  if (!isOpen.value || !triggerRef.value) return;
+  if (!isOpen.value || !triggerRef.value) return
 
-  const rect = triggerRef.value.getBoundingClientRect();
-  const menuWidth = menuRef.value?.offsetWidth || 160;
-  const menuHeight = menuRef.value?.offsetHeight || 180;
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
+  const rect = triggerRef.value.getBoundingClientRect()
+  const menuWidth = menuRef.value?.offsetWidth || 160
+  const menuHeight = menuRef.value?.offsetHeight || 180
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
 
   // Decide whether to open upward or downward based on viewport space
-  const spaceBelow = viewportHeight - rect.bottom;
-  const spaceAbove = rect.top;
-  const openUpward = spaceBelow < menuHeight + 8 && spaceAbove > spaceBelow;
-  isUpward.value = openUpward;
+  const spaceBelow = viewportHeight - rect.bottom
+  const spaceAbove = rect.top
+  const openUpward = spaceBelow < menuHeight + 8 && spaceAbove > spaceBelow
+  isUpward.value = openUpward
 
-  let top = openUpward ? rect.top - menuHeight - 4 : rect.bottom + 4;
-  let left = props.placement === 'right' ? rect.right - menuWidth : rect.left;
+  let top = openUpward ? rect.top - menuHeight - 4 : rect.bottom + 4
+  let left = props.placement === 'right' ? rect.right - menuWidth : rect.left
 
   // Clamp within viewport
   if (left + menuWidth > viewportWidth - 8) {
-    left = viewportWidth - menuWidth - 8;
+    left = viewportWidth - menuWidth - 8
   }
   if (left < 8) {
-    left = 8;
+    left = 8
   }
   if (top < 8) {
-    top = 8;
+    top = 8
   }
   if (top + menuHeight > viewportHeight - 8) {
-    top = viewportHeight - menuHeight - 8;
+    top = viewportHeight - menuHeight - 8
   }
 
   dropdownStyle.value = {
@@ -117,96 +121,96 @@ function updatePosition() {
     top: `${Math.round(top)}px`,
     left: `${Math.round(left)}px`,
     zIndex: '9999',
-  };
+  }
 }
 
 async function toggle() {
-  if (props.disabled) return;
-  isOpen.value = !isOpen.value;
+  if (props.disabled) return
+  isOpen.value = !isOpen.value
   if (isOpen.value && props.teleport) {
-    updatePosition();
-    await nextTick();
-    updatePosition();
+    updatePosition()
+    await nextTick()
+    updatePosition()
   }
 }
 
 function select(status: TicketStatus) {
-  if (!isTransitionAllowed(status)) return;
-  emit('update:modelValue', status);
-  emit('change', status);
-  isOpen.value = false;
+  if (!isTransitionAllowed(status)) return
+  emit('update:modelValue', status)
+  emit('change', status)
+  isOpen.value = false
 }
 
 function handleClickOutside(e: MouseEvent) {
-  const target = e.target as Node;
+  const target = e.target as Node
   if (
     containerRef.value &&
     !containerRef.value.contains(target) &&
     (!menuRef.value || !menuRef.value.contains(target))
   ) {
-    isOpen.value = false;
+    isOpen.value = false
   }
 }
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && isOpen.value) {
-    isOpen.value = false;
+    isOpen.value = false
   }
 }
 
 function handleScroll() {
-  if (!isOpen.value) return;
-  if (rafId) cancelAnimationFrame(rafId);
+  if (!isOpen.value) return
+  if (rafId) cancelAnimationFrame(rafId)
   rafId = requestAnimationFrame(() => {
-    if (!isOpen.value || !triggerRef.value) return;
-    const rect = triggerRef.value.getBoundingClientRect();
+    if (!isOpen.value || !triggerRef.value) return
+    const rect = triggerRef.value.getBoundingClientRect()
     if (
       rect.bottom < 0 ||
       rect.top > window.innerHeight ||
       rect.right < 0 ||
       rect.left > window.innerWidth
     ) {
-      isOpen.value = false;
-      return;
+      isOpen.value = false
+      return
     }
-    updatePosition();
-  });
+    updatePosition()
+  })
 }
 
 function handleResize() {
-  if (!isOpen.value) return;
-  updatePosition();
+  if (!isOpen.value) return
+  updatePosition()
 }
 
 watch(isOpen, async (val) => {
   if (val && props.teleport) {
-    updatePosition();
-    await nextTick();
-    updatePosition();
-    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
-    window.addEventListener('resize', handleResize, { passive: true });
+    updatePosition()
+    await nextTick()
+    updatePosition()
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
+    window.addEventListener('resize', handleResize, { passive: true })
   } else {
-    window.removeEventListener('scroll', handleScroll, true);
-    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('scroll', handleScroll, true)
+    window.removeEventListener('resize', handleResize)
     if (rafId) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
+      cancelAnimationFrame(rafId)
+      rafId = null
     }
   }
-});
+})
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside, true);
-  document.addEventListener('keydown', handleKeydown);
-});
+  document.addEventListener('click', handleClickOutside, true)
+  document.addEventListener('keydown', handleKeydown)
+})
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside, true);
-  document.removeEventListener('keydown', handleKeydown);
-  window.removeEventListener('scroll', handleScroll, true);
-  window.removeEventListener('resize', handleResize);
-  if (rafId) cancelAnimationFrame(rafId);
-});
+  document.removeEventListener('click', handleClickOutside, true)
+  document.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('scroll', handleScroll, true)
+  window.removeEventListener('resize', handleResize)
+  if (rafId) cancelAnimationFrame(rafId)
+})
 </script>
 
 <template>

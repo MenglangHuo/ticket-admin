@@ -51,7 +51,8 @@ onMounted(() => {
             </span>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Manage authorized staff subscribers receiving real-time ticket alerts pushed to their private Telegram chats.
+            Manage authorized staff subscribers receiving real-time ticket alerts pushed to their
+            private Telegram chats.
           </p>
         </div>
       </div>

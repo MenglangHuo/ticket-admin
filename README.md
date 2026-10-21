@@ -27,7 +27,8 @@
   - [Installation](#installation)
   - [Environment Setup](#environment-setup)
   - [Running Development Server](#running-development-server)
-- [Mock Data Mode & Diagnostics](#-mock-data-mode--diagnostics)
+- [Multi-Environment Architecture & Runtime Switcher](#-multi-environment-architecture--runtime-switcher)
+- [Mock Data Sandbox & Offline Mode](#-mock-data-sandbox--offline-mode)
 - [Environment Variables Reference](#-environment-variables-reference)
 - [Role-Based Access Control (RBAC)](#-role-based-access-control-rbac)
 - [Available Scripts](#-available-scripts)
@@ -47,11 +48,17 @@ Engineered with **Vue 3 (Composition API)**, **TypeScript**, and **Tailwind CSS 
 
 ## ✨ Key Features
 
+### 🌐 Multi-Environment Switching & Build Modes (Enterprise Standard)
+- **Multi-Environment Build Modes**: Seamless presets for **Development (Local)**, **Production (Live)**, and **Mock Sandbox** via standard Vite modes.
+- **In-App Runtime Environment Switcher**: Instant switching between backend targets directly from the top navigation bar or the login screen—no recompile or dev server restart required.
+- **Live Endpoint Diagnostics**: Integrated **Ping test** measuring server reachability, HTTP response codes, and round-trip network latency in milliseconds.
+- **Dynamic Origin & Token Isolation**: Automated session clearance option when switching between distinct domains to prevent 401 redirect loops, paired with origin-bounded token security.
+- **Production Guardrail**: Visual caution indicators and warning badges when operating against live customer production clusters.
+
 ### 🧪 Mock Data Engine & Zero-Backend Mode
 - **Zero-Backend Development**: Test and preview the entire administrative console immediately without running or provisioning backend services.
 - **Full Page Simulation**: Complete mock data coverage across Tickets, Dashboard Analytics, Telegram Settings, Connected Clients, and Login.
 - **Stateful In-Memory Store**: Add comments, create tickets, transition statuses, search, and generate invite links with reactive updates.
-- **Interactive Diagnostics Pill**: Switch between Mock Mode and Live Backend at runtime directly from the top navigation bar.
 - **One-Click Demo Authentication**: Instant sign-in buttons for `HQ ADMIN` and `BRANCH MANAGER` roles on the login screen.
 
 ### 📋 Multi-Modal Ticket Workspace
@@ -117,19 +124,21 @@ Engineered with **Vue 3 (Composition API)**, **TypeScript**, and **Tailwind CSS 
 ticket-admin/
 ├── public/                 # Static assets & public favicon
 ├── src/
-│   ├── __tests__/          # Vitest unit test suites
+│   ├── __tests__/          # Vitest unit test suites (auth, environment, tickets, etc.)
 │   ├── api/                # API communication layer
-│   │   ├── client.ts       # Axios instance, origin security & 401 interceptors
+│   │   ├── client.ts       # Dynamic Axios instance, runtime env baseURL, origin security
 │   │   ├── reportApi.ts    # Dashboard analytics & reporting endpoints
 │   │   ├── telegramApi.ts  # Telegram bot subscriber & invite endpoints
 │   │   └── ticketApi.ts    # Tickets, comments, attachments & auth endpoints
 │   ├── assets/             # Global styles and Tailwind configuration
 │   ├── components/         # Reusable Vue components
-│   │   ├── common/         # Base UI (Buttons, Inputs, Selects, Modals, WYSIWYG)
+│   │   ├── common/         # Base UI, EnvironmentBadge, WYSIWYG
 │   │   ├── dashboard/      # Metrics, status donut, and trend charts
 │   │   ├── layout/         # Topbar, Sidebar, Notification & Toast containers
 │   │   ├── settings/       # Telegram bot config, subscribers table & invite form
 │   │   └── tickets/        # Kanban board, table view, modals & ticket cards
+│   ├── config/             # Multi-environment configuration manager
+│   │   └── environment.ts  # Profile resolver, localStorage persistence & event sync
 │   ├── mocks/              # Mock data engine & offline development provider
 │   │   ├── config.ts       # Mock flag evaluator, localStorage sync & test isolation
 │   │   ├── mockService.ts  # Unified mock API service facade
@@ -143,18 +152,21 @@ ticket-admin/
 │   │   ├── ticketStore.ts  # Ticket CRUD, filtering, pagination & comments
 │   │   └── toastStore.ts   # Toast notifications
 │   ├── types/              # TypeScript interfaces and domain schemas
-│   │   ├── settings.ts     # Telegram subscriber & bot configuration types
-│   │   └── ticket.ts       # Ticket, attachment, comment, user & report types
 │   ├── utils/              # Helper utilities (HTML sanitizer, security helpers)
 │   ├── views/              # Page views (Tickets, Dashboard, Clients, Settings, Login, ClientTicket)
 │   ├── App.vue             # Root component
+│   ├── env.d.ts            # TypeScript definitions for Vite environment variables
 │   └── main.ts             # Application bootstrapping entrypoint
-├── .env.example            # Environment configuration template
+├── .env                    # Local environment overrides (gitignored)
+├── .env.development        # Development environment configuration
+├── .env.production         # Production live release environment configuration
+├── .env.mock               # Offline mock sandbox environment configuration
+├── .env.example            # Comprehensive environment configuration reference
 ├── eslint.config.ts        # ESLint flat configuration
 ├── index.html              # HTML entrypoint
-├── package.json            # Project dependencies and script declarations
+├── package.json            # Project dependencies and multi-mode script declarations
 ├── tsconfig.json           # TypeScript configuration
-└── vite.config.ts          # Vite configuration with Tailwind CSS & manual chunking
+└── vite.config.ts          # Vite configuration with Tailwind CSS & dynamic proxying
 ```
 
 ---
@@ -192,37 +204,56 @@ Configure your `.env` file according to your backend host (see [Environment Vari
 
 ### Running Development Server
 
-Start Vite's local development server with Hot Module Replacement (HMR):
+Start Vite's local development server with Hot Module Replacement (HMR) for your target environment:
 
 ```bash
+# 1. Local Development (default: connects to local Laravel API via /api proxy)
 pnpm dev
+
+# 2. Production Mode (connects to live production cluster)
+pnpm dev:prod
+
+# 3. Offline Mock Mode (runs standalone without requiring any backend)
+pnpm dev:mock
 ```
 
-Open your browser and navigate to:
-```
-http://localhost:5173
-```
-
-#### Option A: Quick Start with Mock Mode (Default)
-By default, `VITE_ENABLE_MOCK_DATA=true` is enabled in `.env`. You can explore and test all pages immediately without running a backend API:
-1. Navigate to `http://localhost:5173/login`.
-2. Click either **Demo HQ Admin** or **Demo Branch User** to sign in instantly, or use credentials:
-   - **HQ Admin**: `admin` / `password123`
-   - **Branch User**: `branch_user` / `password123`
-3. Explore Tickets, Dashboard Analytics, Telegram Subscribers, Connected API Clients, and the Client Portal.
-
-#### Option B: Connecting to a Live Backend
-1. In your `.env` file, set:
-   ```env
-   VITE_ENABLE_MOCK_DATA=false
-   VITE_API_BASE_URL=http://your-backend-api-host:8000/api/v1
-   VITE_AUTH_BASE_URL=http://your-backend-api-host:8000
-   ```
-2. Restart the dev server (`pnpm dev`) or use the in-app **API Mode Diagnostics** modal in the top navigation bar to toggle between modes on the fly.
+Open your browser and navigate to `http://localhost:4000`.
 
 ---
 
-## 🧪 Mock Data Mode & Diagnostics
+## 🌐 Multi-Environment Architecture & Runtime Switcher
+
+TicketAdmin provides an enterprise-standard multi-environment architecture matching Google internal dashboards and modern web consoles, supporting both **build/dev-time environment modes** and **instant in-app runtime switching**.
+
+### Supported Environments
+| Environment | Key | Target API Origin | Description | Status Pill |
+| :--- | :--- | :--- | :--- | :--- |
+| **Development** | `development` | `http://127.0.0.1:8000` (`/api`) | Local backend server with Vite dev reverse proxy | 🟢 `Local Dev` |
+| **Production** | `production` | Configured via `.env.production` | Live customer production cluster | Hidden in production |
+| **Mock Sandbox** | `mock` | `mock://in-memory` | Zero-backend in-memory simulation | 🟣 `Mock Data` |
+| **Custom Host** | `custom` | User-defined URL | PR preview branch or custom cluster endpoint | 🔵 `Custom` |
+
+### 1. Build & Dev Time Environment Selection
+Vite modes load environment files in standard cascade order:
+- `pnpm dev`: Runs `vite` using `.env.development`.
+- `pnpm dev:prod`: Runs `vite --mode production` proxying to the production cluster.
+- `pnpm dev:mock`: Runs `vite --mode mock` activating the client-side mock backend.
+- `pnpm build`: Produces an optimized production bundle (`--mode production`).
+- `pnpm build:dev`: Produces a development build (`--mode development`).
+
+### 2. In-App Runtime Environment Switcher
+Switch backend targets on the fly without re-bundling or restarting Vite:
+1. **Interactive Environment Pill**: Located in the **Topbar** (and floating on the **Login** page), showing the active target with live status indicators.
+2. **Environment & API Modal**:
+   - Select between any of the preset environments or enter a custom host URL.
+   - **Production Safety Banner**: Visual caution warning alerts before executing changes against live customer data.
+   - **Live Backend Ping**: Actively checks backend endpoint reachability (`GET /tickets?per_page=1`), reporting HTTP status and round-trip latency in milliseconds.
+   - **Session Reset Protection**: Automatically clears stored session tokens on domain change to prevent 401 redirect loops caused by token mismatches between distinct backend servers.
+   - **Reset to .env Defaults**: Clears runtime `localStorage` overrides with one click.
+
+---
+
+## 🧪 Mock Data Sandbox & Offline Mode
 
 TicketAdmin features a comprehensive client-side mock data provider enabling zero-backend development, UI testing, and presentation demos.
 
@@ -236,17 +267,6 @@ TicketAdmin features a comprehensive client-side mock data provider enabling zer
 | **Client Portal** | `/client-ticket` | Public ticket intake simulation with form validation, drag-and-drop file upload, and simulated confirmation receipts. |
 | **Authentication & 2FA** | `/login`, `/two-factor` | Primary credential auth, automatic RBAC role routing, dedicated **HQ Admin 2-Factor Authentication Checkpoint** with 6-digit OTP input, rate limiting, challenge expiration, and demo helpers. |
 
-### Runtime Switching & Diagnostics Modal
-You don't need to restart Vite when switching between mock data and your real backend:
-1. Click the status indicator pill in the Topbar:
-   - `Mock Data` (amber pill) indicates mock mode is active.
-   - `Live API` (emerald pill) indicates live backend requests are active.
-2. The **API & Backend Diagnostics Modal** opens with:
-   - An instant switch between **Mock Data Mode** and **Live Backend Mode**.
-   - A real-time **Backend Health Ping** button to check if your API server at `VITE_API_BASE_URL` is responsive.
-   - A **Reset to .env Defaults** button to clear browser overrides.
-3. Your selection persists in browser `localStorage` (`bronx_mock_data_enabled`).
-
 ### Vitest Test Suite Isolation
 When running automated unit tests (`pnpm test:unit`), the mock provider automatically stays disabled (`import.meta.env.MODE === 'test'`) to ensure Axios network interceptors and backend error paths remain cleanly testable. Individual test suites can explicitly activate mock mode via `setMockDataOverride(true)` when needed.
 
@@ -256,14 +276,17 @@ When running automated unit tests (`pnpm test:unit`), the mock provider automati
 
 | Variable | Type | Default Value | Description |
 | :--- | :--- | :--- | :--- |
-| `VITE_ENABLE_MOCK_DATA` | `boolean` | `true` | Enables client-side mock data provider across all pages without requiring a backend. |
-| `VITE_USE_MOCK_DATA` | `boolean` | `true` | Backward-compatible fallback alias for `VITE_ENABLE_MOCK_DATA`. |
-| `VITE_API_BASE_URL` | `string` | `http://127.0.0.1:8000/api/v1` | Base REST API URL for ticket, report, and subscriber endpoints. |
-| `VITE_AUTH_BASE_URL` | `string` | `http://127.0.0.1:8000` | Host URL for root auth endpoints (`/token`, `/login`, `/two-factor`). |
-| `VITE_API_SECRET` | `string` | `""` | Shared application secret used to retrieve temporary tokens via `POST /token`. |
+| `VITE_APP_ENV` | `string` | `'development'` | Active environment identifier (`development`, `production`, `mock`). |
+| `VITE_PORT` | `number` | `4000` | Port for the local Vite dev server and preview server. |
+| `VITE_PROXY_TARGET` | `string` | `http://127.0.0.1:8000` | Target host forwarded by Vite's development reverse proxy. |
+| `VITE_API_BASE_URL` | `string` | `/api` | Base REST API endpoint for ticket, report, and subscriber endpoints. |
+| `VITE_AUTH_BASE_URL` | `string` | `""` | Host URL for root auth endpoints (`/token`, `/login`, `/two-factor`). |
+| `VITE_API_SECRET` | `string` | `""` | Shared application secret used to retrieve initial access tokens via `POST /token`. |
 | `VITE_CLIENT_ID` | `string` | `""` | Client identifier sent in `X-Client-ID` for public ticket submissions. |
 | `VITE_CLIENT_SECRET` | `string` | `""` | Client secret sent in `X-Client-Secret` for public ticket submissions. |
 | `VITE_TELEGRAM_BOT_USERNAME` | `string` | `""` | Telegram bot handle (e.g. `BronxTicketAlertBot`) displayed in settings. |
+| `VITE_ENABLE_MOCK_DATA` | `boolean` | `false` | Enables client-side mock data provider across all pages without requiring a backend. |
+| `VITE_USE_MOCK_DATA` | `boolean` | `false` | Backward-compatible fallback alias for `VITE_ENABLE_MOCK_DATA`. |
 
 ---
 
@@ -290,11 +313,15 @@ TicketAdmin enforces strict permission controls based on the authenticated user'
 
 | Command | Description |
 | :--- | :--- |
-| `pnpm dev` | Starts the Vite development server with HMR. |
-| `pnpm build` | Executes type-checking (`vue-tsc`) and builds minified production assets. |
-| `pnpm build-only` | Runs Vite production bundling without type-checking. |
+| `pnpm dev` | Starts Vite local dev server with HMR in Development mode (proxying to `http://127.0.0.1:8000`). |
+| `pnpm dev:prod` | Starts Vite dev server in Production mode (proxying to production cluster). |
+| `pnpm dev:mock` | Starts Vite dev server in Mock mode with in-memory mock backend. |
+| `pnpm build` | Executes TypeScript type-checking (`vue-tsc`) and builds production assets for release. |
+| `pnpm build:dev` | Executes type-checking and builds development assets. |
+| `pnpm build-only` | Runs Vite production bundling directly without type-checking. |
 | `pnpm preview` | Serves the production build locally for verification. |
-| `pnpm test:unit` | Executes all Vitest unit test suites. |
+| `pnpm preview:prod` | Serves the production build locally for verification. |
+| `pnpm test:unit` | Executes all Vitest unit and integration test suites. |
 | `pnpm type-check` | Performs static TypeScript validation across `.vue` and `.ts` files via `vue-tsc`. |
 | `pnpm lint` | Runs sequential linting passes using `oxlint` and `eslint --fix`. |
 | `pnpm lint:oxlint` | Runs Oxlint for ultra-fast JavaScript/TypeScript linting. |
@@ -307,14 +334,14 @@ TicketAdmin enforces strict permission controls based on the authenticated user'
 
 TicketAdmin incorporates defensive measures to safeguard corporate assets and credentials:
 
-1. **Origin-Bounded Token Injection**:
-   The Axios interceptor strictly validates target URLs against configured internal origins (`API_BASE_URL` and `AUTH_BASE_URL`) before injecting the `Authorization: Bearer <token>` header, preventing token leakage to third-party domains.
+1. **Origin-Bounded Token Injection & Multi-Environment Protection**:
+   The Axios interceptor strictly validates target URLs against the active runtime environment's authorized origins (`apiBaseUrl` and `authBaseUrl`) before injecting the `Authorization: Bearer <token>` header, preventing token leakage to third-party domains when switching environments.
 2. **XSS & Markup Sanitization**:
    All user-provided HTML descriptions render through a dedicated viewer with sanitization logic to neutralize malicious script vectors and dangerous attributes.
 3. **Hardened HTTP Response Headers**:
    The development and preview servers enforce secure defense-in-depth headers including `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and restrictive `Permissions-Policy`.
-4. **Automated Session Revocation**:
-   On receiving HTTP `401 Unauthorized` responses from trusted backend endpoints, the client purges cached session tokens and redirects unauthenticated users to `/login`.
+4. **Automated Session Revocation & Multi-Tenant Cleansing**:
+   On receiving HTTP `401 Unauthorized` responses from trusted backend endpoints—or upon switching backend environment hosts—the client cleans stored authorization tokens to prevent authentication desynchronization and redirects unauthenticated users to `/login`.
 
 ---
 

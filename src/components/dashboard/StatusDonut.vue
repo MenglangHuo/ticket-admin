@@ -10,7 +10,7 @@ const props = withDefaults(
   }>(),
   {
     loading: false,
-  }
+  },
 )
 
 const activeHoverKey = ref<string | null>(null)
@@ -177,7 +177,10 @@ function handleCenterClick() {
     </div>
 
     <!-- Skeleton Loading State -->
-    <div v-if="loading" class="flex flex-col items-center justify-center py-6 space-y-3 animate-pulse">
+    <div
+      v-if="loading"
+      class="flex flex-col items-center justify-center py-6 space-y-3 animate-pulse"
+    >
       <div class="w-32 h-32 rounded-full border-8 border-slate-100 dark:border-slate-800"></div>
       <div class="grid grid-cols-2 gap-3 w-full pt-2">
         <div v-for="i in 4" :key="i" class="h-4 bg-slate-100 dark:bg-slate-800 rounded"></div>
@@ -187,7 +190,9 @@ function handleCenterClick() {
     <!-- Centered Donut & Bottom Legend Grid -->
     <div v-else class="flex flex-col items-center justify-center pt-1 sm:pt-2">
       <!-- Centered SVG Donut matching reference design (media_1791360377810.png) -->
-      <div class="relative w-32 h-32 sm:w-36 sm:h-36 shrink-0 flex items-center justify-center my-0.5">
+      <div
+        class="relative w-32 h-32 sm:w-36 sm:h-36 shrink-0 flex items-center justify-center my-0.5"
+      >
         <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90 transform overflow-visible">
           <!-- Background track circle with soft modern light gray/blue color -->
           <circle
@@ -296,4 +301,3 @@ function handleCenterClick() {
     </div>
   </div>
 </template>
-

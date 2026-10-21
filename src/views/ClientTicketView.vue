@@ -99,10 +99,30 @@ const typeOptions = [
 ]
 
 const priorityOptions = [
-  { value: 'low', label: 'Low', dotColor: 'bg-emerald-500', badgeColor: 'text-emerald-600 dark:text-emerald-400' },
-  { value: 'medium', label: 'Medium', dotColor: 'bg-sky-500', badgeColor: 'text-sky-600 dark:text-sky-400' },
-  { value: 'high', label: 'High', dotColor: 'bg-amber-500', badgeColor: 'text-amber-600 dark:text-amber-400' },
-  { value: 'critical', label: 'Critical', dotColor: 'bg-rose-500', badgeColor: 'text-rose-600 dark:text-rose-400' },
+  {
+    value: 'low',
+    label: 'Low',
+    dotColor: 'bg-emerald-500',
+    badgeColor: 'text-emerald-600 dark:text-emerald-400',
+  },
+  {
+    value: 'medium',
+    label: 'Medium',
+    dotColor: 'bg-sky-500',
+    badgeColor: 'text-sky-600 dark:text-sky-400',
+  },
+  {
+    value: 'high',
+    label: 'High',
+    dotColor: 'bg-amber-500',
+    badgeColor: 'text-amber-600 dark:text-amber-400',
+  },
+  {
+    value: 'critical',
+    label: 'Critical',
+    dotColor: 'bg-rose-500',
+    badgeColor: 'text-rose-600 dark:text-rose-400',
+  },
 ]
 
 function triggerFileInput() {
@@ -132,7 +152,17 @@ function addFiles(files: FileList | File[]) {
       continue
     }
 
-    const dangerousExtensions = ['.exe', '.bat', '.cmd', '.sh', '.msi', '.vbs', '.scr', '.pif', '.com']
+    const dangerousExtensions = [
+      '.exe',
+      '.bat',
+      '.cmd',
+      '.sh',
+      '.msi',
+      '.vbs',
+      '.scr',
+      '.pif',
+      '.com',
+    ]
     if (dangerousExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))) {
       toastStore.error('Restricted File', `Executable files like "${file.name}" are not permitted.`)
       continue
@@ -185,7 +215,8 @@ function removeFile(index: number) {
 
 function getFileIcon(mime: string, name: string) {
   if (mime.includes('pdf')) return FileText
-  if (mime.includes('sheet') || mime.includes('excel') || mime.includes('csv')) return FileSpreadsheet
+  if (mime.includes('sheet') || mime.includes('excel') || mime.includes('csv'))
+    return FileSpreadsheet
   if (mime.includes('javascript') || mime.includes('json') || name.endsWith('.ts')) return FileCode
   return FileIcon
 }
@@ -239,11 +270,16 @@ async function handleSubmit() {
     const res = await ticketApi.submitClientTicket(formData)
     const created = (res as any).data || res
     submittedTicket.value = created
-    toastStore.success('Ticket Submitted', `Ticket #${created.ticket_key || created.id} created successfully!`)
+    toastStore.success(
+      'Ticket Submitted',
+      `Ticket #${created.ticket_key || created.id} created successfully!`,
+    )
   } catch (err: any) {
     console.error('Failed to submit client ticket:', err)
     const msg =
-      err.response?.data?.message || err.message || 'Failed to submit ticket. Please check your network and try again.'
+      err.response?.data?.message ||
+      err.message ||
+      'Failed to submit ticket. Please check your network and try again.'
     errorMessage.value = msg
     toastStore.error('Submission Failed', msg)
   } finally {
@@ -269,19 +305,29 @@ function resetForm() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-indigo-500/20 selection:text-indigo-600">
+  <div
+    class="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-indigo-500/20 selection:text-indigo-600"
+  >
     <!-- Modern Sleek Header -->
-    <header class="h-16 px-4 sm:px-6 lg:px-8 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between sticky top-0 z-30">
+    <header
+      class="h-16 px-4 sm:px-6 lg:px-8 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between sticky top-0 z-30"
+    >
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-sky-400 flex items-center justify-center shadow-md shadow-indigo-600/20 ring-1 ring-white/20">
+        <div
+          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-sky-400 flex items-center justify-center shadow-md shadow-indigo-600/20 ring-1 ring-white/20"
+        >
           <Ticket class="w-4 h-4 text-white -rotate-6" />
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <span class="text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-white">
+            <span
+              class="text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-white"
+            >
               Bronx Support
             </span>
-            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-500/20">
+            <span
+              class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-500/20"
+            >
               Client Portal
             </span>
             <span
@@ -299,7 +345,9 @@ function resetForm() {
 
       <div class="flex items-center gap-2.5">
         <!-- Live System Status Indicator -->
-        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+        <div
+          class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+        >
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           <span>Systems Operational</span>
         </div>
@@ -337,7 +385,9 @@ function resetForm() {
           v-if="submittedTicket"
           class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-200/80 dark:border-slate-800 shadow-xl max-w-xl mx-auto text-center"
         >
-          <div class="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4 shadow-sm shadow-emerald-500/20">
+          <div
+            class="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4 shadow-sm shadow-emerald-500/20"
+          >
             <CheckCircle2 class="w-7 h-7" />
           </div>
 
@@ -345,12 +395,19 @@ function resetForm() {
             Ticket Submitted Successfully
           </h2>
           <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-6">
-            Thank you, <span class="font-semibold text-slate-900 dark:text-white">{{ form.reporter_name || 'Client' }}</span>. Your request has been queued in our Helpdesk. You will receive progress updates directly.
+            Thank you,
+            <span class="font-semibold text-slate-900 dark:text-white">{{
+              form.reporter_name || 'Client'
+            }}</span
+            >. Your request has been queued in our Helpdesk. You will receive progress updates
+            directly.
           </p>
 
           <!-- Ticket Key Pill -->
           <div class="flex items-center justify-center gap-2 mb-6">
-            <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-mono font-bold">
+            <div
+              class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-mono font-bold"
+            >
               <span>{{ submittedTicket.ticket_key || 'TCK-' + submittedTicket.id }}</span>
               <button
                 @click="copyTicketKey(submittedTicket.ticket_key || 'TCK-' + submittedTicket.id)"
@@ -364,30 +421,48 @@ function resetForm() {
           </div>
 
           <!-- Ticket Details Card -->
-          <div class="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 text-left text-xs space-y-2.5 mb-8">
+          <div
+            class="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 text-left text-xs space-y-2.5 mb-8"
+          >
             <div class="flex justify-between items-start gap-4">
               <span class="text-slate-500 dark:text-slate-400 shrink-0">Subject:</span>
-              <span class="font-semibold text-slate-900 dark:text-white text-right truncate">{{ submittedTicket.title }}</span>
+              <span class="font-semibold text-slate-900 dark:text-white text-right truncate">{{
+                submittedTicket.title
+              }}</span>
             </div>
             <div class="flex justify-between items-center">
               <span class="text-slate-500 dark:text-slate-400">Type / Priority:</span>
               <div class="flex items-center gap-2">
-                <span class="font-semibold uppercase text-indigo-600 dark:text-indigo-400 text-[11px]">{{ submittedTicket.type }}</span>
+                <span
+                  class="font-semibold uppercase text-indigo-600 dark:text-indigo-400 text-[11px]"
+                  >{{ submittedTicket.type }}</span
+                >
                 <span class="text-slate-300 dark:text-slate-700">•</span>
-                <span class="font-semibold uppercase text-slate-700 dark:text-slate-300 text-[11px]">{{ submittedTicket.priority }}</span>
+                <span
+                  class="font-semibold uppercase text-slate-700 dark:text-slate-300 text-[11px]"
+                  >{{ submittedTicket.priority }}</span
+                >
               </div>
             </div>
             <div class="flex justify-between items-center">
               <span class="text-slate-500 dark:text-slate-400">Reporter:</span>
-              <span class="font-medium text-slate-900 dark:text-white truncate">{{ form.reporter_email }}</span>
+              <span class="font-medium text-slate-900 dark:text-white truncate">{{
+                form.reporter_email
+              }}</span>
             </div>
             <div v-if="attachedFiles.length > 0" class="flex justify-between items-center">
               <span class="text-slate-500 dark:text-slate-400">Attachments:</span>
-              <span class="text-slate-700 dark:text-slate-300 font-medium">{{ attachedFiles.length }} file(s) attached</span>
+              <span class="text-slate-700 dark:text-slate-300 font-medium"
+                >{{ attachedFiles.length }} file(s) attached</span
+              >
             </div>
-            <div class="flex justify-between items-center pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
+            <div
+              class="flex justify-between items-center pt-1 border-t border-slate-200/50 dark:border-slate-800/50"
+            >
               <span class="text-slate-500 dark:text-slate-400">Queue Status:</span>
-              <span class="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <span
+                class="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"
+              >
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 Open (Triage Queue)
               </span>
@@ -418,15 +493,20 @@ function resetForm() {
       <div v-if="!submittedTicket" class="space-y-6">
         <!-- Hero Header -->
         <div class="text-center sm:text-left">
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/70 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-medium mb-3">
+          <div
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/70 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-medium mb-3"
+          >
             <Sparkle class="w-3.5 h-3.5 text-indigo-500" />
             <span>Public Client Support Desk</span>
           </div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <h1
+            class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white"
+          >
             Submit a Support Ticket
           </h1>
           <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-            Report an issue, request an enhancement, or ask a question. Submissions route immediately into our active triage queue.
+            Report an issue, request an enhancement, or ask a question. Submissions route
+            immediately into our active triage queue.
           </p>
         </div>
 
@@ -451,12 +531,19 @@ function resetForm() {
         </div>
 
         <!-- 2-Column Responsive Form Layout -->
-        <form @submit.prevent="handleSubmit" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <form
+          @submit.prevent="handleSubmit"
+          class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+        >
           <!-- Main Form Column (8 cols) -->
-          <div class="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
+          <div
+            class="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6"
+          >
             <!-- Ticket Title -->
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">
+              <label
+                class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2"
+              >
                 Subject / Title <span class="text-rose-500">*</span>
               </label>
               <input
@@ -470,7 +557,9 @@ function resetForm() {
 
             <!-- Issue Type -->
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">
+              <label
+                class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2"
+              >
                 Issue Type
               </label>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -502,7 +591,9 @@ function resetForm() {
 
             <!-- Severity / Priority -->
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">
+              <label
+                class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2"
+              >
                 Priority
               </label>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -527,10 +618,14 @@ function resetForm() {
             <!-- Description -->
             <div>
               <div class="flex items-center justify-between mb-2">
-                <label class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                <label
+                  class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
+                >
                   Description & Details
                 </label>
-                <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">Rich text enabled</span>
+                <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium"
+                  >Rich text enabled</span
+                >
               </div>
               <HtmlDescriptionEditor
                 v-model="form.description"
@@ -542,7 +637,9 @@ function resetForm() {
             <!-- File Attachments Dropzone -->
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                <label
+                  class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
+                >
                   Attachments & Screenshots
                 </label>
                 <span class="text-[11px] text-slate-400 font-mono">
@@ -570,7 +667,9 @@ function resetForm() {
                   class="hidden"
                   @change="handleFileInputChange"
                 />
-                <div class="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-2">
+                <div
+                  class="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-2"
+                >
                   <UploadCloud class="w-5 h-5" />
                 </div>
                 <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -582,7 +681,10 @@ function resetForm() {
               </div>
 
               <!-- Uploaded Files Preview List -->
-              <div v-if="attachedFiles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+              <div
+                v-if="attachedFiles.length > 0"
+                class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3"
+              >
                 <div
                   v-for="(f, idx) in attachedFiles"
                   :key="f.id"
@@ -604,7 +706,9 @@ function resetForm() {
                       <p class="text-xs font-medium text-slate-900 dark:text-white truncate">
                         {{ f.name }}
                       </p>
-                      <p class="text-[10px] text-slate-400 font-mono">{{ formatFileSize(f.size) }}</p>
+                      <p class="text-[10px] text-slate-400 font-mono">
+                        {{ formatFileSize(f.size) }}
+                      </p>
                     </div>
                   </div>
 
@@ -624,9 +728,13 @@ function resetForm() {
           <!-- Sidebar Column (4 cols) -->
           <div class="lg:col-span-4 space-y-6">
             <!-- Reporter Contact Information Card -->
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+            <div
+              class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4"
+            >
               <div>
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                <h3
+                  class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
+                >
                   Reporter Information
                 </h3>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -636,7 +744,9 @@ function resetForm() {
 
               <!-- Name -->
               <div>
-                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label
+                  class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+                >
                   Full Name <span class="text-rose-500">*</span>
                 </label>
                 <div class="relative">
@@ -653,7 +763,9 @@ function resetForm() {
 
               <!-- Email -->
               <div>
-                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label
+                  class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+                >
                   Work Email <span class="text-rose-500">*</span>
                 </label>
                 <div class="relative">
@@ -677,7 +789,9 @@ function resetForm() {
                   <span class="text-[11px] text-slate-400">Optional</span>
                 </div>
                 <div class="relative">
-                  <Phone class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Phone
+                    class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"
+                  />
                   <input
                     v-model="form.reporter_phone"
                     type="tel"
@@ -689,13 +803,19 @@ function resetForm() {
             </div>
 
             <!-- Submit Action & Security Card -->
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+            <div
+              class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4"
+            >
               <!-- Security Badge -->
-              <div class="p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2.5">
+              <div
+                class="p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2.5"
+              >
                 <ShieldCheck class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                 <div class="text-[11px] leading-tight">
                   <p class="font-bold text-slate-900 dark:text-white">Secure Client Channel</p>
-                  <p class="text-slate-500 dark:text-slate-400 mt-0.5">Authenticated via client credentials</p>
+                  <p class="text-slate-500 dark:text-slate-400 mt-0.5">
+                    Authenticated via client credentials
+                  </p>
                 </div>
               </div>
 
@@ -724,9 +844,13 @@ function resetForm() {
               </button>
 
               <!-- SLA Guarantee -->
-              <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <div
+                class="pt-3 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between"
+              >
                 <span>⚡ Triage response</span>
-                <span class="font-medium text-slate-700 dark:text-slate-300">&lt; 2 hours for High</span>
+                <span class="font-medium text-slate-700 dark:text-slate-300"
+                  >&lt; 2 hours for High</span
+                >
               </div>
             </div>
           </div>

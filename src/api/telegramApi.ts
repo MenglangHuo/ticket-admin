@@ -1,78 +1,82 @@
-import apiClient from './client';
-import mockService from '@/mocks/mockService';
-import type { TelegramSubscriber } from '@/types/settings';
+import apiClient from './client'
+import mockService from '@/mocks/mockService'
+import type { TelegramSubscriber } from '@/types/settings'
 
 export interface TelegramSubscriberFilterParams {
-  page?: number;
-  per_page?: number;
-  search?: string;
-  username?: string;
-  status?: 'all' | 'active' | 'inactive' | string;
-  is_active?: boolean;
-  sort_by?: string;
-  sort_dir?: 'asc' | 'desc';
+  page?: number
+  per_page?: number
+  search?: string
+  username?: string
+  status?: 'all' | 'active' | 'inactive' | string
+  is_active?: boolean
+  sort_by?: string
+  sort_dir?: 'asc' | 'desc'
 }
 
 export interface TelegramSubscriberPagination {
-  page: number;
-  per_page: number;
-  total: number;
-  total_pages: number;
-  has_next: boolean;
-  has_previous: boolean;
+  page: number
+  per_page: number
+  total: number
+  total_pages: number
+  has_next: boolean
+  has_previous: boolean
 }
 
 export interface TelegramSubscriberListResponse {
-  data: TelegramSubscriber[];
-  pagination: TelegramSubscriberPagination;
+  data: TelegramSubscriber[]
+  pagination: TelegramSubscriberPagination
   meta?: {
-    current_page: number;
-    per_page: number;
-    total: number;
-    last_page: number;
-    from?: number;
-    to?: number;
-  };
-  success?: boolean;
-  message?: string;
+    current_page: number
+    per_page: number
+    total: number
+    last_page: number
+    from?: number
+    to?: number
+  }
+  success?: boolean
+  message?: string
 }
 
 export interface TelegramSubscribersResponse {
-  data: TelegramSubscriber[];
-  success?: boolean;
-  pagination?: TelegramSubscriberPagination;
+  data: TelegramSubscriber[]
+  success?: boolean
+  pagination?: TelegramSubscriberPagination
 }
 
 export interface TelegramInviteResponse {
-  invite_url?: string;
-  data?: {
-    invite_url?: string;
-  } | string;
-  message?: string;
-  success?: boolean;
+  invite_url?: string
+  data?:
+    | {
+        invite_url?: string
+      }
+    | string
+  message?: string
+  success?: boolean
 }
 
 export interface TelegramActionResponse {
-  data: null;
-  message?: string;
-  success?: boolean;
+  data: null
+  message?: string
+  success?: boolean
 }
 
 export interface TelegramCounts {
-  totalSubscribers: number;
-  totalTelegramInvites: number;
-  activeSubscribers?: number;
+  totalSubscribers: number
+  totalTelegramInvites: number
+  activeSubscribers?: number
 }
 
 export interface TelegramCountResponse {
-  total?: number;
-  count?: number;
-  data?: {
-    total?: number;
-    count?: number;
-  } | number;
-  message?: string;
-  success?: boolean;
+  total?: number
+  count?: number
+  data?:
+    | {
+        total?: number
+        count?: number
+      }
+    | number
+  message?: string
+  success?: boolean
 }
 
 export const telegramApi = {
@@ -82,48 +86,63 @@ export const telegramApi = {
    * Supports pagination, search (by username or chat ID), status filter, and sorting.
    */
   async getSubscribers(
-    params?: TelegramSubscriberFilterParams
+    params?: TelegramSubscriberFilterParams,
   ): Promise<TelegramSubscriberListResponse> {
     if (mockService.isMockDataEnabled()) {
-      return mockService.getSubscribers(params);
+      return mockService.getSubscribers(params)
     }
-    const cleanParams: Record<string, any> = {};
+    const cleanParams: Record<string, any> = {}
     if (params) {
-      if (params.page !== undefined) cleanParams.page = params.page;
-      if (params.per_page !== undefined) cleanParams.per_page = params.per_page;
-      if (params.search !== undefined && params.search.trim() !== '') cleanParams.search = params.search.trim();
-      if (params.username !== undefined && params.username.trim() !== '') cleanParams.username = params.username.trim();
-      if (params.status && params.status !== 'all') cleanParams.status = params.status;
-      if (params.is_active !== undefined) cleanParams.is_active = params.is_active;
-      if (params.sort_by) cleanParams.sort_by = params.sort_by;
-      if (params.sort_dir) cleanParams.sort_dir = params.sort_dir;
+      if (params.page !== undefined) cleanParams.page = params.page
+      if (params.per_page !== undefined) cleanParams.per_page = params.per_page
+      if (params.search !== undefined && params.search.trim() !== '')
+        cleanParams.search = params.search.trim()
+      if (params.username !== undefined && params.username.trim() !== '')
+        cleanParams.username = params.username.trim()
+      if (params.status && params.status !== 'all') cleanParams.status = params.status
+      if (params.is_active !== undefined) cleanParams.is_active = params.is_active
+      if (params.sort_by) cleanParams.sort_by = params.sort_by
+      if (params.sort_dir) cleanParams.sort_dir = params.sort_dir
     }
 
     const response = await apiClient.get<any>('/ticket/telegram/subscribers', {
       params: cleanParams,
-    });
-    const resData = response.data;
+    })
+    const resData = response.data
 
-    let items: TelegramSubscriber[] = [];
+    let items: TelegramSubscriber[] = []
     if (Array.isArray(resData?.data)) {
-      items = resData.data;
+      items = resData.data
     } else if (Array.isArray(resData)) {
-      items = resData;
+      items = resData
     } else if (resData && typeof resData === 'object') {
       const numericItems = Object.keys(resData)
         .filter((k) => !isNaN(Number(k)))
-        .map((k) => resData[k]);
-      if (numericItems.length > 0) items = numericItems;
+        .map((k) => resData[k])
+      if (numericItems.length > 0) items = numericItems
     }
 
-    const rawPagination = resData?.pagination || {};
-    const rawMeta = resData?.meta || {};
-    const page = Number(rawPagination.page ?? rawMeta.current_page ?? resData?.current_page ?? params?.page ?? 1);
-    const perPage = Number(rawPagination.per_page ?? rawMeta.per_page ?? resData?.per_page ?? params?.per_page ?? (items.length || 10));
-    const total = Number(rawPagination.total ?? rawMeta.total ?? resData?.total ?? items.length);
-    const totalPages = Number(rawPagination.total_pages ?? rawMeta.last_page ?? resData?.last_page ?? Math.max(1, Math.ceil(total / (perPage || 10))));
-    const hasNext = Boolean(rawPagination.has_next ?? (page < totalPages));
-    const hasPrevious = Boolean(rawPagination.has_previous ?? (page > 1));
+    const rawPagination = resData?.pagination || {}
+    const rawMeta = resData?.meta || {}
+    const page = Number(
+      rawPagination.page ?? rawMeta.current_page ?? resData?.current_page ?? params?.page ?? 1,
+    )
+    const perPage = Number(
+      rawPagination.per_page ??
+        rawMeta.per_page ??
+        resData?.per_page ??
+        params?.per_page ??
+        (items.length || 10),
+    )
+    const total = Number(rawPagination.total ?? rawMeta.total ?? resData?.total ?? items.length)
+    const totalPages = Number(
+      rawPagination.total_pages ??
+        rawMeta.last_page ??
+        resData?.last_page ??
+        Math.max(1, Math.ceil(total / (perPage || 10))),
+    )
+    const hasNext = Boolean(rawPagination.has_next ?? page < totalPages)
+    const hasPrevious = Boolean(rawPagination.has_previous ?? page > 1)
 
     return {
       data: items,
@@ -145,7 +164,7 @@ export const telegramApi = {
       },
       success: resData?.success ?? true,
       message: resData?.message,
-    };
+    }
   },
 
   /**
@@ -154,20 +173,20 @@ export const telegramApi = {
    */
   async generateInviteLink(): Promise<string> {
     if (mockService.isMockDataEnabled()) {
-      return mockService.generateInviteLink();
+      return mockService.generateInviteLink()
     }
-    const response = await apiClient.post<TelegramInviteResponse>('/ticket/telegram/invite-link');
-    const resData: any = response.data;
+    const response = await apiClient.post<TelegramInviteResponse>('/ticket/telegram/invite-link')
+    const resData: any = response.data
     if (resData?.invite_url) {
-      return resData.invite_url;
+      return resData.invite_url
     }
     if (resData?.data?.invite_url) {
-      return resData.data.invite_url;
+      return resData.data.invite_url
     }
     if (typeof resData?.data === 'string' && resData.data.startsWith('http')) {
-      return resData.data;
+      return resData.data
     }
-    return '';
+    return ''
   },
 
   /**
@@ -176,10 +195,10 @@ export const telegramApi = {
    */
   async removeSubscriber(chatId: string): Promise<void> {
     if (mockService.isMockDataEnabled()) {
-      mockService.removeSubscriber(chatId);
-      return;
+      mockService.removeSubscriber(chatId)
+      return
     }
-    await apiClient.delete<TelegramActionResponse>(`/ticket/telegram/subscribers/${chatId}`);
+    await apiClient.delete<TelegramActionResponse>(`/ticket/telegram/subscribers/${chatId}`)
   },
 
   /**
@@ -188,12 +207,16 @@ export const telegramApi = {
    */
   async sendTestNotification(chatId: string): Promise<TelegramActionResponse> {
     if (mockService.isMockDataEnabled()) {
-      return { data: null, success: true, message: 'Test notification delivered successfully (Mock Mode)' };
+      return {
+        data: null,
+        success: true,
+        message: 'Test notification delivered successfully (Mock Mode)',
+      }
     }
     const response = await apiClient.post<TelegramActionResponse>(
-      `/ticket/telegram/subscribers/${chatId}/test`
-    );
-    return response.data;
+      `/ticket/telegram/subscribers/${chatId}/test`,
+    )
+    return response.data
   },
 
   /**
@@ -202,19 +225,22 @@ export const telegramApi = {
    */
   async updateSubscriberStatus(chatId: string, isActive?: boolean): Promise<TelegramSubscriber> {
     if (mockService.isMockDataEnabled()) {
-      mockService.updateSubscriberStatus(chatId, Boolean(isActive));
+      mockService.updateSubscriberStatus(chatId, Boolean(isActive))
       return {
         id: chatId,
         telegram_chat_id: chatId,
         telegram_username: 'subscriber',
         is_active: Boolean(isActive),
         subscribed_at: new Date().toISOString(),
-      };
+      }
     }
-    const payload = isActive !== undefined ? { is_active: isActive } : {};
-    const response = await apiClient.patch<any>(`/ticket/telegram/subscribers/${chatId}/status`, payload);
-    const resData = response.data;
-    return resData?.data || resData;
+    const payload = isActive !== undefined ? { is_active: isActive } : {}
+    const response = await apiClient.patch<any>(
+      `/ticket/telegram/subscribers/${chatId}/status`,
+      payload,
+    )
+    const resData = response.data
+    return resData?.data || resData
   },
 
   /**
@@ -223,24 +249,20 @@ export const telegramApi = {
    */
   async getCounts(): Promise<TelegramCounts> {
     if (mockService.isMockDataEnabled()) {
-      return mockService.getTelegramCounts();
+      return mockService.getTelegramCounts()
     }
-    const response = await apiClient.get<any>('/ticket/telegram/counts');
-    const resData: any = response.data?.data || response.data || {};
-    const totalSubscribers = Number(
-      resData.totalSubscribers ?? resData.total_subscribers ?? 0
-    );
+    const response = await apiClient.get<any>('/ticket/telegram/counts')
+    const resData: any = response.data?.data || response.data || {}
+    const totalSubscribers = Number(resData.totalSubscribers ?? resData.total_subscribers ?? 0)
     const totalTelegramInvites = Number(
-      resData.totalTelegramInvites ?? resData.total_telegram_invites ?? resData.total_invites ?? 0
-    );
-    const activeSubscribers = Number(
-      resData.activeSubscribers ?? resData.active_subscribers ?? 0
-    );
+      resData.totalTelegramInvites ?? resData.total_telegram_invites ?? resData.total_invites ?? 0,
+    )
+    const activeSubscribers = Number(resData.activeSubscribers ?? resData.active_subscribers ?? 0)
     return {
       totalSubscribers: isNaN(totalSubscribers) ? 0 : totalSubscribers,
       totalTelegramInvites: isNaN(totalTelegramInvites) ? 0 : totalTelegramInvites,
       activeSubscribers: isNaN(activeSubscribers) ? 0 : activeSubscribers,
-    };
+    }
   },
 
   /**
@@ -249,16 +271,18 @@ export const telegramApi = {
    */
   async getTotalInviteCount(): Promise<number> {
     if (mockService.isMockDataEnabled()) {
-      return mockService.getTelegramCounts().totalTelegramInvites;
+      return mockService.getTelegramCounts().totalTelegramInvites
     }
-    const response = await apiClient.get<TelegramCountResponse>('/ticket/telegram/invites/total-count');
-    const resData: any = response.data;
-    if (typeof resData?.total === 'number') return resData.total;
-    if (typeof resData?.count === 'number') return resData.count;
-    if (typeof resData?.data?.total === 'number') return resData.data.total;
-    if (typeof resData?.data?.count === 'number') return resData.data.count;
-    if (typeof resData?.data === 'number') return resData.data;
-    return 0;
+    const response = await apiClient.get<TelegramCountResponse>(
+      '/ticket/telegram/invites/total-count',
+    )
+    const resData: any = response.data
+    if (typeof resData?.total === 'number') return resData.total
+    if (typeof resData?.count === 'number') return resData.count
+    if (typeof resData?.data?.total === 'number') return resData.data.total
+    if (typeof resData?.data?.count === 'number') return resData.data.count
+    if (typeof resData?.data === 'number') return resData.data
+    return 0
   },
 
   /**
@@ -267,17 +291,19 @@ export const telegramApi = {
    */
   async getTotalSubscribersCount(): Promise<number> {
     if (mockService.isMockDataEnabled()) {
-      return mockService.getTelegramCounts().totalSubscribers;
+      return mockService.getTelegramCounts().totalSubscribers
     }
-    const response = await apiClient.get<TelegramCountResponse>('/ticket/telegram/subscribers/total-count');
-    const resData: any = response.data;
-    if (typeof resData?.total === 'number') return resData.total;
-    if (typeof resData?.count === 'number') return resData.count;
-    if (typeof resData?.data?.total === 'number') return resData.data.total;
-    if (typeof resData?.data?.count === 'number') return resData.data.count;
-    if (typeof resData?.data === 'number') return resData.data;
-    return 0;
+    const response = await apiClient.get<TelegramCountResponse>(
+      '/ticket/telegram/subscribers/total-count',
+    )
+    const resData: any = response.data
+    if (typeof resData?.total === 'number') return resData.total
+    if (typeof resData?.count === 'number') return resData.count
+    if (typeof resData?.data?.total === 'number') return resData.data.total
+    if (typeof resData?.data?.count === 'number') return resData.data.count
+    if (typeof resData?.data === 'number') return resData.data
+    return 0
   },
-};
+}
 
-export default telegramApi;
+export default telegramApi

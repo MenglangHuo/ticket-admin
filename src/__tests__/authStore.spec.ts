@@ -1,26 +1,26 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { setActivePinia, createPinia } from 'pinia';
-import { useAuthStore } from '@/stores/authStore';
-import { authApi } from '@/api/ticketApi';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
+import { useAuthStore } from '@/stores/authStore'
+import { authApi } from '@/api/ticketApi'
 
 describe('useAuthStore Login Pipeline', () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    localStorage.clear();
-    vi.restoreAllMocks();
-  });
+    setActivePinia(createPinia())
+    localStorage.clear()
+    vi.restoreAllMocks()
+  })
 
   afterEach(() => {
-    vi.restoreAllMocks();
-  });
+    vi.restoreAllMocks()
+  })
 
   it('calls two-factor endpoint when role is HQ ADMIN', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'temp_app_token_123',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
       id: 1,
@@ -28,7 +28,7 @@ describe('useAuthStore Login Pipeline', () => {
       role: 'HQ ADMIN',
       required_two_factors: 1,
       success: true,
-    });
+    })
 
     const twoFactorSpy = vi.spyOn(authApi, 'validateTwoFactor').mockResolvedValue({
       id: 1,
@@ -42,29 +42,29 @@ describe('useAuthStore Login Pipeline', () => {
         token_type: 'Bearer',
         access_token: 'final_passport_hq_token',
       },
-    });
+    })
 
-    const result = await authStore.login('hq_admin', 'secret123', '000000');
+    const result = await authStore.login('hq_admin', 'secret123', '000000')
 
-    expect(result).toBe(true);
-    expect(twoFactorSpy).toHaveBeenCalledTimes(1);
+    expect(result).toBe(true)
+    expect(twoFactorSpy).toHaveBeenCalledTimes(1)
     expect(twoFactorSpy).toHaveBeenCalledWith({
       username: 'hq_admin',
       code: '000000',
       token: 'temp_app_token_123',
-    });
-    expect(authStore.token).toBe('final_passport_hq_token');
-    expect(authStore.user?.role).toBe('HQ ADMIN');
-    expect(localStorage.getItem('bronx_access_token')).toBe('final_passport_hq_token');
-  });
+    })
+    expect(authStore.token).toBe('final_passport_hq_token')
+    expect(authStore.user?.role).toBe('HQ ADMIN')
+    expect(localStorage.getItem('bronx_access_token')).toBe('final_passport_hq_token')
+  })
 
   it('does NOT call two-factor endpoint when role is BRANCH ADMIN', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'temp_app_token_123',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
       id: 2,
@@ -80,27 +80,27 @@ describe('useAuthStore Login Pipeline', () => {
         access_token: 'branch_passport_token_456',
       },
       success: true,
-    });
+    })
 
-    const twoFactorSpy = vi.spyOn(authApi, 'validateTwoFactor');
+    const twoFactorSpy = vi.spyOn(authApi, 'validateTwoFactor')
 
-    const result = await authStore.login('branch_user', 'secret123');
+    const result = await authStore.login('branch_user', 'secret123')
 
-    expect(result).toBe(true);
-    expect(twoFactorSpy).not.toHaveBeenCalled();
-    expect(authStore.token).toBe('branch_passport_token_456');
-    expect(authStore.user?.role).toBe('BRANCH ADMIN');
-    expect(authStore.isBranch).toBe(true);
-    expect(localStorage.getItem('bronx_access_token')).toBe('branch_passport_token_456');
-  });
+    expect(result).toBe(true)
+    expect(twoFactorSpy).not.toHaveBeenCalled()
+    expect(authStore.token).toBe('branch_passport_token_456')
+    expect(authStore.user?.role).toBe('BRANCH ADMIN')
+    expect(authStore.isBranch).toBe(true)
+    expect(localStorage.getItem('bronx_access_token')).toBe('branch_passport_token_456')
+  })
 
   it('does NOT call two-factor endpoint when role is TICKET ADMIN', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'temp_app_token_123',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
       id: 3,
@@ -116,33 +116,33 @@ describe('useAuthStore Login Pipeline', () => {
         access_token: 'ticket_admin_token_789',
       },
       success: true,
-    });
+    })
 
-    const twoFactorSpy = vi.spyOn(authApi, 'validateTwoFactor');
+    const twoFactorSpy = vi.spyOn(authApi, 'validateTwoFactor')
 
-    const result = await authStore.login('ticket_admin', 'secret123');
+    const result = await authStore.login('ticket_admin', 'secret123')
 
-    expect(result).toBe(true);
-    expect(twoFactorSpy).not.toHaveBeenCalled();
-    expect(authStore.token).toBe('ticket_admin_token_789');
-    expect(authStore.user?.role).toBe('TICKET ADMIN');
-    expect(localStorage.getItem('bronx_access_token')).toBe('ticket_admin_token_789');
-  });
+    expect(result).toBe(true)
+    expect(twoFactorSpy).not.toHaveBeenCalled()
+    expect(authStore.token).toBe('ticket_admin_token_789')
+    expect(authStore.user?.role).toBe('TICKET ADMIN')
+    expect(localStorage.getItem('bronx_access_token')).toBe('ticket_admin_token_789')
+  })
 
   it('normalizes role casing (e.g. hq admin lowercase) and calls two-factor', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'temp_app_token_123',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
       id: 4,
       username: 'hq_lowercase',
       role: 'hq admin',
       success: true,
-    });
+    })
 
     const twoFactorSpy = vi.spyOn(authApi, 'validateTwoFactor').mockResolvedValue({
       id: 4,
@@ -156,27 +156,27 @@ describe('useAuthStore Login Pipeline', () => {
         token_type: 'Bearer',
         access_token: 'hq_lower_token',
       },
-    });
+    })
 
-    const result = await authStore.login('hq_lowercase', 'secret');
+    const result = await authStore.login('hq_lowercase', 'secret')
 
-    expect(result).toBe(true);
-    expect(authStore.hasPendingTwoFactor).toBe(true);
-    expect(twoFactorSpy).not.toHaveBeenCalled();
+    expect(result).toBe(true)
+    expect(authStore.hasPendingTwoFactor).toBe(true)
+    expect(twoFactorSpy).not.toHaveBeenCalled()
 
-    const verifyResult = await authStore.verifyTwoFactor('000000');
-    expect(verifyResult).toBe(true);
-    expect(twoFactorSpy).toHaveBeenCalledTimes(1);
-    expect(authStore.token).toBe('hq_lower_token');
-  });
+    const verifyResult = await authStore.verifyTwoFactor('000000')
+    expect(verifyResult).toBe(true)
+    expect(twoFactorSpy).toHaveBeenCalledTimes(1)
+    expect(authStore.token).toBe('hq_lower_token')
+  })
 
   it('correctly handles response data wrapped in .data object', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'temp_app_token_123',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
       data: {
@@ -192,25 +192,25 @@ describe('useAuthStore Login Pipeline', () => {
         },
       },
       success: true,
-    });
+    })
 
-    const twoFactorSpy = vi.spyOn(authApi, 'validateTwoFactor');
+    const twoFactorSpy = vi.spyOn(authApi, 'validateTwoFactor')
 
-    const result = await authStore.login('custom_operator', 'secret');
+    const result = await authStore.login('custom_operator', 'secret')
 
-    expect(result).toBe(true);
-    expect(twoFactorSpy).not.toHaveBeenCalled();
-    expect(authStore.token).toBe('wrapped_branch_token');
-    expect(authStore.user?.role).toBe('BRANCH ADMIN');
-  });
+    expect(result).toBe(true)
+    expect(twoFactorSpy).not.toHaveBeenCalled()
+    expect(authStore.token).toBe('wrapped_branch_token')
+    expect(authStore.user?.role).toBe('BRANCH ADMIN')
+  })
 
   it('sets error and returns false if login fails', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'temp_app_token_123',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockRejectedValue({
       response: {
@@ -218,22 +218,22 @@ describe('useAuthStore Login Pipeline', () => {
           message: 'Invalid username or password',
         },
       },
-    });
+    })
 
-    const result = await authStore.login('bad_user', 'wrong_pass');
+    const result = await authStore.login('bad_user', 'wrong_pass')
 
-    expect(result).toBe(false);
-    expect(authStore.error).toBe('Invalid username or password');
-    expect(authStore.token).toBeNull();
-  });
+    expect(result).toBe(false)
+    expect(authStore.error).toBe('Invalid username or password')
+    expect(authStore.token).toBeNull()
+  })
 
   it('initiates pending 2FA for HQ ADMIN when no code is passed and handles verification failure & success', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'hq_temp_token',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
       id: 10,
@@ -242,15 +242,15 @@ describe('useAuthStore Login Pipeline', () => {
       email: 'master@bronx.internal',
       phone: '010111222',
       success: true,
-    });
+    })
 
     // Step 1: Login without 2FA code
-    const loginResult = await authStore.login('hq_master', 'password');
-    expect(loginResult).toBe(true);
-    expect(authStore.hasPendingTwoFactor).toBe(true);
-    expect(authStore.pendingTwoFactor?.username).toBe('hq_master');
-    expect(authStore.pendingTwoFactor?.maskedEmail).toBe('m***r@bronx.internal');
-    expect(authStore.token).toBeNull(); // Full token is NOT granted yet!
+    const loginResult = await authStore.login('hq_master', 'password')
+    expect(loginResult).toBe(true)
+    expect(authStore.hasPendingTwoFactor).toBe(true)
+    expect(authStore.pendingTwoFactor?.username).toBe('hq_master')
+    expect(authStore.pendingTwoFactor?.maskedEmail).toBe('m***r@bronx.internal')
+    expect(authStore.token).toBeNull() // Full token is NOT granted yet!
 
     // Step 2: Attempt verification with invalid code
     vi.spyOn(authApi, 'validateTwoFactor').mockRejectedValueOnce({
@@ -259,13 +259,13 @@ describe('useAuthStore Login Pipeline', () => {
           message: 'Invalid verification code',
         },
       },
-    });
+    })
 
-    const failVerify = await authStore.verifyTwoFactor('999999');
-    expect(failVerify).toBe(false);
-    expect(authStore.remainingAttempts).toBe(4);
-    expect(authStore.error).toBe('Invalid verification code');
-    expect(authStore.token).toBeNull();
+    const failVerify = await authStore.verifyTwoFactor('999999')
+    expect(failVerify).toBe(false)
+    expect(authStore.remainingAttempts).toBe(4)
+    expect(authStore.error).toBe('Invalid verification code')
+    expect(authStore.token).toBeNull()
 
     // Step 3: Attempt verification with valid code
     vi.spyOn(authApi, 'validateTwoFactor').mockResolvedValueOnce({
@@ -280,58 +280,58 @@ describe('useAuthStore Login Pipeline', () => {
         token_type: 'Bearer',
         access_token: 'hq_master_final_token',
       },
-    });
+    })
 
-    const successVerify = await authStore.verifyTwoFactor('123456', { rememberDevice: true });
-    expect(successVerify).toBe(true);
-    expect(authStore.hasPendingTwoFactor).toBe(false);
-    expect(authStore.token).toBe('hq_master_final_token');
-    expect(localStorage.getItem('bronx_access_token')).toBe('hq_master_final_token');
-    expect(localStorage.getItem('bronx_trusted_device_hq_master')).toBeTruthy();
-  });
+    const successVerify = await authStore.verifyTwoFactor('123456', { rememberDevice: true })
+    expect(successVerify).toBe(true)
+    expect(authStore.hasPendingTwoFactor).toBe(false)
+    expect(authStore.token).toBe('hq_master_final_token')
+    expect(localStorage.getItem('bronx_access_token')).toBe('hq_master_final_token')
+    expect(localStorage.getItem('bronx_trusted_device_hq_master')).toBeTruthy()
+  })
 
   it('cancelTwoFactor clears pending session and resets state', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'temp_tok',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
       username: 'hq_user',
       role: 'HQ ADMIN',
       success: true,
-    });
+    })
 
-    await authStore.login('hq_user', 'password');
-    expect(authStore.hasPendingTwoFactor).toBe(true);
+    await authStore.login('hq_user', 'password')
+    expect(authStore.hasPendingTwoFactor).toBe(true)
 
-    authStore.cancelTwoFactor();
-    expect(authStore.hasPendingTwoFactor).toBe(false);
-    expect(authStore.pendingTwoFactor).toBeNull();
-    expect(sessionStorage.getItem('bronx_pending_2fa')).toBeNull();
-  });
+    authStore.cancelTwoFactor()
+    expect(authStore.hasPendingTwoFactor).toBe(false)
+    expect(authStore.pendingTwoFactor).toBeNull()
+    expect(sessionStorage.getItem('bronx_pending_2fa')).toBeNull()
+  })
 
   it('resendTwoFactorCode extends expiry window', async () => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
       access_token: 'temp_tok',
       success: true,
-    });
+    })
 
     vi.spyOn(authApi, 'loginWithToken').mockResolvedValue({
       username: 'hq_user',
       role: 'HQ ADMIN',
       success: true,
-    });
+    })
 
-    await authStore.login('hq_user', 'password');
-    const oldExpiresAt = authStore.pendingTwoFactor?.expiresAt || 0;
+    await authStore.login('hq_user', 'password')
+    const oldExpiresAt = authStore.pendingTwoFactor?.expiresAt || 0
 
-    const resendRes = await authStore.resendTwoFactorCode();
-    expect(resendRes.success).toBe(true);
-    expect(authStore.pendingTwoFactor?.expiresAt).toBeGreaterThanOrEqual(oldExpiresAt);
-  });
-});
+    const resendRes = await authStore.resendTwoFactorCode()
+    expect(resendRes.success).toBe(true)
+    expect(authStore.pendingTwoFactor?.expiresAt).toBeGreaterThanOrEqual(oldExpiresAt)
+  })
+})

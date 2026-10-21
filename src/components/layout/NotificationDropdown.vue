@@ -1,31 +1,25 @@
 <script setup lang="ts">
-import { useTicketStore } from '@/stores/ticketStore';
-import type { Ticket } from '@/types/ticket';
-import {
-  Bell,
-  Clock,
-  ExternalLink,
-  Smartphone,
-  Globe
-} from 'lucide-vue-next';
+import { useTicketStore } from '@/stores/ticketStore'
+import type { Ticket } from '@/types/ticket'
+import { Bell, Clock, ExternalLink, Smartphone, Globe } from 'lucide-vue-next'
 
 defineProps<{
-  isOpen: boolean;
-}>();
+  isOpen: boolean
+}>()
 
 const emit = defineEmits<{
-  (e: 'close'): void;
-}>();
+  (e: 'close'): void
+}>()
 
-const ticketStore = useTicketStore();
+const ticketStore = useTicketStore()
 
 function handleSelectTicket(ticket: Ticket) {
-  ticketStore.openTicketDrawer(ticket);
-  emit('close');
+  ticketStore.openTicketDrawer(ticket)
+  emit('close')
 }
 
 function markAllAsRead() {
-  ticketStore.markNotificationsAsRead();
+  ticketStore.markNotificationsAsRead()
 }
 </script>
 
@@ -35,7 +29,9 @@ function markAllAsRead() {
     class="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl z-50 overflow-hidden ring-1 ring-white/10"
   >
     <!-- Header -->
-    <div class="px-4 py-3.5 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/60">
+    <div
+      class="px-4 py-3.5 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/60"
+    >
       <div class="flex items-center gap-2">
         <Bell class="w-4 h-4 text-indigo-400" />
         <span class="text-sm font-semibold text-white">External Client Submissions</span>
@@ -64,7 +60,9 @@ function markAllAsRead() {
         class="p-3.5 hover:bg-slate-800/50 cursor-pointer transition-colors group flex items-start gap-3"
       >
         <!-- Icon badge -->
-        <div class="mt-0.5 p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:border-indigo-500/40">
+        <div
+          class="mt-0.5 p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:border-indigo-500/40"
+        >
           <Smartphone v-if="item.metadata?.api_client_name?.includes('Mobile')" class="w-4 h-4" />
           <Globe v-else class="w-4 h-4" />
         </div>
@@ -80,7 +78,9 @@ function markAllAsRead() {
             </span>
           </div>
 
-          <p class="text-xs font-medium text-slate-200 line-clamp-1 group-hover:text-white transition-colors">
+          <p
+            class="text-xs font-medium text-slate-200 line-clamp-1 group-hover:text-white transition-colors"
+          >
             {{ item.title }}
           </p>
 
@@ -91,10 +91,13 @@ function markAllAsRead() {
             <span
               class="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
               :class="{
-                'bg-rose-500/10 text-rose-400 border border-rose-500/20': item.priority === 'critical',
-                'bg-amber-500/10 text-amber-400 border border-amber-500/20': item.priority === 'high',
+                'bg-rose-500/10 text-rose-400 border border-rose-500/20':
+                  item.priority === 'critical',
+                'bg-amber-500/10 text-amber-400 border border-amber-500/20':
+                  item.priority === 'high',
                 'bg-sky-500/10 text-sky-400 border border-sky-500/20': item.priority === 'medium',
-                'bg-slate-500/10 text-slate-400 border border-slate-500/20': item.priority === 'low',
+                'bg-slate-500/10 text-slate-400 border border-slate-500/20':
+                  item.priority === 'low',
               }"
             >
               {{ item.priority }}

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { useToastStore } from '@/stores/toastStore';
+import { ref } from 'vue'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { useToastStore } from '@/stores/toastStore'
 import {
   Link as LinkIcon,
   Copy,
@@ -16,82 +16,87 @@ import {
   AlertCircle,
   ArrowRight,
   Users,
-} from 'lucide-vue-next';
+} from 'lucide-vue-next'
 
 defineEmits<{
-  (e: 'done'): void;
-}>();
+  (e: 'done'): void
+}>()
 
-const settingsStore = useSettingsStore();
-const toastStore = useToastStore();
+const settingsStore = useSettingsStore()
+const toastStore = useToastStore()
 
-const isGenerated = ref(false);
-const generatedLink = ref('');
-const isCopied = ref(false);
-const showQrCode = ref(false);
-const errorMessage = ref<string | null>(null);
+const isGenerated = ref(false)
+const generatedLink = ref('')
+const isCopied = ref(false)
+const showQrCode = ref(false)
+const errorMessage = ref<string | null>(null)
 
 async function handleGenerate() {
-  errorMessage.value = null;
+  errorMessage.value = null
   try {
-    const url = await settingsStore.generateInviteLink();
+    const url = await settingsStore.generateInviteLink()
     if (!url) {
-      errorMessage.value = 'Failed to generate link. The server returned an empty URL.';
-      return;
+      errorMessage.value = 'Failed to generate link. The server returned an empty URL.'
+      return
     }
-    generatedLink.value = url;
-    isGenerated.value = true;
+    generatedLink.value = url
+    isGenerated.value = true
   } catch (err: any) {
     errorMessage.value =
-      err.response?.data?.message || err.message || 'Failed to generate invite link. Please check your network and bot settings.';
+      err.response?.data?.message ||
+      err.message ||
+      'Failed to generate invite link. Please check your network and bot settings.'
   }
 }
 
 async function copyLink() {
-  if (!generatedLink.value) return;
+  if (!generatedLink.value) return
 
-  let copied = false;
+  let copied = false
   try {
     if (navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(generatedLink.value);
-      copied = true;
+      await navigator.clipboard.writeText(generatedLink.value)
+      copied = true
     }
   } catch (e) {
-    console.warn('navigator.clipboard failed, attempting fallback', e);
+    console.warn('navigator.clipboard failed, attempting fallback', e)
   }
 
   if (!copied) {
     try {
-      const textArea = document.createElement('textarea');
-      textArea.value = generatedLink.value;
-      textArea.style.position = 'fixed';
-      textArea.style.opacity = '0';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      copied = document.execCommand('copy');
-      document.body.removeChild(textArea);
+      const textArea = document.createElement('textarea')
+      textArea.value = generatedLink.value
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      copied = document.execCommand('copy')
+      document.body.removeChild(textArea)
     } catch (e) {
-      console.error('execCommand copy failed', e);
+      console.error('execCommand copy failed', e)
     }
   }
 
   if (copied) {
-    isCopied.value = true;
-    toastStore.success('Copied to Clipboard', generatedLink.value);
+    isCopied.value = true
+    toastStore.success('Copied to Clipboard', generatedLink.value)
     setTimeout(() => {
-      isCopied.value = false;
-    }, 2500);
+      isCopied.value = false
+    }, 2500)
   } else {
-    toastStore.error('Copy Failed', 'Unable to auto-copy. Please select and copy the link text manually.');
+    toastStore.error(
+      'Copy Failed',
+      'Unable to auto-copy. Please select and copy the link text manually.',
+    )
   }
 }
 
 function handleReset() {
-  isGenerated.value = false;
-  generatedLink.value = '';
-  showQrCode.value = false;
-  errorMessage.value = null;
+  isGenerated.value = false
+  generatedLink.value = ''
+  showQrCode.value = false
+  errorMessage.value = null
 }
 </script>
 
@@ -100,7 +105,9 @@ function handleReset() {
     class="p-3 sm:p-6 rounded-2xl bg-slate-50/50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800/60 transition-all w-full"
   >
     <!-- Card Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800/80 gap-4">
+    <div
+      class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800/80 gap-4"
+    >
       <div class="flex items-start sm:items-center gap-3.5">
         <div
           class="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200/80 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-2xs"
@@ -112,7 +119,8 @@ function handleReset() {
             Generate Telegram Bot Invite Link
           </h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Create an onboarding invite link so staff members can subscribe with a single tap on Telegram.
+            Create an onboarding invite link so staff members can subscribe with a single tap on
+            Telegram.
           </p>
         </div>
       </div>
@@ -144,20 +152,29 @@ function handleReset() {
     <div v-if="!isGenerated" class="mt-6 space-y-6">
       <!-- 3 Steps Explainer Grid -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
-          <div class="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-bold text-xs">
+        <div
+          class="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2"
+        >
+          <div
+            class="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-bold text-xs"
+          >
             1
           </div>
           <div class="font-semibold text-slate-900 dark:text-white text-xs">
             Generate Secure Token
           </div>
           <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            The gateway creates a cryptographically signed one-time invite token mapped to your workspace.
+            The gateway creates a cryptographically signed one-time invite token mapped to your
+            workspace.
           </p>
         </div>
 
-        <div class="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
-          <div class="w-7 h-7 rounded-xl bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 flex items-center justify-center font-bold text-xs">
+        <div
+          class="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2"
+        >
+          <div
+            class="w-7 h-7 rounded-xl bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 flex items-center justify-center font-bold text-xs"
+          >
             2
           </div>
           <div class="font-semibold text-slate-900 dark:text-white text-xs">
@@ -168,15 +185,20 @@ function handleReset() {
           </p>
         </div>
 
-        <div class="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
-          <div class="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
+        <div
+          class="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2"
+        >
+          <div
+            class="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs"
+          >
             3
           </div>
           <div class="font-semibold text-slate-900 dark:text-white text-xs">
             Instant Subscription
           </div>
           <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            When they tap <strong>Start</strong> in Telegram, they immediately receive real-time ticket alerts!
+            When they tap <strong>Start</strong> in Telegram, they immediately receive real-time
+            ticket alerts!
           </p>
         </div>
       </div>
@@ -201,9 +223,13 @@ function handleReset() {
 
     <!-- State 2: Generated Link Ready -->
     <div v-else class="mt-6 space-y-6 animate-fade-in">
-      <div class="p-5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-500/10 border border-emerald-200/80 dark:border-emerald-500/25 flex items-start sm:items-center justify-between gap-4">
+      <div
+        class="p-5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-500/10 border border-emerald-200/80 dark:border-emerald-500/25 flex items-start sm:items-center justify-between gap-4"
+      >
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs shrink-0">
+          <div
+            class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs shrink-0"
+          >
             <ShieldCheck class="w-5 h-5" />
           </div>
           <div>
@@ -216,7 +242,9 @@ function handleReset() {
           </div>
         </div>
 
-        <span class="hidden sm:inline-flex text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-700">
+        <span
+          class="hidden sm:inline-flex text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-700"
+        >
           Active Link
         </span>
       </div>

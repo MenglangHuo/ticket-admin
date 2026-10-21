@@ -1,31 +1,31 @@
-import type { DashboardReportsResponse, TrendPoint } from '@/types/ticket';
-import type { ReportFilterParams } from '@/api/reportApi';
+import type { DashboardReportsResponse, TrendPoint } from '@/types/ticket'
+import type { ReportFilterParams } from '@/api/reportApi'
 
 function generateTrendPoints(days = 14): TrendPoint[] {
-  const points: TrendPoint[] = [];
-  const now = new Date();
+  const points: TrendPoint[] = []
+  const now = new Date()
 
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(now.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const d = new Date()
+    d.setDate(now.getDate() - i)
+    const dateStr = d.toISOString().split('T')[0]
     // Realistic curve with weekday peaks and weekend dips
-    const dayOfWeek = d.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const baseCount = isWeekend ? 3 : 12;
-    const jitter = Math.floor(Math.sin(i * 0.8) * 4) + Math.floor(Math.random() * 3);
+    const dayOfWeek = d.getDay()
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    const baseCount = isWeekend ? 3 : 12
+    const jitter = Math.floor(Math.sin(i * 0.8) * 4) + Math.floor(Math.random() * 3)
     points.push({
       date: dateStr || '',
       count: Math.max(1, baseCount + jitter),
-    });
+    })
   }
 
-  return points;
+  return points
 }
 
 export function getMockReports(params: ReportFilterParams = {}): DashboardReportsResponse {
-  const days = params.days || 14;
-  const trends = generateTrendPoints(Math.min(30, Math.max(7, days)));
+  const days = params.days || 14
+  const trends = generateTrendPoints(Math.min(30, Math.max(7, days)))
 
   return {
     success: true,
@@ -74,5 +74,5 @@ export function getMockReports(params: ReportFilterParams = {}): DashboardReport
       { client_name: 'Branch #3 Battambang Store', count: 4 },
     ],
     trends,
-  };
+  }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { useToastStore } from '@/stores/toastStore';
+import { ref } from 'vue'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { useToastStore } from '@/stores/toastStore'
 import {
   X,
   Link as LinkIcon,
@@ -15,91 +15,96 @@ import {
   Bot,
   RotateCw,
   AlertCircle,
-} from 'lucide-vue-next';
+} from 'lucide-vue-next'
 
 defineProps<{
-  isOpen: boolean;
-}>();
+  isOpen: boolean
+}>()
 
 const emit = defineEmits<{
-  (e: 'close'): void;
-}>();
+  (e: 'close'): void
+}>()
 
-const settingsStore = useSettingsStore();
-const toastStore = useToastStore();
+const settingsStore = useSettingsStore()
+const toastStore = useToastStore()
 
-const isGenerated = ref(false);
-const generatedLink = ref('');
-const isCopied = ref(false);
-const showQrCode = ref(false);
-const errorMessage = ref<string | null>(null);
+const isGenerated = ref(false)
+const generatedLink = ref('')
+const isCopied = ref(false)
+const showQrCode = ref(false)
+const errorMessage = ref<string | null>(null)
 
 async function handleGenerate() {
-  errorMessage.value = null;
+  errorMessage.value = null
   try {
-    const url = await settingsStore.generateInviteLink();
+    const url = await settingsStore.generateInviteLink()
     if (!url) {
-      errorMessage.value = 'Failed to generate link. The server returned an empty URL.';
-      return;
+      errorMessage.value = 'Failed to generate link. The server returned an empty URL.'
+      return
     }
-    generatedLink.value = url;
-    isGenerated.value = true;
+    generatedLink.value = url
+    isGenerated.value = true
   } catch (err: any) {
     errorMessage.value =
-      err.response?.data?.message || err.message || 'Failed to generate invite link. Please check your network and bot settings.';
+      err.response?.data?.message ||
+      err.message ||
+      'Failed to generate invite link. Please check your network and bot settings.'
   }
 }
 
 async function copyLink() {
-  if (!generatedLink.value) return;
+  if (!generatedLink.value) return
 
-  let copied = false;
+  let copied = false
   try {
     if (navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(generatedLink.value);
-      copied = true;
+      await navigator.clipboard.writeText(generatedLink.value)
+      copied = true
     }
   } catch (e) {
-    console.warn('navigator.clipboard failed, attempting fallback', e);
+    console.warn('navigator.clipboard failed, attempting fallback', e)
   }
 
   if (!copied) {
     try {
-      const textArea = document.createElement('textarea');
-      textArea.value = generatedLink.value;
-      textArea.style.position = 'fixed';
-      textArea.style.opacity = '0';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      copied = document.execCommand('copy');
-      document.body.removeChild(textArea);
+      const textArea = document.createElement('textarea')
+      textArea.value = generatedLink.value
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      copied = document.execCommand('copy')
+      document.body.removeChild(textArea)
     } catch (e) {
-      console.error('execCommand copy failed', e);
+      console.error('execCommand copy failed', e)
     }
   }
 
   if (copied) {
-    isCopied.value = true;
-    toastStore.success('Copied to Clipboard', generatedLink.value);
+    isCopied.value = true
+    toastStore.success('Copied to Clipboard', generatedLink.value)
     setTimeout(() => {
-      isCopied.value = false;
-    }, 2500);
+      isCopied.value = false
+    }, 2500)
   } else {
-    toastStore.error('Copy Failed', 'Unable to auto-copy. Please select and copy the link text manually.');
+    toastStore.error(
+      'Copy Failed',
+      'Unable to auto-copy. Please select and copy the link text manually.',
+    )
   }
 }
 
 function handleReset() {
-  isGenerated.value = false;
-  generatedLink.value = '';
-  showQrCode.value = false;
-  errorMessage.value = null;
+  isGenerated.value = false
+  generatedLink.value = ''
+  showQrCode.value = false
+  errorMessage.value = null
 }
 
 function handleClose() {
-  handleReset();
-  emit('close');
+  handleReset()
+  emit('close')
 }
 </script>
 
@@ -151,7 +156,9 @@ function handleClose() {
           <div class="leading-relaxed">{{ errorMessage }}</div>
         </div>
 
-        <div class="p-4 rounded-2xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 flex items-start gap-3">
+        <div
+          class="p-4 rounded-2xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 flex items-start gap-3"
+        >
           <Bot class="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
           <div class="space-y-1">
             <div class="font-bold text-slate-900 dark:text-white text-xs">
@@ -160,13 +167,17 @@ function handleClose() {
             <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               1. The server generates a unique cryptographic secret token linked to your company.<br />
               2. Staff opens the generated link in Telegram and taps <strong>Start</strong>.<br />
-              3. The Telegram Bot webhook automatically records their private Chat ID and company tenant.<br />
-              4. From then on, any ticket submitted by clients will push instant notifications to their chat!
+              3. The Telegram Bot webhook automatically records their private Chat ID and company
+              tenant.<br />
+              4. From then on, any ticket submitted by clients will push instant notifications to
+              their chat!
             </p>
           </div>
         </div>
 
-        <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
+        <div
+          class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5"
+        >
           <div class="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
             Target Bot:
           </div>
@@ -184,11 +195,10 @@ function handleClose() {
           >
             <ShieldCheck class="w-6 h-6" />
           </div>
-          <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-            Subscription Link Ready!
-          </h4>
+          <h4 class="text-sm font-bold text-slate-900 dark:text-white">Subscription Link Ready!</h4>
           <p class="text-[11px] text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            Send this secure link to your team member. When opened, Telegram will prompt them to tap <strong>Start</strong> to subscribe.
+            Send this secure link to your team member. When opened, Telegram will prompt them to tap
+            <strong>Start</strong> to subscribe.
           </p>
         </div>
 
@@ -240,7 +250,9 @@ function handleClose() {
               class="w-32 h-32 mx-auto rounded-xl p-1 bg-white border border-slate-200"
               loading="lazy"
             />
-            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Scan to open Telegram bot</p>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">
+              Scan to open Telegram bot
+            </p>
           </div>
         </div>
 

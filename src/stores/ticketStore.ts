@@ -168,9 +168,12 @@ export const useTicketStore = defineStore('tickets', () => {
   })
 
   // Drawer Position (right, left, top, bottom)
-  const storedDrawerPosition = (localStorage.getItem('bronx_drawer_position') as DrawerPosition) || 'right'
+  const storedDrawerPosition =
+    (localStorage.getItem('bronx_drawer_position') as DrawerPosition) || 'right'
   const drawerPosition = ref<DrawerPosition>(
-    ['right', 'left', 'top', 'bottom'].includes(storedDrawerPosition) ? storedDrawerPosition : 'right',
+    ['right', 'left', 'top', 'bottom'].includes(storedDrawerPosition)
+      ? storedDrawerPosition
+      : 'right',
   )
 
   function setDrawerPosition(pos: DrawerPosition) {
@@ -337,7 +340,9 @@ export const useTicketStore = defineStore('tickets', () => {
 
           columnPages.value[status] = {
             page: nextPage,
-            hasMore: nextPage < parsed.meta.last_page && (totalForStatus ? loadedForStatus < totalForStatus : true),
+            hasMore:
+              nextPage < parsed.meta.last_page &&
+              (totalForStatus ? loadedForStatus < totalForStatus : true),
           }
           columnLimits.value[status] += freshTickets.length || parsed.items.length
           if (parsed.facets?.status?.[status] !== undefined) {
@@ -358,7 +363,10 @@ export const useTicketStore = defineStore('tickets', () => {
         columnLimits.value[status] += 6
       }
     } catch (err: any) {
-      toastStore.error(`Failed to load more ${status} tickets`, err.response?.data?.message || err.message)
+      toastStore.error(
+        `Failed to load more ${status} tickets`,
+        err.response?.data?.message || err.message,
+      )
     } finally {
       columnLoadingMore.value[status] = false
     }
@@ -479,6 +487,13 @@ export const useTicketStore = defineStore('tickets', () => {
   }
 
   const isMockDataActive = ref<boolean>(mockService.isMockDataEnabled())
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('bronx-environment-changed', () => {
+      isMockDataActive.value = mockService.isMockDataEnabled()
+      fetchTickets(1)
+    })
+  }
 
   function toggleMockMode() {
     const nextState = mockService.toggleMockDataMode()
@@ -618,7 +633,10 @@ export const useTicketStore = defineStore('tickets', () => {
 
     // Optimistically update facet counts for status
     if (facets.value?.status) {
-      if (typeof facets.value.status[oldStatus] === 'number' && facets.value.status[oldStatus] > 0) {
+      if (
+        typeof facets.value.status[oldStatus] === 'number' &&
+        facets.value.status[oldStatus] > 0
+      ) {
         facets.value.status[oldStatus]--
       }
       if (typeof facets.value.status[newStatus] === 'number') {
@@ -665,7 +683,8 @@ export const useTicketStore = defineStore('tickets', () => {
       // Immediately refresh audits if this ticket is currently open in detail modal/drawer
       if (
         selectedTicket.value &&
-        (selectedTicket.value.id === Number(ticketId) || String(selectedTicket.value.id) === String(ticketId))
+        (selectedTicket.value.id === Number(ticketId) ||
+          String(selectedTicket.value.id) === String(ticketId))
       ) {
         await fetchTicketAudits(ticketId)
       }
@@ -682,7 +701,10 @@ export const useTicketStore = defineStore('tickets', () => {
         if (typeof facets.value.status[oldStatus] === 'number') {
           facets.value.status[oldStatus]++
         }
-        if (typeof facets.value.status[newStatus] === 'number' && facets.value.status[newStatus] > 0) {
+        if (
+          typeof facets.value.status[newStatus] === 'number' &&
+          facets.value.status[newStatus] > 0
+        ) {
           facets.value.status[newStatus]--
         }
       }
@@ -733,7 +755,10 @@ export const useTicketStore = defineStore('tickets', () => {
     }
 
     if (facets.value?.priority) {
-      if (typeof facets.value.priority[oldPriority] === 'number' && facets.value.priority[oldPriority] > 0) {
+      if (
+        typeof facets.value.priority[oldPriority] === 'number' &&
+        facets.value.priority[oldPriority] > 0
+      ) {
         facets.value.priority[oldPriority]--
       }
       if (typeof facets.value.priority[newPriority] === 'number') {
@@ -753,7 +778,10 @@ export const useTicketStore = defineStore('tickets', () => {
         if (typeof facets.value.priority[oldPriority] === 'number') {
           facets.value.priority[oldPriority]++
         }
-        if (typeof facets.value.priority[newPriority] === 'number' && facets.value.priority[newPriority] > 0) {
+        if (
+          typeof facets.value.priority[newPriority] === 'number' &&
+          facets.value.priority[newPriority] > 0
+        ) {
           facets.value.priority[newPriority]--
         }
       }
@@ -840,7 +868,7 @@ export const useTicketStore = defineStore('tickets', () => {
 
   async function updateTicketDetails(
     ticketId: number | string,
-    payload: UpdateTicketPayload
+    payload: UpdateTicketPayload,
   ): Promise<boolean> {
     isSavingTicketEdit.value = true
     try {
@@ -873,7 +901,9 @@ export const useTicketStore = defineStore('tickets', () => {
   async function fetchTicketComments(ticketId: number, includeInternal = true) {
     isCommentsLoading.value = true
     try {
-      const response = await ticketApi.getTicketComments(ticketId, { include_internal: includeInternal })
+      const response = await ticketApi.getTicketComments(ticketId, {
+        include_internal: includeInternal,
+      })
       comments.value = (response as any).data || []
     } catch (err: any) {
       console.error('Failed to load ticket comments:', err)
@@ -882,7 +912,10 @@ export const useTicketStore = defineStore('tickets', () => {
     }
   }
 
-  async function addTicketComment(ticketId: number, payload: CreateCommentPayload): Promise<boolean> {
+  async function addTicketComment(
+    ticketId: number,
+    payload: CreateCommentPayload,
+  ): Promise<boolean> {
     if (!payload.body.trim() && (!payload.files || payload.files.length === 0)) {
       toastStore.warning('Empty Comment', 'Please write a message or attach a file.')
       return false
@@ -894,7 +927,9 @@ export const useTicketStore = defineStore('tickets', () => {
       comments.value.push(createdComment)
       toastStore.success(
         payload.is_internal ? 'Internal Note Added' : 'Reply Sent',
-        payload.is_internal ? 'Private staff note added to ticket' : 'Comment published successfully'
+        payload.is_internal
+          ? 'Private staff note added to ticket'
+          : 'Comment published successfully',
       )
       // If first_response_at was triggered on backend, reflect in selected ticket
       if (selectedTicket.value && !selectedTicket.value.first_response_at) {
@@ -902,14 +937,21 @@ export const useTicketStore = defineStore('tickets', () => {
       }
       return true
     } catch (err: any) {
-      toastStore.error('Failed to Post', err.response?.data?.message || err.message || 'Could not save comment')
+      toastStore.error(
+        'Failed to Post',
+        err.response?.data?.message || err.message || 'Could not save comment',
+      )
       return false
     } finally {
       isPostingComment.value = false
     }
   }
 
-  async function updateTicketComment(ticketId: number, commentId: number, payload: UpdateCommentPayload): Promise<boolean> {
+  async function updateTicketComment(
+    ticketId: number,
+    commentId: number,
+    payload: UpdateCommentPayload,
+  ): Promise<boolean> {
     try {
       const response = await ticketApi.updateTicketComment(ticketId, commentId, payload)
       const updated = (response as any).data || response
@@ -1033,7 +1075,11 @@ export const useTicketStore = defineStore('tickets', () => {
       if (facets.value?.status && cStatus && typeof facets.value.status[cStatus] === 'number') {
         facets.value.status[cStatus]++
       }
-      if (facets.value?.priority && cPriority && typeof facets.value.priority[cPriority] === 'number') {
+      if (
+        facets.value?.priority &&
+        cPriority &&
+        typeof facets.value.priority[cPriority] === 'number'
+      ) {
         facets.value.priority[cPriority]++
       }
       if (typeof facets.value?.total === 'number') {
@@ -1069,10 +1115,20 @@ export const useTicketStore = defineStore('tickets', () => {
       if (target) {
         const tStatus = target.status as TicketStatus | undefined
         const tPriority = target.priority as TicketPriority | undefined
-        if (facets.value?.status && tStatus && typeof facets.value.status[tStatus] === 'number' && facets.value.status[tStatus] > 0) {
+        if (
+          facets.value?.status &&
+          tStatus &&
+          typeof facets.value.status[tStatus] === 'number' &&
+          facets.value.status[tStatus] > 0
+        ) {
           facets.value.status[tStatus]--
         }
-        if (facets.value?.priority && tPriority && typeof facets.value.priority[tPriority] === 'number' && facets.value.priority[tPriority] > 0) {
+        if (
+          facets.value?.priority &&
+          tPriority &&
+          typeof facets.value.priority[tPriority] === 'number' &&
+          facets.value.priority[tPriority] > 0
+        ) {
           facets.value.priority[tPriority]--
         }
         if (typeof facets.value?.total === 'number' && facets.value.total > 0) {

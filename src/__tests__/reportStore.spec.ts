@@ -1,21 +1,21 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setActivePinia, createPinia } from 'pinia';
-import { useReportStore } from '@/stores/reportStore';
-import { reportApi } from '@/api/reportApi';
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
+import { useReportStore } from '@/stores/reportStore'
+import { reportApi } from '@/api/reportApi'
 
 describe('useReportStore & Date Range Logic', () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.restoreAllMocks();
-  });
+    setActivePinia(createPinia())
+    vi.restoreAllMocks()
+  })
 
   it('initializes with default this_month preset and valid date_from / date_to', () => {
-    const store = useReportStore();
-    expect(store.selectedPreset).toBe('this_month');
-    expect(store.dateFrom).toMatch(/^\d{4}-\d{2}-01$/);
-    expect(store.dateTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(store.isLoading).toBe(false);
-  });
+    const store = useReportStore()
+    expect(store.selectedPreset).toBe('this_month')
+    expect(store.dateFrom).toMatch(/^\d{4}-\d{2}-01$/)
+    expect(store.dateTo).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(store.isLoading).toBe(false)
+  })
 
   it('fetches reports passing date_from and date_to parameters to reportApi', async () => {
     const mockReportData = {
@@ -39,28 +39,28 @@ describe('useReportStore & Date Range Logic', () => {
       top_clients: [],
       trends: [],
       success: true,
-    };
+    }
 
-    const spy = vi.spyOn(reportApi, 'getReports').mockResolvedValue(mockReportData);
+    const spy = vi.spyOn(reportApi, 'getReports').mockResolvedValue(mockReportData)
 
-    const store = useReportStore();
+    const store = useReportStore()
     await store.fetchReports({
       date_from: '2026-10-01',
       date_to: '2026-10-31',
       preset: 'this_month',
-    });
+    })
 
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledTimes(1)
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         date_from: '2026-10-01',
         date_to: '2026-10-31',
-      })
-    );
+      }),
+    )
 
-    expect(store.reportData.summary.total_tickets).toBe(35);
-    expect(store.reportData.by_type.bug).toBe(15);
-  });
+    expect(store.reportData.summary.total_tickets).toBe(35)
+    expect(store.reportData.by_type.bug).toBe(15)
+  })
 
   it('handles in-memory caching and force refresh', async () => {
     const mockData = {
@@ -84,24 +84,24 @@ describe('useReportStore & Date Range Logic', () => {
       top_clients: [],
       trends: [],
       success: true,
-    };
+    }
 
-    const spy = vi.spyOn(reportApi, 'getReports').mockResolvedValue(mockData);
+    const spy = vi.spyOn(reportApi, 'getReports').mockResolvedValue(mockData)
 
-    const store = useReportStore();
-    await store.fetchReports({ date_from: '2026-10-01', date_to: '2026-10-07' });
-    expect(spy).toHaveBeenCalledTimes(1);
+    const store = useReportStore()
+    await store.fetchReports({ date_from: '2026-10-01', date_to: '2026-10-07' })
+    expect(spy).toHaveBeenCalledTimes(1)
 
     // Call again with same dates - should use memory cache immediately
-    await store.fetchReports({ date_from: '2026-10-01', date_to: '2026-10-07' });
-    expect(store.reportData.summary.total_tickets).toBe(20);
+    await store.fetchReports({ date_from: '2026-10-01', date_to: '2026-10-07' })
+    expect(store.reportData.summary.total_tickets).toBe(20)
 
     // Call refreshReports - should bypass cache with refresh: true
-    await store.refreshReports();
+    await store.refreshReports()
     expect(spy).toHaveBeenLastCalledWith(
       expect.objectContaining({
         refresh: true,
-      })
-    );
-  });
-});
+      }),
+    )
+  })
+})

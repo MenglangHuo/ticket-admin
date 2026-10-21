@@ -1,9 +1,9 @@
-import type { TelegramSubscriber } from '@/types/settings';
+import type { TelegramSubscriber } from '@/types/settings'
 import type {
   TelegramSubscriberFilterParams,
   TelegramSubscriberListResponse,
   TelegramCounts,
-} from '@/api/telegramApi';
+} from '@/api/telegramApi'
 
 const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
   {
@@ -94,45 +94,47 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     created_at: '2026-01-20 15:40:00',
     updated_at: '2026-01-20 15:40:00',
   },
-];
+]
 
-let mockSubscribersState: TelegramSubscriber[] = JSON.parse(JSON.stringify(INITIAL_MOCK_SUBSCRIBERS));
-let mockInvitesCounter = 19;
+let mockSubscribersState: TelegramSubscriber[] = JSON.parse(
+  JSON.stringify(INITIAL_MOCK_SUBSCRIBERS),
+)
+let mockInvitesCounter = 19
 
 export function resetMockSubscribers(): void {
-  mockSubscribersState = JSON.parse(JSON.stringify(INITIAL_MOCK_SUBSCRIBERS));
-  mockInvitesCounter = 19;
+  mockSubscribersState = JSON.parse(JSON.stringify(INITIAL_MOCK_SUBSCRIBERS))
+  mockInvitesCounter = 19
 }
 
 export function getMockSubscribers(
-  params?: TelegramSubscriberFilterParams
+  params?: TelegramSubscriberFilterParams,
 ): TelegramSubscriberListResponse {
-  let list = [...mockSubscribersState];
+  let list = [...mockSubscribersState]
 
   if (params?.search && params.search.trim()) {
-    const q = params.search.toLowerCase().trim();
+    const q = params.search.toLowerCase().trim()
     list = list.filter(
       (s) =>
         (s.telegram_username && s.telegram_username.toLowerCase().includes(q)) ||
-        s.telegram_chat_id.includes(q)
-    );
+        s.telegram_chat_id.includes(q),
+    )
   }
 
   if (params?.status && params.status !== 'all') {
-    const isActive = params.status === 'active';
-    list = list.filter((s) => s.is_active === isActive);
+    const isActive = params.status === 'active'
+    list = list.filter((s) => s.is_active === isActive)
   }
 
   if (params?.is_active !== undefined) {
-    list = list.filter((s) => s.is_active === params.is_active);
+    list = list.filter((s) => s.is_active === params.is_active)
   }
 
-  const page = Number(params?.page || 1);
-  const perPage = Number(params?.per_page || 10);
-  const total = list.length;
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const startIndex = (page - 1) * perPage;
-  const pageItems = list.slice(startIndex, startIndex + perPage);
+  const page = Number(params?.page || 1)
+  const perPage = Number(params?.per_page || 10)
+  const total = list.length
+  const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const startIndex = (page - 1) * perPage
+  const pageItems = list.slice(startIndex, startIndex + perPage)
 
   return {
     success: true,
@@ -153,36 +155,36 @@ export function getMockSubscribers(
       from: total > 0 ? startIndex + 1 : 0,
       to: Math.min(startIndex + perPage, total),
     },
-  };
+  }
 }
 
 export function generateMockInviteLink(): string {
-  mockInvitesCounter++;
-  const botUser = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string) || 'BronxTicketAlertBot';
-  const cleanBot = botUser.replace(/^@/, '');
-  const randToken = Math.random().toString(36).substring(2, 10);
-  return `https://t.me/${cleanBot}?start=inv_${randToken}`;
+  mockInvitesCounter++
+  const botUser = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string) || 'BronxTicketAlertBot'
+  const cleanBot = botUser.replace(/^@/, '')
+  const randToken = Math.random().toString(36).substring(2, 10)
+  return `https://t.me/${cleanBot}?start=inv_${randToken}`
 }
 
 export function removeMockSubscriber(chatId: string): void {
-  const sub = mockSubscribersState.find((s) => s.telegram_chat_id === chatId);
+  const sub = mockSubscribersState.find((s) => s.telegram_chat_id === chatId)
   if (sub) {
-    sub.is_active = false;
+    sub.is_active = false
   }
 }
 
 export function updateMockSubscriberStatus(chatId: string, isActive: boolean): void {
-  const sub = mockSubscribersState.find((s) => s.telegram_chat_id === chatId);
+  const sub = mockSubscribersState.find((s) => s.telegram_chat_id === chatId)
   if (sub) {
-    sub.is_active = isActive;
+    sub.is_active = isActive
   }
 }
 
 export function getMockTelegramCounts(): TelegramCounts {
-  const activeCount = mockSubscribersState.filter((s) => s.is_active).length;
+  const activeCount = mockSubscribersState.filter((s) => s.is_active).length
   return {
     totalSubscribers: mockSubscribersState.length,
     activeSubscribers: activeCount,
     totalTelegramInvites: mockInvitesCounter,
-  };
+  }
 }

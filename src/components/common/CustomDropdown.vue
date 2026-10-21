@@ -1,47 +1,47 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue'
 
 withDefaults(
   defineProps<{
-    align?: 'left' | 'right';
-    width?: string;
+    align?: 'left' | 'right'
+    width?: string
   }>(),
   {
     align: 'right',
     width: 'w-56',
-  }
-);
+  },
+)
 
-const isOpen = ref(false);
-const containerRef = ref<HTMLElement | null>(null);
+const isOpen = ref(false)
+const containerRef = ref<HTMLElement | null>(null)
 
 function toggle() {
-  isOpen.value = !isOpen.value;
+  isOpen.value = !isOpen.value
 }
 
 function close() {
-  isOpen.value = false;
+  isOpen.value = false
 }
 
 function handleClickOutside(e: MouseEvent) {
   if (containerRef.value && !containerRef.value.contains(e.target as Node)) {
-    isOpen.value = false;
+    isOpen.value = false
   }
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
-});
+  document.addEventListener('click', handleClickOutside)
+})
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
-});
+  document.removeEventListener('click', handleClickOutside)
+})
 
 defineExpose({
   isOpen,
   toggle,
   close,
-});
+})
 </script>
 
 <template>

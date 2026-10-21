@@ -23,6 +23,8 @@ import {
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import mockService from '@/mocks/mockService'
+import EnvironmentBadge from '@/components/common/EnvironmentBadge.vue'
+import { isProduction } from '@/config/environment'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -116,6 +118,7 @@ function handleForgotPassword() {
       class="w-full max-w-7xl flex items-center justify-end absolute z-30 top-6 right-6 sm:right-8"
     >
       <div class="flex items-center gap-2">
+        <EnvironmentBadge v-if="!isProduction" />
         <button
           @click="themeStore.toggleTheme"
           class="p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95"
@@ -363,5 +366,6 @@ function handleForgotPassword() {
         </div>
       </div>
     </div>
+
   </div>
 </template>

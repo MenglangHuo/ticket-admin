@@ -640,7 +640,10 @@ onUnmounted(() => {
             </div>
 
             <!-- View Mode: Title & Edit Button -->
-            <div v-if="!isEditingTicket" class="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+            <div
+              v-if="!isEditingTicket"
+              class="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
+            >
               <h2
                 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-snug flex-1"
               >

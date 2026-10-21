@@ -25,13 +25,7 @@ import {
   Users,
   X,
 } from 'lucide-vue-next'
-import {
-  computed,
-  onMounted,
-  onUnmounted,
-  ref,
-  watch,
-} from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import SubscribersTableSkeleton, { type SubscriberColumnKey } from './SubscribersTableSkeleton.vue'
 
 withDefaults(

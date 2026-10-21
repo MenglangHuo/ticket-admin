@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, watch } from 'vue';
-import { useTicketStore } from '@/stores/ticketStore';
-import { useToastStore } from '@/stores/toastStore';
-import { useAuthStore } from '@/stores/authStore';
-import type { TicketType, TicketPriority } from '@/types/ticket';
-import CustomSelect, { type SelectOption } from '@/components/common/CustomSelect.vue';
-import BaseInput from '@/components/common/BaseInput.vue';
-import BaseButton from '@/components/common/BaseButton.vue';
-import HtmlDescriptionEditor from '@/components/common/HtmlDescriptionEditor.vue';
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { useTicketStore } from '@/stores/ticketStore'
+import { useToastStore } from '@/stores/toastStore'
+import { useAuthStore } from '@/stores/authStore'
+import type { TicketType, TicketPriority } from '@/types/ticket'
+import CustomSelect, { type SelectOption } from '@/components/common/CustomSelect.vue'
+import BaseInput from '@/components/common/BaseInput.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
+import HtmlDescriptionEditor from '@/components/common/HtmlDescriptionEditor.vue'
 import {
   X,
   PlusCircle,
@@ -25,12 +25,12 @@ import {
   User,
   Mail,
   Phone,
-  Ticket as TicketIcon
-} from 'lucide-vue-next';
+  Ticket as TicketIcon,
+} from 'lucide-vue-next'
 
-const ticketStore = useTicketStore();
-const toastStore = useToastStore();
-const authStore = useAuthStore();
+const ticketStore = useTicketStore()
+const toastStore = useToastStore()
+const authStore = useAuthStore()
 
 const form = reactive({
   title: '',
@@ -42,25 +42,25 @@ const form = reactive({
   reporter_name: 'Admin Staff',
   reporter_email: 'admin@bronx.test',
   reporter_phone: '012345678',
-});
+})
 
 function initDefaultReporter() {
   if (authStore.user) {
     const fullName = [authStore.user.first_name, authStore.user.last_name]
       .filter(Boolean)
       .join(' ')
-      .trim();
+      .trim()
     if (fullName) {
-      form.reporter_name = fullName;
+      form.reporter_name = fullName
     } else if (authStore.user.username) {
-      form.reporter_name = authStore.user.username;
+      form.reporter_name = authStore.user.username
     }
     if (authStore.user.email) {
-      form.reporter_email = authStore.user.email;
+      form.reporter_email = authStore.user.email
     }
-    const phone = authStore.user.phone || authStore.user.personal_phone;
+    const phone = authStore.user.phone || authStore.user.personal_phone
     if (phone) {
-      form.reporter_phone = phone;
+      form.reporter_phone = phone
     }
   }
 }
@@ -69,77 +69,80 @@ watch(
   () => ticketStore.isCreateModalOpen,
   (isOpen) => {
     if (isOpen) {
-      initDefaultReporter();
+      initDefaultReporter()
     }
   },
-  { immediate: true }
-);
+  { immediate: true },
+)
 
 // Attachments state
 interface AttachedFileItem {
-  id: string;
-  file: File;
-  name: string;
-  size: number;
-  type: string;
-  previewUrl?: string;
+  id: string
+  file: File
+  name: string
+  size: number
+  type: string
+  previewUrl?: string
 }
 
-const attachedFiles = ref<AttachedFileItem[]>([]);
-const isDragging = ref(false);
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const isSubmitting = ref(false);
+const attachedFiles = ref<AttachedFileItem[]>([])
+const isDragging = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const isSubmitting = ref(false)
 
 const typeOptions: SelectOption[] = [
   { label: 'Bug Report', value: 'bug', icon: Bug },
   { label: 'Enhancement', value: 'enhancement', icon: Sparkles },
   { label: 'Question', value: 'question', icon: HelpCircle },
   { label: 'Task / Chore', value: 'task', icon: CheckSquare },
-];
+]
 
 const priorityOptions: SelectOption[] = [
   { label: 'Low', value: 'low', dotColor: 'bg-emerald-500' },
   { label: 'Medium', value: 'medium', dotColor: 'bg-sky-500' },
   { label: 'High', value: 'high', dotColor: 'bg-amber-500' },
   { label: 'Critical', value: 'critical', dotColor: 'bg-rose-500' },
-];
+]
 
 function triggerFileInput() {
-  fileInputRef.value?.click();
+  fileInputRef.value?.click()
 }
 
 function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
 function addFiles(files: FileList | File[]) {
-  const maxFiles = 10;
-  const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+  const maxFiles = 10
+  const maxSizeBytes = 10 * 1024 * 1024 // 10MB
 
-  const fileArray = Array.from(files);
+  const fileArray = Array.from(files)
   for (const file of fileArray) {
     if (attachedFiles.value.length >= maxFiles) {
-      toastStore.warning('File Limit Exceeded', `You can upload a maximum of ${maxFiles} attachments.`);
-      break;
+      toastStore.warning(
+        'File Limit Exceeded',
+        `You can upload a maximum of ${maxFiles} attachments.`,
+      )
+      break
     }
 
     if (file.size > maxSizeBytes) {
-      toastStore.error('File Too Large', `"${file.name}" exceeds the 10MB size limit.`);
-      continue;
+      toastStore.error('File Too Large', `"${file.name}" exceeds the 10MB size limit.`)
+      continue
     }
 
     const exists = attachedFiles.value.some(
-      (item) => item.name === file.name && item.size === file.size
-    );
-    if (exists) continue;
+      (item) => item.name === file.name && item.size === file.size,
+    )
+    if (exists) continue
 
-    let previewUrl: string | undefined;
+    let previewUrl: string | undefined
     if (file.type.startsWith('image/')) {
-      previewUrl = URL.createObjectURL(file);
+      previewUrl = URL.createObjectURL(file)
     }
 
     attachedFiles.value.push({
@@ -149,61 +152,69 @@ function addFiles(files: FileList | File[]) {
       size: file.size,
       type: file.type,
       previewUrl,
-    });
+    })
   }
 
   if (fileInputRef.value) {
-    fileInputRef.value.value = '';
+    fileInputRef.value.value = ''
   }
 }
 
 function handleFileInputChange(event: Event) {
-  const target = event.target as HTMLInputElement;
+  const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
-    addFiles(target.files);
+    addFiles(target.files)
   }
 }
 
 function handleDrop(event: DragEvent) {
-  isDragging.value = false;
+  isDragging.value = false
   if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
-    addFiles(event.dataTransfer.files);
+    addFiles(event.dataTransfer.files)
   }
 }
 
 function removeFile(index: number) {
-  const removed = attachedFiles.value.splice(index, 1)[0];
+  const removed = attachedFiles.value.splice(index, 1)[0]
   if (removed?.previewUrl) {
-    URL.revokeObjectURL(removed.previewUrl);
+    URL.revokeObjectURL(removed.previewUrl)
   }
 }
 
 function clearAllFiles() {
   attachedFiles.value.forEach((item) => {
-    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-  });
-  attachedFiles.value = [];
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  })
+  attachedFiles.value = []
 }
 
 function getFileIcon(mime: string, name: string) {
-  if (mime.includes('pdf')) return FileText;
-  if (mime.includes('sheet') || mime.includes('excel') || mime.includes('csv')) return FileSpreadsheet;
-  if (mime.includes('javascript') || mime.includes('json') || mime.includes('html') || name.endsWith('.ts') || name.endsWith('.php')) return FileCode;
-  return FileIcon;
+  if (mime.includes('pdf')) return FileText
+  if (mime.includes('sheet') || mime.includes('excel') || mime.includes('csv'))
+    return FileSpreadsheet
+  if (
+    mime.includes('javascript') ||
+    mime.includes('json') ||
+    mime.includes('html') ||
+    name.endsWith('.ts') ||
+    name.endsWith('.php')
+  )
+    return FileCode
+  return FileIcon
 }
 
 function closeModal() {
-  ticketStore.isCreateModalOpen = false;
+  ticketStore.isCreateModalOpen = false
 }
 
 async function handleSubmit() {
   if (!form.title.trim()) {
-    toastStore.warning('Validation Error', 'Ticket title is required.');
-    return;
+    toastStore.warning('Validation Error', 'Ticket title is required.')
+    return
   }
 
-  isSubmitting.value = true;
-  const rawFiles = attachedFiles.value.map((f) => f.file);
+  isSubmitting.value = true
+  const rawFiles = attachedFiles.value.map((f) => f.file)
 
   const success = await ticketStore.createTicket({
     title: form.title,
@@ -216,33 +227,33 @@ async function handleSubmit() {
     reporter_email: form.reporter_email,
     reporter_phone: form.reporter_phone,
     files: rawFiles,
-  });
+  })
 
-  isSubmitting.value = false;
+  isSubmitting.value = false
   if (success) {
-    clearAllFiles();
-    form.title = '';
-    form.description = '';
-    form.type = 'bug';
-    form.priority = 'high';
-    form.source = 'portal';
+    clearAllFiles()
+    form.title = ''
+    form.description = ''
+    form.type = 'bug'
+    form.priority = 'high'
+    form.source = 'portal'
   }
 }
 
 function handleEscape(e: KeyboardEvent) {
   if (e.key === 'Escape' && ticketStore.isCreateModalOpen) {
-    closeModal();
+    closeModal()
   }
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleEscape);
-});
+  window.addEventListener('keydown', handleEscape)
+})
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleEscape);
-  clearAllFiles();
-});
+  window.removeEventListener('keydown', handleEscape)
+  clearAllFiles()
+})
 </script>
 
 <template>
@@ -250,16 +261,24 @@ onUnmounted(() => {
     v-if="ticketStore.isCreateModalOpen"
     class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm"
   >
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden ring-1 ring-black/5 dark:ring-white/10 flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+    <div
+      class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden ring-1 ring-black/5 dark:ring-white/10 flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200"
+    >
       <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/40 shrink-0">
+      <div
+        class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/40 shrink-0"
+      >
         <div class="flex items-center gap-3">
-          <div class="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 shadow-xs">
+          <div
+            class="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 shadow-xs"
+          >
             <TicketIcon class="w-5 h-5" />
           </div>
           <div>
             <h3 class="text-base font-bold text-slate-900 dark:text-white">Create New Ticket</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Submit a support ticket or client issue to triage</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              Submit a support ticket or client issue to triage
+            </p>
           </div>
         </div>
 
@@ -290,7 +309,9 @@ onUnmounted(() => {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <!-- Type -->
             <div class="w-full">
-              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+              <label
+                class="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+              >
                 Type <span class="text-rose-500">*</span>
               </label>
               <CustomSelect
@@ -304,7 +325,9 @@ onUnmounted(() => {
 
             <!-- Priority -->
             <div class="w-full">
-              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+              <label
+                class="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+              >
                 Priority <span class="text-rose-500">*</span>
               </label>
               <CustomSelect
@@ -320,10 +343,14 @@ onUnmounted(() => {
           <!-- Description & Details -->
           <div>
             <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <label
+                class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
                 Description & Details
               </label>
-              <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">Rich text enabled</span>
+              <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium"
+                >Rich text enabled</span
+              >
             </div>
             <HtmlDescriptionEditor
               v-model="form.description"
@@ -337,7 +364,9 @@ onUnmounted(() => {
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-1.5">
                 <Paperclip class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <label class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Attachments
                 </label>
                 <span
@@ -370,15 +399,20 @@ onUnmounted(() => {
               :class="[
                 isDragging
                   ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-500/10 scale-[0.99]'
-                  : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700/60 bg-slate-50/50 dark:bg-slate-950/40 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/20'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700/60 bg-slate-50/50 dark:bg-slate-950/40 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/20',
               ]"
             >
               <div class="flex flex-col items-center justify-center gap-1.5">
-                <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs">
+                <div
+                  class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                >
                   <UploadCloud class="w-5 h-5" />
                 </div>
                 <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                  <span class="text-indigo-600 dark:text-indigo-400 underline decoration-indigo-400/50">Click to upload</span>
+                  <span
+                    class="text-indigo-600 dark:text-indigo-400 underline decoration-indigo-400/50"
+                    >Click to upload</span
+                  >
                   or drag & drop files here
                 </p>
                 <p class="text-[11px] text-slate-400">
@@ -396,7 +430,9 @@ onUnmounted(() => {
               >
                 <div class="flex items-center gap-2.5 min-w-0 pr-2">
                   <!-- Thumbnail preview or file icon -->
-                  <div class="w-9 h-9 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-850 flex items-center justify-center shrink-0 border border-slate-300/60 dark:border-slate-700">
+                  <div
+                    class="w-9 h-9 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-850 flex items-center justify-center shrink-0 border border-slate-300/60 dark:border-slate-700"
+                  >
                     <img
                       v-if="item.previewUrl"
                       :src="item.previewUrl"
@@ -412,7 +448,10 @@ onUnmounted(() => {
 
                   <!-- Name & Size -->
                   <div class="min-w-0 flex-1">
-                    <p class="text-xs font-medium text-slate-800 dark:text-slate-200 truncate" :title="item.name">
+                    <p
+                      class="text-xs font-medium text-slate-800 dark:text-slate-200 truncate"
+                      :title="item.name"
+                    >
                       {{ item.name }}
                     </p>
                     <p class="text-[10px] text-slate-400 font-mono">
@@ -436,7 +475,9 @@ onUnmounted(() => {
 
           <!-- Reporter Contact Section (3 Equal Columns) -->
           <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            <label
+              class="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+            >
               Reporter Contact Details
             </label>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
@@ -467,17 +508,18 @@ onUnmounted(() => {
         </div>
 
         <!-- Footer Actions -->
-        <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex items-center justify-between shrink-0">
+        <div
+          class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex items-center justify-between shrink-0"
+        >
           <span class="text-xs text-slate-400 hidden sm:inline">
-            Press <kbd class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-[10px]">Esc</kbd> to dismiss
+            Press
+            <kbd class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-[10px]"
+              >Esc</kbd
+            >
+            to dismiss
           </span>
           <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-            <BaseButton
-              variant="outline"
-              size="md"
-              type="button"
-              @click="closeModal"
-            >
+            <BaseButton variant="outline" size="md" type="button" @click="closeModal">
               Cancel
             </BaseButton>
             <BaseButton

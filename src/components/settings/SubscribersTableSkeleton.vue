@@ -1,17 +1,12 @@
 <script setup lang="ts">
-export type SubscriberColumnKey =
-  | 'user'
-  | 'chat_id'
-  | 'status'
-  | 'subscribed_at'
-  | 'actions';
+export type SubscriberColumnKey = 'user' | 'chat_id' | 'status' | 'subscribed_at' | 'actions'
 
 withDefaults(
   defineProps<{
-    columnWidths?: Record<SubscriberColumnKey, number>;
-    visibleColumns?: Record<SubscriberColumnKey, boolean>;
-    totalWidth?: number;
-    rowCount?: number;
+    columnWidths?: Record<SubscriberColumnKey, number>
+    visibleColumns?: Record<SubscriberColumnKey, boolean>
+    totalWidth?: number
+    rowCount?: number
   }>(),
   {
     columnWidths: () => ({
@@ -30,8 +25,8 @@ withDefaults(
     }),
     totalWidth: 920,
     rowCount: 5,
-  }
-);
+  },
+)
 </script>
 
 <template>
@@ -44,7 +39,10 @@ withDefaults(
         <col v-if="visibleColumns.user" :style="{ width: `${columnWidths.user}px` }" />
         <col v-if="visibleColumns.chat_id" :style="{ width: `${columnWidths.chat_id}px` }" />
         <col v-if="visibleColumns.status" :style="{ width: `${columnWidths.status}px` }" />
-        <col v-if="visibleColumns.subscribed_at" :style="{ width: `${columnWidths.subscribed_at}px` }" />
+        <col
+          v-if="visibleColumns.subscribed_at"
+          :style="{ width: `${columnWidths.subscribed_at}px` }"
+        />
         <col v-if="visibleColumns.actions" :style="{ width: `${columnWidths.actions}px` }" />
       </colgroup>
 
@@ -94,17 +92,15 @@ withDefaults(
             class="sticky right-0 z-20 py-3.5 px-4 sm:px-5 text-right bg-slate-50 dark:bg-slate-950 backdrop-blur-md"
             :style="{ width: `${columnWidths.actions}px` }"
           >
-            <div class="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded ml-auto animate-pulse"></div>
+            <div
+              class="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded ml-auto animate-pulse"
+            ></div>
           </th>
         </tr>
       </thead>
 
       <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
-        <tr
-          v-for="i in rowCount"
-          :key="i"
-          class="transition-colors animate-pulse"
-        >
+        <tr v-for="i in rowCount" :key="i" class="transition-colors animate-pulse">
           <!-- User -->
           <td
             v-if="visibleColumns.user"
@@ -126,7 +122,9 @@ withDefaults(
             class="py-3.5 px-4"
             :style="{ width: `${columnWidths.chat_id}px` }"
           >
-            <div class="h-6 w-28 bg-slate-100 dark:bg-slate-800/80 rounded-lg border border-slate-200/60 dark:border-slate-800"></div>
+            <div
+              class="h-6 w-28 bg-slate-100 dark:bg-slate-800/80 rounded-lg border border-slate-200/60 dark:border-slate-800"
+            ></div>
           </td>
 
           <!-- Status -->

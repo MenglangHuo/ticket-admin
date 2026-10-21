@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -56,41 +56,41 @@ const router = createRouter({
       redirect: '/ticket',
     },
   ],
-});
+})
 
 router.beforeEach((to) => {
-  const token = localStorage.getItem('bronx_access_token');
-  const isAuthenticated = !!token;
+  const token = localStorage.getItem('bronx_access_token')
+  const isAuthenticated = !!token
 
   // Check if there is an active pending 2FA challenge
-  let hasPendingTwoFactor = false;
-  const pendingRaw = sessionStorage.getItem('bronx_pending_2fa');
+  let hasPendingTwoFactor = false
+  const pendingRaw = sessionStorage.getItem('bronx_pending_2fa')
   if (pendingRaw) {
     try {
-      const parsed = JSON.parse(pendingRaw);
-      hasPendingTwoFactor = !!(parsed && (!parsed.expiresAt || Date.now() <= parsed.expiresAt));
+      const parsed = JSON.parse(pendingRaw)
+      hasPendingTwoFactor = !!(parsed && (!parsed.expiresAt || Date.now() <= parsed.expiresAt))
     } catch {
-      hasPendingTwoFactor = false;
+      hasPendingTwoFactor = false
     }
   }
 
   // If already authenticated and trying to visit login or two-factor
   if (isAuthenticated && (to.meta.guestOnly || to.meta.requiresPendingTwoFactor)) {
-    return { name: 'ticket' };
+    return { name: 'ticket' }
   }
 
   // If page requires completed authentication
   if (to.meta.requiresAuth && !isAuthenticated) {
     if (hasPendingTwoFactor) {
-      return { name: 'two-factor' };
+      return { name: 'two-factor' }
     }
-    return { name: 'login' };
+    return { name: 'login' }
   }
 
   // If page requires pending two-factor verification
   if (to.meta.requiresPendingTwoFactor && !hasPendingTwoFactor) {
-    return { name: 'login' };
+    return { name: 'login' }
   }
-});
+})
 
-export default router;
+export default router

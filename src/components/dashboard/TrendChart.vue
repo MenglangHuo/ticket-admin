@@ -15,7 +15,7 @@ const props = withDefaults(
   }>(),
   {
     loading: false,
-  }
+  },
 )
 
 const hoveredIndex = ref<number | null>(null)

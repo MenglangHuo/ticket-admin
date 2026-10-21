@@ -1,30 +1,30 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { setActivePinia, createPinia } from 'pinia';
-import { telegramApi } from '@/api/telegramApi';
-import { useSettingsStore } from '@/stores/settingsStore';
-import apiClient from '@/api/client';
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
+import { telegramApi } from '@/api/telegramApi'
+import { useSettingsStore } from '@/stores/settingsStore'
+import apiClient from '@/api/client'
 
 describe('telegramApi invite link parsing', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+    vi.restoreAllMocks()
+  })
 
   it('correctly extracts flat invite_url from backend response format', async () => {
-    const fakeUrl = 'https://t.me/menglang6969Bot?start=randomToken12345';
+    const fakeUrl = 'https://t.me/menglang6969Bot?start=randomToken12345'
     vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       data: {
         invite_url: fakeUrl,
         success: true,
         message: 'Invite link generated.',
       },
-    });
+    })
 
-    const result = await telegramApi.generateInviteLink();
-    expect(result).toBe(fakeUrl);
-  });
+    const result = await telegramApi.generateInviteLink()
+    expect(result).toBe(fakeUrl)
+  })
 
   it('correctly extracts nested data.invite_url from envelope format', async () => {
-    const fakeUrl = 'https://t.me/menglang6969Bot?start=nestedToken67890';
+    const fakeUrl = 'https://t.me/menglang6969Bot?start=nestedToken67890'
     vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       data: {
         data: {
@@ -32,28 +32,28 @@ describe('telegramApi invite link parsing', () => {
         },
         success: true,
       },
-    });
+    })
 
-    const result = await telegramApi.generateInviteLink();
-    expect(result).toBe(fakeUrl);
-  });
+    const result = await telegramApi.generateInviteLink()
+    expect(result).toBe(fakeUrl)
+  })
 
   it('returns empty string if neither flat nor nested url is present', async () => {
     vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       data: {
         success: false,
       },
-    });
+    })
 
-    const result = await telegramApi.generateInviteLink();
-    expect(result).toBe('');
-  });
-});
+    const result = await telegramApi.generateInviteLink()
+    expect(result).toBe('')
+  })
+})
 
 describe('telegramApi count metrics parsing', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+    vi.restoreAllMocks()
+  })
 
   it('correctly extracts total invite count from flat and nested responses', async () => {
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
@@ -61,10 +61,10 @@ describe('telegramApi count metrics parsing', () => {
         total: 42,
         success: true,
       },
-    });
+    })
 
-    const count1 = await telegramApi.getTotalInviteCount();
-    expect(count1).toBe(42);
+    const count1 = await telegramApi.getTotalInviteCount()
+    expect(count1).toBe(42)
 
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
       data: {
@@ -73,11 +73,11 @@ describe('telegramApi count metrics parsing', () => {
         },
         success: true,
       },
-    });
+    })
 
-    const count2 = await telegramApi.getTotalInviteCount();
-    expect(count2).toBe(15);
-  });
+    const count2 = await telegramApi.getTotalInviteCount()
+    expect(count2).toBe(15)
+  })
 
   it('correctly extracts total subscribers count from flat and nested responses', async () => {
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
@@ -85,10 +85,10 @@ describe('telegramApi count metrics parsing', () => {
         total: 88,
         success: true,
       },
-    });
+    })
 
-    const count1 = await telegramApi.getTotalSubscribersCount();
-    expect(count1).toBe(88);
+    const count1 = await telegramApi.getTotalSubscribersCount()
+    expect(count1).toBe(88)
 
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
       data: {
@@ -97,22 +97,22 @@ describe('telegramApi count metrics parsing', () => {
         },
         success: true,
       },
-    });
+    })
 
-    const count2 = await telegramApi.getTotalSubscribersCount();
-    expect(count2).toBe(23);
-  });
+    const count2 = await telegramApi.getTotalSubscribersCount()
+    expect(count2).toBe(23)
+  })
 
   it('returns 0 when response contains no counts', async () => {
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
       data: {
         success: true,
       },
-    });
+    })
 
-    const count = await telegramApi.getTotalInviteCount();
-    expect(count).toBe(0);
-  });
+    const count = await telegramApi.getTotalInviteCount()
+    expect(count).toBe(0)
+  })
 
   it('correctly extracts consolidated counts in a single call via getCounts', async () => {
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
@@ -121,11 +121,11 @@ describe('telegramApi count metrics parsing', () => {
         totalTelegramInvites: 12,
         success: true,
       },
-    });
+    })
 
-    const counts = await telegramApi.getCounts();
-    expect(counts.totalSubscribers).toBe(50);
-    expect(counts.totalTelegramInvites).toBe(12);
+    const counts = await telegramApi.getCounts()
+    expect(counts.totalSubscribers).toBe(50)
+    expect(counts.totalTelegramInvites).toBe(12)
 
     // Also test with snake_case and nested data envelope
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
@@ -136,18 +136,18 @@ describe('telegramApi count metrics parsing', () => {
         },
         success: true,
       },
-    });
+    })
 
-    const counts2 = await telegramApi.getCounts();
-    expect(counts2.totalSubscribers).toBe(30);
-    expect(counts2.totalTelegramInvites).toBe(7);
-  });
-});
+    const counts2 = await telegramApi.getCounts()
+    expect(counts2.totalSubscribers).toBe(30)
+    expect(counts2.totalTelegramInvites).toBe(7)
+  })
+})
 
 describe('telegramApi getSubscribers with pagination and search', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+    vi.restoreAllMocks()
+  })
 
   it('passes search, username, pagination, and sorting parameters to apiClient', async () => {
     const getSpy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
@@ -179,7 +179,7 @@ describe('telegramApi getSubscribers with pagination and search', () => {
         },
         success: true,
       },
-    });
+    })
 
     const result = await telegramApi.getSubscribers({
       page: 2,
@@ -188,7 +188,7 @@ describe('telegramApi getSubscribers with pagination and search', () => {
       status: 'active',
       sort_by: 'telegram_username',
       sort_dir: 'asc',
-    });
+    })
 
     expect(getSpy).toHaveBeenCalledWith('/ticket/telegram/subscribers', {
       params: {
@@ -199,16 +199,16 @@ describe('telegramApi getSubscribers with pagination and search', () => {
         sort_by: 'telegram_username',
         sort_dir: 'asc',
       },
-    });
+    })
 
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]?.telegram_username).toBe('alex_ops');
-    expect(result.pagination.page).toBe(2);
-    expect(result.pagination.total).toBe(15);
-    expect(result.pagination.total_pages).toBe(3);
-    expect(result.pagination.has_next).toBe(true);
-    expect(result.pagination.has_previous).toBe(true);
-  });
+    expect(result.data).toHaveLength(1)
+    expect(result.data[0]?.telegram_username).toBe('alex_ops')
+    expect(result.pagination.page).toBe(2)
+    expect(result.pagination.total).toBe(15)
+    expect(result.pagination.total_pages).toBe(3)
+    expect(result.pagination.has_next).toBe(true)
+    expect(result.pagination.has_previous).toBe(true)
+  })
 
   it('handles backwards-compatible flat array responses gracefully', async () => {
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
@@ -221,44 +221,44 @@ describe('telegramApi getSubscribers with pagination and search', () => {
           subscribed_at: '2026-03-01T10:00:00Z',
         },
       ],
-    });
+    })
 
-    const result = await telegramApi.getSubscribers();
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]?.telegram_username).toBe('legacy_user');
-    expect(result.pagination.total).toBe(1);
-    expect(result.pagination.page).toBe(1);
-  });
-});
+    const result = await telegramApi.getSubscribers()
+    expect(result.data).toHaveLength(1)
+    expect(result.data[0]?.telegram_username).toBe('legacy_user')
+    expect(result.pagination.total).toBe(1)
+    expect(result.pagination.page).toBe(1)
+  })
+})
 
 describe('settingsStore endpoint decoupling tests', () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.restoreAllMocks();
-  });
+    setActivePinia(createPinia())
+    vi.restoreAllMocks()
+  })
 
   it('fetchMetrics calls telegramApi.getCounts', async () => {
     const countsSpy = vi.spyOn(telegramApi, 'getCounts').mockResolvedValue({
       totalSubscribers: 10,
       totalTelegramInvites: 5,
       activeSubscribers: 8,
-    });
+    })
 
-    const store = useSettingsStore();
-    await store.fetchMetrics();
+    const store = useSettingsStore()
+    await store.fetchMetrics()
 
-    expect(countsSpy).toHaveBeenCalledTimes(1);
-    expect(store.totalSubscribersCount).toBe(10);
-    expect(store.totalInvitesCount).toBe(5);
-    expect(store.activeSubscribersCount).toBe(8);
-  });
+    expect(countsSpy).toHaveBeenCalledTimes(1)
+    expect(store.totalSubscribersCount).toBe(10)
+    expect(store.totalInvitesCount).toBe(5)
+    expect(store.activeSubscribersCount).toBe(8)
+  })
 
   it('fetchSubscribers does NOT call telegramApi.getCounts during search/filtering', async () => {
     const countsSpy = vi.spyOn(telegramApi, 'getCounts').mockResolvedValue({
       totalSubscribers: 10,
       totalTelegramInvites: 5,
       activeSubscribers: 8,
-    });
+    })
 
     const subscribersSpy = vi.spyOn(telegramApi, 'getSubscribers').mockResolvedValue({
       data: [
@@ -278,15 +278,14 @@ describe('settingsStore endpoint decoupling tests', () => {
         has_next: false,
         has_previous: false,
       },
-    });
+    })
 
-    const store = useSettingsStore();
-    await store.fetchSubscribers({ search: 'alex', status: 'active' }, true);
+    const store = useSettingsStore()
+    await store.fetchSubscribers({ search: 'alex', status: 'active' }, true)
 
-    expect(subscribersSpy).toHaveBeenCalledTimes(1);
+    expect(subscribersSpy).toHaveBeenCalledTimes(1)
     // CRITICAL: getCounts must not be called during search / filter
-    expect(countsSpy).not.toHaveBeenCalled();
-    expect(store.subscribers).toHaveLength(1);
-  });
-});
-
+    expect(countsSpy).not.toHaveBeenCalled()
+    expect(store.subscribers).toHaveLength(1)
+  })
+})

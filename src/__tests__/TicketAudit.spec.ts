@@ -104,7 +104,9 @@ describe('Ticket Audit Features', () => {
       expect(text).toContain('critical')
       expect(text).toContain('titledescriptionpriority')
       // Description is rendered as HTML
-      expect(wrapper.html()).toContain('Updated description with reproducible steps and error logs.')
+      expect(wrapper.html()).toContain(
+        'Updated description with reproducible steps and error logs.',
+      )
     })
 
     it('renders HTML formatted description with BEFORE and AFTER UI like title when expanded', async () => {
@@ -215,7 +217,9 @@ describe('Ticket Audit Features', () => {
 
       // Form populated
       const titleInput = wrapper.find('input[placeholder*="Payment Gateway Timeout"]')
-      expect((titleInput.element as HTMLInputElement).value).toBe('Original Title with poor grammar')
+      expect((titleInput.element as HTMLInputElement).value).toBe(
+        'Original Title with poor grammar',
+      )
 
       // Set new title
       await titleInput.setValue('Refined Title')
@@ -228,10 +232,13 @@ describe('Ticket Audit Features', () => {
       // Submit form
       await wrapper.find('form').trigger('submit.prevent')
 
-      expect(updateSpy).toHaveBeenCalledWith(101, expect.objectContaining({
-        title: 'Refined Title',
-        audit_reason: 'Corrected typo and grammar',
-      }))
+      expect(updateSpy).toHaveBeenCalledWith(
+        101,
+        expect.objectContaining({
+          title: 'Refined Title',
+          audit_reason: 'Corrected typo and grammar',
+        }),
+      )
     })
   })
 
@@ -271,7 +278,11 @@ describe('Ticket Audit Features', () => {
         meta: { current_page: 1, per_page: 20, total: 1, last_page: 1 },
       } as any)
 
-      const result = await store.transitionTicketStatus(101, 'in_progress', 'Starting investigation')
+      const result = await store.transitionTicketStatus(
+        101,
+        'in_progress',
+        'Starting investigation',
+      )
       expect(result).toBe(true)
 
       expect(getAuditsSpy).toHaveBeenCalledWith(101)

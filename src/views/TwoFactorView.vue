@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/stores/authStore';
-import { useThemeStore } from '@/stores/themeStore';
-import { useToastStore } from '@/stores/toastStore';
-import mockService from '@/mocks/mockService';
-import BaseButton from '@/components/common/BaseButton.vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
+import { useThemeStore } from '@/stores/themeStore'
+import { useToastStore } from '@/stores/toastStore'
+import mockService from '@/mocks/mockService'
+import BaseButton from '@/components/common/BaseButton.vue'
 import {
   AlertCircle,
   ArrowLeft,
@@ -16,149 +16,149 @@ import {
   ShieldCheck,
   Sparkles,
   Sun,
-} from 'lucide-vue-next';
+} from 'lucide-vue-next'
 
-const router = useRouter();
-const authStore = useAuthStore();
-const themeStore = useThemeStore();
-const toastStore = useToastStore();
+const router = useRouter()
+const authStore = useAuthStore()
+const themeStore = useThemeStore()
+const toastStore = useToastStore()
 
-const isMockEnabled = computed(() => mockService.isMockDataEnabled());
+const isMockEnabled = computed(() => mockService.isMockDataEnabled())
 
 // Digits state for 6-box OTP entry
-const digits = ref<string[]>(['', '', '', '', '', '']);
-const inputRefs = ref<(HTMLInputElement | null)[]>([]);
-const isShaking = ref(false);
+const digits = ref<string[]>(['', '', '', '', '', ''])
+const inputRefs = ref<(HTMLInputElement | null)[]>([])
+const isShaking = ref(false)
 
-const sessionTimeRemaining = ref(600); // 10 minutes in seconds
-let sessionTimerInterval: ReturnType<typeof setInterval> | null = null;
+const sessionTimeRemaining = ref(600) // 10 minutes in seconds
+let sessionTimerInterval: ReturnType<typeof setInterval> | null = null
 
 // WebOTP AbortController
-let otpAbortController: AbortController | null = null;
+let otpAbortController: AbortController | null = null
 
 const isComplete = computed(() => {
-  return digits.value.every((d) => d.length === 1 && /^\d$/.test(d));
-});
+  return digits.value.every((d) => d.length === 1 && /^\d$/.test(d))
+})
 
-const formattedCode = computed(() => digits.value.join(''));
+const formattedCode = computed(() => digits.value.join(''))
 
 const formattedSessionTime = computed(() => {
-  const mins = Math.floor(sessionTimeRemaining.value / 60);
-  const secs = sessionTimeRemaining.value % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-});
+  const mins = Math.floor(sessionTimeRemaining.value / 60)
+  const secs = sessionTimeRemaining.value % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+})
 
 const isLockedOut = computed(() => {
-  return !!(authStore.lockoutUntil && Date.now() < authStore.lockoutUntil);
-});
+  return !!(authStore.lockoutUntil && Date.now() < authStore.lockoutUntil)
+})
 
-const lockoutSecondsRemaining = ref(0);
-let lockoutTimerInterval: ReturnType<typeof setInterval> | null = null;
+const lockoutSecondsRemaining = ref(0)
+let lockoutTimerInterval: ReturnType<typeof setInterval> | null = null
 
 function updateLockoutCountdown() {
   if (authStore.lockoutUntil && Date.now() < authStore.lockoutUntil) {
-    lockoutSecondsRemaining.value = Math.ceil((authStore.lockoutUntil - Date.now()) / 1000);
+    lockoutSecondsRemaining.value = Math.ceil((authStore.lockoutUntil - Date.now()) / 1000)
   } else {
-    lockoutSecondsRemaining.value = 0;
+    lockoutSecondsRemaining.value = 0
   }
 }
 
 function startTimers() {
   // Session challenge timer based on expiresAt
   if (authStore.pendingTwoFactor?.expiresAt) {
-    const diff = Math.max(0, Math.floor((authStore.pendingTwoFactor.expiresAt - Date.now()) / 1000));
-    sessionTimeRemaining.value = diff;
+    const diff = Math.max(0, Math.floor((authStore.pendingTwoFactor.expiresAt - Date.now()) / 1000))
+    sessionTimeRemaining.value = diff
   } else {
-    sessionTimeRemaining.value = 600;
+    sessionTimeRemaining.value = 600
   }
 
-  if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+  if (sessionTimerInterval) clearInterval(sessionTimerInterval)
   sessionTimerInterval = setInterval(() => {
     if (sessionTimeRemaining.value > 0) {
-      sessionTimeRemaining.value--;
+      sessionTimeRemaining.value--
     } else {
-      if (sessionTimerInterval) clearInterval(sessionTimerInterval);
-      toastStore.error('Session Expired', '2FA challenge window has expired. Please sign in again.');
-      cancelAndReturnToLogin();
+      if (sessionTimerInterval) clearInterval(sessionTimerInterval)
+      toastStore.error('Session Expired', '2FA challenge window has expired. Please sign in again.')
+      cancelAndReturnToLogin()
     }
-  }, 1000);
+  }, 1000)
 
   // Lockout check timer
-  if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
-  lockoutTimerInterval = setInterval(updateLockoutCountdown, 1000);
+  if (lockoutTimerInterval) clearInterval(lockoutTimerInterval)
+  lockoutTimerInterval = setInterval(updateLockoutCountdown, 1000)
 }
 
 // WebOTP API: progressive enhancement for mobile and supported browsers
 async function startWebOtpListener() {
-  if (typeof window === 'undefined' || !('OTPCredential' in window)) return;
-  stopWebOtpListener();
+  if (typeof window === 'undefined' || !('OTPCredential' in window)) return
+  stopWebOtpListener()
 
-  const ac = new AbortController();
-  otpAbortController = ac;
+  const ac = new AbortController()
+  otpAbortController = ac
 
   try {
     const otp = (await (navigator.credentials as any).get({
       otp: { transport: ['sms'] },
       signal: ac.signal,
-    })) as { code: string } | null;
+    })) as { code: string } | null
 
     if (otp && otp.code && /^\d{6}$/.test(otp.code)) {
-      distributeCode(otp.code);
-      handleVerify();
+      distributeCode(otp.code)
+      handleVerify()
     }
   } catch (err: any) {
-    if (err && err.name === 'AbortError') return;
+    if (err && err.name === 'AbortError') return
   }
 }
 
 function stopWebOtpListener() {
   if (otpAbortController) {
-    otpAbortController.abort();
-    otpAbortController = null;
+    otpAbortController.abort()
+    otpAbortController = null
   }
 }
 
 function focusInput(index: number) {
   nextTick(() => {
     if (inputRefs.value[index]) {
-      inputRefs.value[index]?.focus();
-      inputRefs.value[index]?.select();
+      inputRefs.value[index]?.focus()
+      inputRefs.value[index]?.select()
     }
-  });
+  })
 }
 
 function distributeCode(codeStr: string) {
-  const cleaned = codeStr.replace(/\D/g, '').slice(0, 6);
+  const cleaned = codeStr.replace(/\D/g, '').slice(0, 6)
   for (let i = 0; i < 6; i++) {
-    digits.value[i] = cleaned[i] || '';
+    digits.value[i] = cleaned[i] || ''
   }
-  const lastIndex = Math.min(cleaned.length, 5);
-  focusInput(lastIndex);
+  const lastIndex = Math.min(cleaned.length, 5)
+  focusInput(lastIndex)
 }
 
 function handleInput(index: number, event: Event) {
-  const target = event.target as HTMLInputElement;
-  const val = target.value;
+  const target = event.target as HTMLInputElement
+  const val = target.value
 
   // Handle multi-character paste or mobile keyboard auto-fill
   if (val.length > 1) {
-    distributeCode(val);
+    distributeCode(val)
     if (isComplete.value) {
-      handleVerify();
+      handleVerify()
     }
-    return;
+    return
   }
 
   // Handle single character
-  const char = val.replace(/\D/g, '');
-  digits.value[index] = char;
+  const char = val.replace(/\D/g, '')
+  digits.value[index] = char
 
   if (char && index < 5) {
-    focusInput(index + 1);
+    focusInput(index + 1)
   }
 
   if (isComplete.value) {
-    handleVerify();
+    handleVerify()
   }
 }
 
@@ -166,94 +166,94 @@ function handleKeyDown(index: number, event: KeyboardEvent) {
   if (event.key === 'Backspace') {
     if (!digits.value[index] && index > 0) {
       // Empty current box -> move to previous box and clear it
-      digits.value[index - 1] = '';
-      focusInput(index - 1);
-      event.preventDefault();
+      digits.value[index - 1] = ''
+      focusInput(index - 1)
+      event.preventDefault()
     } else {
-      digits.value[index] = '';
+      digits.value[index] = ''
     }
   } else if (event.key === 'ArrowLeft' && index > 0) {
-    focusInput(index - 1);
-    event.preventDefault();
+    focusInput(index - 1)
+    event.preventDefault()
   } else if (event.key === 'ArrowRight' && index < 5) {
-    focusInput(index + 1);
-    event.preventDefault();
+    focusInput(index + 1)
+    event.preventDefault()
   } else if (event.key === 'Enter' && isComplete.value) {
-    handleVerify();
+    handleVerify()
   }
 }
 
 function handlePaste(event: ClipboardEvent) {
-  event.preventDefault();
-  const text = event.clipboardData?.getData('text') || '';
-  const cleaned = text.replace(/\D/g, '');
-  if (!cleaned) return;
+  event.preventDefault()
+  const text = event.clipboardData?.getData('text') || ''
+  const cleaned = text.replace(/\D/g, '')
+  if (!cleaned) return
 
-  distributeCode(cleaned);
+  distributeCode(cleaned)
   if (isComplete.value) {
-    handleVerify();
+    handleVerify()
   }
 }
 
 async function handleVerify() {
-  if (authStore.isLoading || isLockedOut.value) return;
+  if (authStore.isLoading || isLockedOut.value) return
 
-  const codeToVerify = formattedCode.value;
-  if (!codeToVerify) return;
+  const codeToVerify = formattedCode.value
+  if (!codeToVerify) return
 
-  stopWebOtpListener();
+  stopWebOtpListener()
 
-  const success = await authStore.verifyTwoFactor(codeToVerify);
+  const success = await authStore.verifyTwoFactor(codeToVerify)
 
   if (success) {
     toastStore.success(
       'Two-Factor Verified',
       `Welcome, ${authStore.user?.first_name || 'HQ Admin'}. Access granted to Admin Portal.`,
-    );
-    router.push('/ticket');
+    )
+    router.push('/ticket')
   } else {
     // Shake animation feedback on error
-    isShaking.value = true;
+    isShaking.value = true
     setTimeout(() => {
-      isShaking.value = false;
-    }, 500);
+      isShaking.value = false
+    }, 500)
 
     // Clear inputs and refocus first box
-    digits.value = ['', '', '', '', '', ''];
-    focusInput(0);
+    digits.value = ['', '', '', '', '', '']
+    focusInput(0)
   }
 }
 
 function fillDemoCode(code: string) {
-  distributeCode(code);
+  distributeCode(code)
   setTimeout(() => {
-    handleVerify();
-  }, 200);
+    handleVerify()
+  }, 200)
 }
 
 function cancelAndReturnToLogin() {
-  stopWebOtpListener();
-  authStore.cancelTwoFactor();
-  router.push({ name: 'login' });
+  stopWebOtpListener()
+  authStore.cancelTwoFactor()
+  router.push({ name: 'login' })
 }
 
 onMounted(() => {
   // If no active pending 2FA session, redirect to login immediately
   if (!authStore.hasPendingTwoFactor) {
-    router.replace({ name: 'login' });
-    return;
+    router.replace({ name: 'login' })
+    return
   }
 
-  startTimers();
-  startWebOtpListener();
-  focusInput(0);
-});
+  startTimers()
+  startWebOtpListener()
+  focusInput(0)
+})
 
 onUnmounted(() => {
-  stopWebOtpListener();
-  if (sessionTimerInterval) clearInterval(sessionTimerInterval);
-  if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
-});
+  stopWebOtpListener()
+  if (sessionTimerInterval) clearInterval(sessionTimerInterval)
+  if (lockoutTimerInterval) clearInterval(lockoutTimerInterval)
+})
 </script>
 
 <template>
@@ -278,7 +278,9 @@ onUnmounted(() => {
     ></div>
 
     <!-- Top Floating Theme Switcher -->
-    <header class="w-full max-w-7xl flex items-center justify-end absolute z-30 top-6 right-6 sm:right-8">
+    <header
+      class="w-full max-w-7xl flex items-center justify-end absolute z-30 top-6 right-6 sm:right-8"
+    >
       <div class="flex items-center gap-2">
         <button
           @click="themeStore.toggleTheme"
@@ -304,7 +306,9 @@ onUnmounted(() => {
           >
             <ShieldCheck class="w-8 h-8 text-white stroke-[2.2]" />
           </div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <h1
+            class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white"
+          >
             Two-Factor Authentication
           </h1>
           <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
@@ -324,11 +328,19 @@ onUnmounted(() => {
               {{ authStore.pendingTwoFactor.username.slice(0, 2) }}
             </div>
             <div class="text-left">
-              <div class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                <span>{{ authStore.pendingTwoFactor.user?.first_name || authStore.pendingTwoFactor.username }}</span>
-                <span class="text-xs text-slate-400 font-normal">@{{ authStore.pendingTwoFactor.username }}</span>
+              <div
+                class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5"
+              >
+                <span>{{
+                  authStore.pendingTwoFactor.user?.first_name || authStore.pendingTwoFactor.username
+                }}</span>
+                <span class="text-xs text-slate-400 font-normal"
+                  >@{{ authStore.pendingTwoFactor.username }}</span
+                >
               </div>
-              <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+              <div
+                class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5"
+              >
                 <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>Requires Multi-Factor Token</span>
               </div>
@@ -342,9 +354,12 @@ onUnmounted(() => {
         </div>
 
         <!-- Verification Prompt -->
-        <div class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-6 text-center leading-relaxed">
+        <div
+          class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-6 text-center leading-relaxed"
+        >
           <p>
-            Enter the 6-digit verification code from your authenticator app or registered security device.
+            Enter the 6-digit verification code from your authenticator app or registered security
+            device.
           </p>
         </div>
 
@@ -378,7 +393,9 @@ onUnmounted(() => {
           </div>
 
           <!-- Challenge Expiry & Rate Limiting Row -->
-          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 pt-1">
+          <div
+            class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 pt-1"
+          >
             <div class="flex items-center gap-1.5">
               <Clock class="w-4 h-4 text-indigo-500" />
               <span>Expires:</span>
@@ -387,11 +404,17 @@ onUnmounted(() => {
               </span>
             </div>
 
-            <div v-if="authStore.remainingAttempts < 5 && !isLockedOut" class="text-amber-600 dark:text-amber-400 font-medium">
+            <div
+              v-if="authStore.remainingAttempts < 5 && !isLockedOut"
+              class="text-amber-600 dark:text-amber-400 font-medium"
+            >
               {{ authStore.remainingAttempts }} attempts remaining
             </div>
 
-            <div v-if="isLockedOut" class="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">
+            <div
+              v-if="isLockedOut"
+              class="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1"
+            >
               <ShieldAlert class="w-4 h-4" />
               <span>Locked: {{ lockoutSecondsRemaining }}s</span>
             </div>
@@ -413,16 +436,22 @@ onUnmounted(() => {
             class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-200 text-xs space-y-2.5 text-left"
           >
             <div class="flex items-center justify-between">
-              <span class="font-semibold flex items-center gap-2 text-xs sm:text-sm text-amber-900 dark:text-amber-100">
+              <span
+                class="font-semibold flex items-center gap-2 text-xs sm:text-sm text-amber-900 dark:text-amber-100"
+              >
                 <Sparkles class="w-4 h-4 text-amber-500 shrink-0" />
                 Mock 2FA Mode
               </span>
-              <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 font-bold">
+              <span
+                class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 font-bold"
+              >
                 DEV HELPER
               </span>
             </div>
             <p class="text-xs text-slate-600 dark:text-slate-400">
-              Default code is <code class="font-mono text-indigo-600 dark:text-indigo-400 font-bold">000000</code>. Test below:
+              Default code is
+              <code class="font-mono text-indigo-600 dark:text-indigo-400 font-bold">000000</code>.
+              Test below:
             </p>
             <div class="flex gap-2.5 pt-0.5">
               <button
@@ -452,7 +481,9 @@ onUnmounted(() => {
             :disabled="!isComplete || isLockedOut"
             :icon-right="ArrowRight"
           >
-            <span>{{ authStore.isLoading ? 'Verifying Security Token...' : 'Verify & Continue' }}</span>
+            <span>{{
+              authStore.isLoading ? 'Verifying Security Token...' : 'Verify & Continue'
+            }}</span>
           </BaseButton>
         </form>
 
@@ -471,17 +502,25 @@ onUnmounted(() => {
     </main>
 
     <!-- Footer Security Information -->
-    <footer class="w-full max-w-md text-center text-xs text-slate-400 dark:text-slate-500 relative z-20 pb-2">
+    <footer
+      class="w-full max-w-md text-center text-xs text-slate-400 dark:text-slate-500 relative z-20 pb-2"
+    >
       <div class="flex items-center justify-center gap-1.5 mb-1.5 font-medium">
         <ShieldCheck class="w-3.5 h-3.5 text-emerald-500" />
         <span>Enterprise 256-Bit SSL • ISO/IEC 27001 Multi-Factor Security</span>
       </div>
       <div class="flex items-center justify-center gap-3 text-[11px]">
-        <a href="#" class="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Security Policy</a>
+        <a href="#" class="hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+          >Security Policy</a
+        >
         <span>•</span>
-        <a href="#" class="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Help Desk</a>
+        <a href="#" class="hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+          >Help Desk</a
+        >
         <span>•</span>
-        <a href="#" class="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Status</a>
+        <a href="#" class="hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+          >Status</a
+        >
       </div>
     </footer>
   </div>

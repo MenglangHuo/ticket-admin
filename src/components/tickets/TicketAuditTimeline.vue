@@ -165,21 +165,13 @@ function getEventSummary(audit: TicketAudit): string {
     </div>
 
     <!-- Loading State -->
-    <div
-      v-if="ticketStore.isAuditsLoading"
-      class="p-10 text-center space-y-2.5"
-    >
+    <div v-if="ticketStore.isAuditsLoading" class="p-10 text-center space-y-2.5">
       <RefreshCw class="w-6 h-6 animate-spin text-indigo-500 mx-auto" />
-      <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">
-        Loading audit history...
-      </p>
+      <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Loading audit history...</p>
     </div>
 
     <!-- Empty State -->
-    <div
-      v-else-if="audits.length === 0"
-      class="p-10 text-center space-y-2.5"
-    >
+    <div v-else-if="audits.length === 0" class="p-10 text-center space-y-2.5">
       <div
         class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-400 mx-auto"
       >
@@ -189,20 +181,14 @@ function getEventSummary(audit: TicketAudit): string {
         No modifications recorded
       </h4>
       <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-        This ticket is in its original submitted state. When an admin updates details (such as title, description, or priority), each change will be tracked here.
+        This ticket is in its original submitted state. When an admin updates details (such as
+        title, description, or priority), each change will be tracked here.
       </p>
     </div>
 
     <!-- Audit Change Entries: Integrated directly under the card header -->
-    <div
-      v-else
-      class="divide-y divide-slate-100 dark:divide-slate-800"
-    >
-      <div
-        v-for="(audit, index) in audits"
-        :key="audit.id ?? index"
-        class="transition-colors"
-      >
+    <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
+      <div v-for="(audit, index) in audits" :key="audit.id ?? index" class="transition-colors">
         <!-- Clickable Row Header: Collapsed by default -->
         <div
           @click="toggleCollapse(audit.id ?? index)"
@@ -228,7 +214,9 @@ function getEventSummary(audit: TicketAudit): string {
                   Staff Editor
                 </span>
               </div>
-              <p class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+              <p
+                class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5"
+              >
                 <span>{{ getEventSummary(audit) }}</span>
                 <span
                   v-if="isCollapsed(audit.id ?? index) && audit.reason"
@@ -269,7 +257,9 @@ function getEventSummary(audit: TicketAudit): string {
               type="button"
               @click.stop="toggleCollapse(audit.id ?? index)"
               class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              :title="isCollapsed(audit.id ?? index) ? 'Expand audit details' : 'Collapse audit details'"
+              :title="
+                isCollapsed(audit.id ?? index) ? 'Expand audit details' : 'Collapse audit details'
+              "
             >
               <ChevronDown
                 class="w-4 h-4 transition-transform duration-200"
@@ -326,7 +316,9 @@ function getEventSummary(audit: TicketAudit): string {
                 <div
                   class="p-3 sm:p-3.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/70 dark:border-rose-900/40 text-rose-900 dark:text-rose-200"
                 >
-                  <span class="text-[10px] font-bold uppercase tracking-wider text-rose-500 block mb-1">
+                  <span
+                    class="text-[10px] font-bold uppercase tracking-wider text-rose-500 block mb-1"
+                  >
                     BEFORE
                   </span>
                   <span class="line-through opacity-80 break-words font-medium leading-relaxed">
@@ -338,7 +330,9 @@ function getEventSummary(audit: TicketAudit): string {
                 <div
                   class="p-3 sm:p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200"
                 >
-                  <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+                  <span
+                    class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1"
+                  >
                     AFTER
                   </span>
                   <span class="break-words font-semibold leading-relaxed">
@@ -358,7 +352,9 @@ function getEventSummary(audit: TicketAudit): string {
                 v-if="audit.diff?.priority"
                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs shadow-2xs"
               >
-                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Priority:</span>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400"
+                  >Priority:</span
+                >
                 <span
                   class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase line-through bg-slate-100 dark:bg-slate-800 text-slate-500"
                 >
@@ -377,7 +373,9 @@ function getEventSummary(audit: TicketAudit): string {
                 v-if="audit.diff?.status"
                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs shadow-2xs"
               >
-                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Status:</span>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400"
+                  >Status:</span
+                >
                 <span
                   class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase line-through bg-slate-100 dark:bg-slate-800 text-slate-500"
                 >
@@ -396,7 +394,9 @@ function getEventSummary(audit: TicketAudit): string {
                 v-if="audit.diff?.type"
                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs shadow-2xs"
               >
-                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Type:</span>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400"
+                  >Type:</span
+                >
                 <span
                   class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase line-through bg-slate-100 dark:bg-slate-800 text-slate-500"
                 >
@@ -421,7 +421,9 @@ function getEventSummary(audit: TicketAudit): string {
                 <div
                   class="p-3.5 sm:p-4 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/70 dark:border-rose-900/40 text-rose-900 dark:text-rose-200 flex flex-col"
                 >
-                  <span class="text-[10px] font-bold uppercase tracking-wider text-rose-500 block mb-1.5 shrink-0">
+                  <span
+                    class="text-[10px] font-bold uppercase tracking-wider text-rose-500 block mb-1.5 shrink-0"
+                  >
                     BEFORE
                   </span>
                   <div
@@ -441,7 +443,9 @@ function getEventSummary(audit: TicketAudit): string {
                 <div
                   class="p-3.5 sm:p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200 flex flex-col"
                 >
-                  <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1.5 shrink-0">
+                  <span
+                    class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1.5 shrink-0"
+                  >
                     AFTER
                   </span>
                   <div

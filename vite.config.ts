@@ -9,47 +9,59 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const port = Number(env.VITE_PORT) || 4000
+  // Default proxy target is strictly for local development (127.0.0.1:8000).
+  // In production / preview, backend domains must be supplied via environment variables
+  // (e.g. VITE_PROXY_TARGET in .env.production or CI/CD) to prevent domain lock-in.
+  const defaultProxyTarget = mode === 'development' ? 'http://127.0.0.1:8000' : ''
+
   let rawProxyTarget = (
     env.VITE_PROXY_TARGET ||
     env.PROXY_TARGET ||
     (env.VITE_AUTH_BASE_URL && env.VITE_AUTH_BASE_URL.startsWith('http') ? env.VITE_AUTH_BASE_URL : '') ||
     (env.VITE_API_BASE_URL && env.VITE_API_BASE_URL.startsWith('http') ? env.VITE_API_BASE_URL.replace(/\/api(\/.*)?$/, '') : '') ||
-    'https://apix.bronxtechnology.site'
+    defaultProxyTarget
   ).trim().replace(/\/+$/, '')
 
   if (rawProxyTarget && !/^https?:\/\//i.test(rawProxyTarget)) {
     rawProxyTarget = `http://${rawProxyTarget}`
   }
   const proxyTarget = rawProxyTarget
-  console.log(`[vite] Reverse proxy target: ${proxyTarget}`)
 
-  const proxyConfig = {
-    '/api': {
-      target: proxyTarget,
-      changeOrigin: true,
-      secure: false,
-    },
-    '/token': {
-      target: proxyTarget,
-      changeOrigin: true,
-      secure: false,
-    },
-    '/login': {
-      target: proxyTarget,
-      changeOrigin: true,
-      secure: false,
-    },
-    '/two-factor': {
-      target: proxyTarget,
-      changeOrigin: true,
-      secure: false,
-    },
-    '/files': {
-      target: proxyTarget,
-      changeOrigin: true,
-      secure: false,
-    },
+  if (proxyTarget) {
+    console.log(`[vite] Reverse proxy target: ${proxyTarget}`)
+  } else {
+    console.log('[vite] No reverse proxy target configured (same-origin / relative mode)')
   }
+
+  const proxyConfig = proxyTarget
+    ? {
+        '/api': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/token': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/login': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/two-factor': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/files': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+      }
+    : undefined
 
   return {
     plugins: [

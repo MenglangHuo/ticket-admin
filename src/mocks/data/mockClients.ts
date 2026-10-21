@@ -1,11 +1,11 @@
 export interface ApiClientItem {
-  name: string;
-  client_id: string;
-  secret: string;
-  rate_limit: string;
-  allowed_types: string[];
-  status: 'active' | 'inactive' | 'rate_limited';
-  last_ping: string;
+  name: string
+  client_id: string
+  secret: string
+  rate_limit: string
+  allowed_types: string[]
+  status: 'active' | 'inactive' | 'rate_limited'
+  last_ping: string
 }
 
 export const MOCK_API_CLIENTS: ApiClientItem[] = [
@@ -54,4 +54,4 @@ export const MOCK_API_CLIENTS: ApiClientItem[] = [
     status: 'inactive',
     last_ping: '3 days ago',
   },
-];
+]

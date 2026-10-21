@@ -15,8 +15,8 @@ import {
   getMockTicketAudits,
   submitMockClientTicket,
   resetMockTickets,
-} from './data/mockTickets';
-import { getMockReports } from './data/mockReports';
+} from './data/mockTickets'
+import { getMockReports } from './data/mockReports'
 import {
   getMockSubscribers,
   generateMockInviteLink,
@@ -24,22 +24,22 @@ import {
   updateMockSubscriberStatus,
   getMockTelegramCounts,
   resetMockSubscribers,
-} from './data/mockSettings';
-import { MOCK_API_CLIENTS } from './data/mockClients';
+} from './data/mockSettings'
+import { MOCK_API_CLIENTS } from './data/mockClients'
 import {
   mockGenerateToken,
   mockLogin,
   mockValidateTwoFactor,
   MOCK_ADMIN_USER,
   MOCK_BRANCH_USER,
-} from './data/mockAuth';
+} from './data/mockAuth'
 import {
   isMockDataEnabled,
   getEnvMockDataStatus,
   hasMockOverride,
   setMockDataOverride,
   toggleMockDataMode,
-} from './config';
+} from './config'
 
 export const mockService = {
   // Config
@@ -82,6 +82,6 @@ export const mockService = {
   validateTwoFactor: mockValidateTwoFactor,
   demoAdminUser: MOCK_ADMIN_USER,
   demoBranchUser: MOCK_BRANCH_USER,
-};
+}
 
-export default mockService;
+export default mockService

@@ -1,26 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { TopClient } from '@/types/ticket';
-import { Trophy } from 'lucide-vue-next';
+import { computed } from 'vue'
+import type { TopClient } from '@/types/ticket'
+import { Trophy } from 'lucide-vue-next'
 
 const props = withDefaults(
   defineProps<{
-    topClients: TopClient[];
-    loading?: boolean;
+    topClients: TopClient[]
+    loading?: boolean
   }>(),
   {
     loading: false,
-  }
-);
+  },
+)
 
 const maxCount = computed(() => {
-  if (!props.topClients || props.topClients.length === 0) return 1;
-  return Math.max(...props.topClients.map((c) => c.count)) || 1;
-});
+  if (!props.topClients || props.topClients.length === 0) return 1
+  return Math.max(...props.topClients.map((c) => c.count)) || 1
+})
 </script>
 
 <template>
-  <div class="bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl ring-1 ring-black/5 dark:ring-white/5 transition-colors">
+  <div
+    class="bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl ring-1 ring-black/5 dark:ring-white/5 transition-colors"
+  >
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
       <div>
@@ -32,8 +34,14 @@ const maxCount = computed(() => {
           Leaderboard by volume from client API & webhooks
         </p>
       </div>
-      <div v-if="loading" class="animate-pulse h-5 w-16 bg-slate-100 dark:bg-slate-850 rounded"></div>
-      <span v-else class="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-500/20">
+      <div
+        v-if="loading"
+        class="animate-pulse h-5 w-16 bg-slate-100 dark:bg-slate-850 rounded"
+      ></div>
+      <span
+        v-else
+        class="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-500/20"
+      >
         {{ topClients.length }} Clients
       </span>
     </div>
@@ -56,9 +64,12 @@ const maxCount = computed(() => {
             <span
               class="w-5 h-5 rounded-md text-[10px] font-bold flex items-center justify-center font-mono shrink-0"
               :class="{
-                'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30': index === 0,
-                'bg-slate-200 dark:bg-slate-300/20 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-300/30': index === 1,
-                'bg-amber-50 dark:bg-amber-700/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/30': index === 2,
+                'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30':
+                  index === 0,
+                'bg-slate-200 dark:bg-slate-300/20 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-300/30':
+                  index === 1,
+                'bg-amber-50 dark:bg-amber-700/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/30':
+                  index === 2,
                 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400': index > 2,
               }"
             >
