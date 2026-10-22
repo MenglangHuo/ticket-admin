@@ -134,6 +134,19 @@ export const useTicketStore = defineStore('tickets', () => {
   // Audits & Edit State
   const ticketAudits = ref<TicketAudit[]>([])
   const isAuditsLoading = ref<boolean>(false)
+  const isAuditsLoadingMore = ref<boolean>(false)
+  const auditPagination = ref<{
+    page: number
+    per_page: number
+    total: number
+    has_more: boolean
+    last_page?: number
+  }>({
+    page: 1,
+    per_page: 20,
+    total: 0,
+    has_more: false,
+  })
   const isEditTicketModalOpen = ref<boolean>(false)
   const isSavingTicketEdit = ref<boolean>(false)
   const activeDetailTab = ref<'discussion' | 'comments' | 'audits'>('discussion')
@@ -604,31 +617,51 @@ export const useTicketStore = defineStore('tickets', () => {
     }
 
     // 2. Optimistic UI update
+    const prevTimestamps = {
+      first_response_at: targetTicket.first_response_at,
+      resolved_at: targetTicket.resolved_at,
+      closed_at: targetTicket.closed_at,
+      updated_at: targetTicket.updated_at,
+    }
     targetTicket.status = newStatus
-    targetTicket.updated_at = new Date().toISOString()
-    if (newStatus === 'in_progress') {
-      if (!targetTicket.first_response_at) {
-        targetTicket.first_response_at = new Date().toISOString()
-      }
-      targetTicket.resolved_at = null
-      targetTicket.closed_at = null
-    }
-    if (newStatus === 'resolved') {
-      if (!targetTicket.resolved_at) {
-        targetTicket.resolved_at = new Date().toISOString()
-      }
-      targetTicket.closed_at = null
-    }
-    if (newStatus === 'closed' && !targetTicket.closed_at) {
-      targetTicket.closed_at = new Date().toISOString()
-    }
+    const nowIso = new Date().toISOString()
+    targetTicket.updated_at = nowIso
+
     if (newStatus === 'open') {
+      targetTicket.first_response_at = null
       targetTicket.resolved_at = null
       targetTicket.closed_at = null
+    } else if (newStatus === 'in_progress') {
+      if (!targetTicket.first_response_at) {
+        targetTicket.first_response_at = nowIso
+      }
+      targetTicket.resolved_at = null
+      targetTicket.closed_at = null
+    } else if (newStatus === 'resolved') {
+      targetTicket.resolved_at = nowIso
+      targetTicket.closed_at = null
+      if (!targetTicket.first_response_at) {
+        targetTicket.first_response_at = nowIso
+      }
+    } else if (newStatus === 'closed') {
+      targetTicket.closed_at = nowIso
+      if (!targetTicket.resolved_at) {
+        targetTicket.resolved_at = nowIso
+      }
+      if (!targetTicket.first_response_at) {
+        targetTicket.first_response_at = nowIso
+      }
     }
 
-    if (selectedTicket.value?.id === ticketId) {
+    if (
+      selectedTicket.value &&
+      (selectedTicket.value.id === numericId || String(selectedTicket.value.id) === String(numericId))
+    ) {
       selectedTicket.value.status = newStatus
+      selectedTicket.value.first_response_at = targetTicket.first_response_at
+      selectedTicket.value.resolved_at = targetTicket.resolved_at
+      selectedTicket.value.closed_at = targetTicket.closed_at
+      selectedTicket.value.updated_at = targetTicket.updated_at
     }
 
     // Optimistically update facet counts for status
@@ -666,7 +699,18 @@ export const useTicketStore = defineStore('tickets', () => {
         status: newStatus,
         ...(reason ? { audit_reason: reason } : {}),
       }
-      await ticketApi.updateTicket(ticketId, payload)
+      const response = await ticketApi.updateTicket(ticketId, payload)
+      const updated = (response as any)?.data || response
+      if (updated && typeof updated === 'object') {
+        Object.assign(targetTicket, updated)
+        if (
+          selectedTicket.value &&
+          (selectedTicket.value.id === numericId ||
+            String(selectedTicket.value.id) === String(numericId))
+        ) {
+          Object.assign(selectedTicket.value, updated)
+        }
+      }
 
       const statusLabels: Record<TicketStatus, string> = {
         open: 'Open',
@@ -693,8 +737,21 @@ export const useTicketStore = defineStore('tickets', () => {
     } catch (err: any) {
       // 3. Rollback on API rejection (HTTP 422 or error)
       targetTicket.status = oldStatus
-      if (selectedTicket.value?.id === ticketId) {
+      targetTicket.first_response_at = prevTimestamps.first_response_at
+      targetTicket.resolved_at = prevTimestamps.resolved_at
+      targetTicket.closed_at = prevTimestamps.closed_at
+      targetTicket.updated_at = prevTimestamps.updated_at
+
+      if (
+        selectedTicket.value &&
+        (selectedTicket.value.id === numericId ||
+          String(selectedTicket.value.id) === String(numericId))
+      ) {
         selectedTicket.value.status = oldStatus
+        selectedTicket.value.first_response_at = prevTimestamps.first_response_at
+        selectedTicket.value.resolved_at = prevTimestamps.resolved_at
+        selectedTicket.value.closed_at = prevTimestamps.closed_at
+        selectedTicket.value.updated_at = prevTimestamps.updated_at
       }
 
       if (facets.value?.status) {
@@ -797,6 +854,12 @@ export const useTicketStore = defineStore('tickets', () => {
     isDrawerLoading.value = true
     comments.value = []
     ticketAudits.value = []
+    auditPagination.value = {
+      page: 1,
+      per_page: 20,
+      total: 0,
+      has_more: false,
+    }
     activeDetailTab.value = 'discussion'
 
     try {
@@ -846,24 +909,98 @@ export const useTicketStore = defineStore('tickets', () => {
   }
 
   // Audits Operations
-  async function fetchTicketAudits(ticketId: number | string) {
-    isAuditsLoading.value = true
+  async function fetchTicketAudits(
+    ticketId: number | string,
+    page: number = 1,
+    append: boolean = false,
+  ) {
+    if (append) {
+      isAuditsLoadingMore.value = true
+    } else {
+      isAuditsLoading.value = true
+    }
     try {
-      const response = await ticketApi.getTicketAudits(ticketId)
+      const response =
+        page > 1 || append
+          ? await ticketApi.getTicketAudits(ticketId, { page, per_page: 20 })
+          : await ticketApi.getTicketAudits(ticketId)
       const data = response?.data
+      let items: TicketAudit[] = []
       if (Array.isArray(data)) {
-        ticketAudits.value = data
+        items = data
       } else if (data && typeof data === 'object' && Array.isArray((data as any).content)) {
-        ticketAudits.value = (data as any).content
+        items = (data as any).content
+      } else if (data && typeof data === 'object' && Array.isArray((data as any).data)) {
+        items = (data as any).data
+      }
+
+      // Check pagination metadata - total ticket-audit specifically from data.pagination.total
+      const pagination =
+        (data as any)?.pagination ||
+        (response as any)?.data?.pagination ||
+        (response as any)?.pagination ||
+        (response as any)?.meta ||
+        (data as any)?.meta
+
+      const paginationTotal =
+        (data as any)?.pagination?.total ??
+        (response as any)?.data?.pagination?.total ??
+        pagination?.total
+
+      if (pagination && typeof paginationTotal !== 'undefined') {
+        const total = Number(paginationTotal)
+        const perPage = Number(pagination.per_page ?? 20)
+        const lastPage = Number(pagination.last_page ?? pagination.total_pages ?? Math.ceil(total / perPage))
+        const currentPage = Number(pagination.page ?? pagination.current_page ?? page)
+        const hasMore = Boolean(pagination.has_next ?? (currentPage < lastPage))
+
+        auditPagination.value = {
+          page: currentPage,
+          per_page: perPage,
+          total,
+          has_more: hasMore,
+          last_page: lastPage,
+        }
       } else {
-        ticketAudits.value = []
+        const total = (response as any)?.total ?? (append ? ticketAudits.value.length + items.length : items.length)
+        const hasMore = items.length === 20
+        auditPagination.value = {
+          page,
+          per_page: 20,
+          total,
+          has_more: hasMore,
+        }
+      }
+
+      if (append) {
+        const existingIds = new Set(ticketAudits.value.map((a) => a.id).filter(Boolean))
+        const newUnique = items.filter((a) => !a.id || !existingIds.has(a.id))
+        ticketAudits.value = [...ticketAudits.value, ...newUnique]
+      } else {
+        ticketAudits.value = items
       }
     } catch (err: any) {
       console.error('Failed to load ticket audits:', err)
-      ticketAudits.value = []
+      if (!append) {
+        ticketAudits.value = []
+        auditPagination.value = {
+          page: 1,
+          per_page: 20,
+          total: 0,
+          has_more: false,
+        }
+      }
     } finally {
       isAuditsLoading.value = false
+      isAuditsLoadingMore.value = false
     }
+  }
+
+  async function loadMoreTicketAudits(ticketId?: number | string) {
+    const id = ticketId || selectedTicket.value?.id
+    if (!id || isAuditsLoadingMore.value) return
+    const nextPage = (auditPagination.value.page || 1) + 1
+    await fetchTicketAudits(id, nextPage, true)
   }
 
   async function updateTicketDetails(
@@ -1279,10 +1416,13 @@ export const useTicketStore = defineStore('tickets', () => {
     deleteTicketComment,
     ticketAudits,
     isAuditsLoading,
+    isAuditsLoadingMore,
+    auditPagination,
     isEditTicketModalOpen,
     isSavingTicketEdit,
     activeDetailTab,
     fetchTicketAudits,
+    loadMoreTicketAudits,
     updateTicketDetails,
   }
 })

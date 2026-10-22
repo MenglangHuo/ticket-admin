@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useTicketStore } from '@/stores/ticketStore'
 import type { TicketAudit } from '@/types/ticket'
 import { sanitizeHtml } from '@/utils/security'
@@ -10,14 +10,52 @@ import {
   RefreshCw,
   ShieldCheck,
   ChevronDown,
-  ChevronsUpDown,
   Tag,
-  MessageSquare,
 } from 'lucide-vue-next'
 
 const ticketStore = useTicketStore()
 
 const audits = computed<TicketAudit[]>(() => ticketStore.ticketAudits || [])
+
+// Pagination: 20 per page
+const PAGE_SIZE = 20
+const visibleCount = ref(PAGE_SIZE)
+
+// Reset visible count when selected ticket changes
+watch(
+  () => ticketStore.selectedTicket?.id,
+  () => {
+    visibleCount.value = PAGE_SIZE
+  },
+)
+
+// Total audits count: get from data.pagination.total from response
+const totalAuditsCount = computed(() => {
+  if (ticketStore.auditPagination?.total && ticketStore.auditPagination.total > 0) {
+    return ticketStore.auditPagination.total
+  }
+  return audits.value.length
+})
+
+const visibleAudits = computed<TicketAudit[]>(() => {
+  return audits.value.slice(0, visibleCount.value)
+})
+
+const hasMore = computed(() => {
+  if (audits.value.length > visibleCount.value) return true
+  if (ticketStore.auditPagination?.has_more) return true
+  return false
+})
+
+async function handleShowMore() {
+  if (audits.value.length > visibleCount.value) {
+    visibleCount.value += PAGE_SIZE
+  } else if (ticketStore.auditPagination?.has_more && ticketStore.selectedTicket?.id) {
+    await ticketStore.loadMoreTicketAudits(ticketStore.selectedTicket.id)
+    visibleCount.value = ticketStore.ticketAudits.length
+  }
+}
+
 // Default to collapsed: expandedAudits keeps track of which audits are opened
 const expandedAudits = ref<Record<string | number, boolean>>({})
 
@@ -27,18 +65,6 @@ function toggleCollapse(key: string | number) {
 
 function isCollapsed(key: string | number): boolean {
   return !expandedAudits.value[key]
-}
-
-const areAllExpanded = computed(() => {
-  if (audits.value.length === 0) return false
-  return audits.value.every((a, idx) => !!expandedAudits.value[a.id ?? idx])
-})
-
-function toggleAllCollapse() {
-  const targetState = !areAllExpanded.value
-  audits.value.forEach((a, idx) => {
-    expandedAudits.value[a.id ?? idx] = targetState
-  })
 }
 
 function formatDate(dateStr?: string | null): string {
@@ -66,7 +92,7 @@ function formatRelativeTime(dateStr?: string | null): string {
   const diffDays = Math.floor(diffHr / 24)
 
   if (diffSec < 60) return 'Just now'
-  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffMin < 60) return `${diffMin}min ago`
   if (diffHr < 24) return `${diffHr}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
   return formatDate(dateStr)
@@ -102,16 +128,36 @@ function getEventSummary(audit: TicketAudit): string {
   }
   return `updated ${fields.map((f) => f.replace('_', ' ')).join(', ')}`
 }
+
+function getAvatarGradient(name?: string | null): string {
+  if (!name) return 'from-indigo-500 to-indigo-600'
+  const gradients = [
+    'from-indigo-500 to-purple-600',
+    'from-sky-500 to-blue-600',
+    'from-emerald-500 to-teal-600',
+    'from-violet-500 to-purple-600',
+    'from-amber-500 to-orange-600',
+    'from-rose-500 to-pink-600',
+    'from-teal-500 to-emerald-600',
+    'from-blue-600 to-indigo-700',
+  ]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const index = Math.abs(hash) % gradients.length
+  return gradients[index] ?? 'from-indigo-500 to-purple-600'
+}
 </script>
 
 <template>
   <!-- Unified Container Card: All change records are embedded cleanly under Audit Trail & History -->
   <div
-    class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden"
+    class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden transition-all"
   >
-    <!-- Card Header -->
+    <!-- Card Header: Clean and professional without Expand All or Refresh buttons -->
     <div
-      class="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60"
+      class="p-4 sm:p-5 flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60"
     >
       <div class="flex items-center gap-3 min-w-0">
         <div
@@ -127,7 +173,7 @@ function getEventSummary(audit: TicketAudit): string {
             <span
               class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60"
             >
-              {{ audits.length }}
+              {{ totalAuditsCount }}
             </span>
           </div>
           <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
@@ -135,37 +181,10 @@ function getEventSummary(audit: TicketAudit): string {
           </p>
         </div>
       </div>
-
-      <!-- Header Actions: Expand/Collapse All & Refresh -->
-      <div class="flex items-center gap-2 shrink-0">
-        <button
-          v-if="audits.length > 0"
-          type="button"
-          @click="toggleAllCollapse"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 shadow-2xs transition-all cursor-pointer"
-        >
-          <ChevronsUpDown class="w-3.5 h-3.5 text-slate-400" />
-          <span>{{ areAllExpanded ? 'Collapse All' : 'Expand All' }}</span>
-        </button>
-
-        <button
-          type="button"
-          @click="ticketStore.fetchTicketAudits(ticketStore.selectedTicket?.id || '')"
-          :disabled="ticketStore.isAuditsLoading"
-          title="Refresh audit history"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw
-            class="w-3.5 h-3.5 text-indigo-500"
-            :class="{ 'animate-spin': ticketStore.isAuditsLoading }"
-          />
-          <span class="hidden sm:inline">Refresh</span>
-        </button>
-      </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="ticketStore.isAuditsLoading" class="p-10 text-center space-y-2.5">
+    <div v-if="ticketStore.isAuditsLoading && audits.length === 0" class="p-10 text-center space-y-2.5">
       <RefreshCw class="w-6 h-6 animate-spin text-indigo-500 mx-auto" />
       <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Loading audit history...</p>
     </div>
@@ -186,52 +205,51 @@ function getEventSummary(audit: TicketAudit): string {
       </p>
     </div>
 
-    <!-- Audit Change Entries: Integrated directly under the card header -->
-    <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
-      <div v-for="(audit, index) in audits" :key="audit.id ?? index" class="transition-colors">
-        <!-- Clickable Row Header: Collapsed by default -->
+    <!-- Audit Change Entries: Render visibleAudits -->
+    <div v-else class="divide-y divide-slate-100 dark:divide-slate-800/80">
+      <div
+        v-for="(audit, index) in visibleAudits"
+        :key="audit.id ?? index"
+        class="group/row transition-colors relative"
+      >
+        <!-- Clickable Row Header -->
         <div
           @click="toggleCollapse(audit.id ?? index)"
-          class="p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-          :class="{ 'bg-slate-50/30 dark:bg-slate-900/30': !isCollapsed(audit.id ?? index) }"
+          class="p-3.5 sm:p-4.5 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+          :class="{ 'bg-slate-50/40 dark:bg-slate-900/40': !isCollapsed(audit.id ?? index) }"
           :title="isCollapsed(audit.id ?? index) ? 'Click to expand' : 'Click to collapse'"
         >
-          <!-- Left: Editor Info & Event -->
+          <!-- Left: Editor Avatar & Info (Clean without 'Staff Editor' or redundant reason text) -->
           <div class="flex items-center gap-3 min-w-0">
-            <div
-              class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs"
-            >
-              {{ (audit.editor?.name || 'A').charAt(0).toUpperCase() }}
+            <!-- Modern Avatar with Dynamic Gradients & Soft Ring -->
+            <div class="relative shrink-0">
+              <div
+                class="w-8 h-8 rounded-full bg-gradient-to-tr text-white font-bold text-xs flex items-center justify-center shadow-2xs ring-2 ring-white dark:ring-slate-900"
+                :class="getAvatarGradient(audit.editor?.name || `Admin #${audit.editor?.id || 'Staff'}`)"
+              >
+                {{ (audit.editor?.name || 'A').charAt(0).toUpperCase() }}
+              </div>
             </div>
+
             <div class="min-w-0">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+              <!-- Line 1: Editor Name -->
+              <div class="flex items-center gap-2">
+                <span class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                   {{ audit.editor?.name || `Admin #${audit.editor?.id || 'Staff'}` }}
                 </span>
-                <span
-                  class="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                >
-                  Staff Editor
-                </span>
               </div>
-              <p
-                class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5"
-              >
-                <span>{{ getEventSummary(audit) }}</span>
-                <span
-                  v-if="isCollapsed(audit.id ?? index) && audit.reason"
-                  class="hidden md:inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400/90 font-medium truncate max-w-sm"
-                >
-                  • "{{ audit.reason }}"
-                </span>
-              </p>
+
+              <!-- Line 2: Event Summary (Clean UI without 'ticket info updated by...' reason text) -->
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span class="font-medium text-slate-600 dark:text-slate-300">{{ getEventSummary(audit) }}</span>
+              </div>
             </div>
           </div>
 
-          <!-- Right: Timestamp, Status Badge & Collapse Chevron -->
-          <div class="flex items-center gap-2 text-xs shrink-0">
+          <!-- Right: Timestamp (5min format), Status Badge & Collapse Chevron -->
+          <div class="flex items-center gap-2.5 text-xs shrink-0">
             <span
-              class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium"
+              class="inline-flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium"
               :title="formatDate(audit.created_at)"
             >
               <Clock class="w-3 h-3 text-slate-400" />
@@ -239,7 +257,7 @@ function getEventSummary(audit: TicketAudit): string {
             </span>
 
             <span
-              class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider"
+              class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-2xs"
               :class="{
                 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60':
                   audit.event === 'updated',
@@ -269,23 +287,11 @@ function getEventSummary(audit: TicketAudit): string {
           </div>
         </div>
 
-        <!-- Expanded Details: Nested smoothly under row with soft styling -->
+        <!-- Expanded Details: Clean UI without redundant Audit Reason callout box -->
         <div
           v-if="!isCollapsed(audit.id ?? index)"
-          class="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-950/30 space-y-3.5"
+          class="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 space-y-3.5"
         >
-          <!-- Reason Callout -->
-          <div
-            v-if="audit.reason"
-            class="p-3 sm:p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5"
-          >
-            <MessageSquare class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-            <div class="leading-relaxed">
-              <span class="font-bold text-amber-800 dark:text-amber-300">Audit Reason:</span>
-              <span class="ml-1.5 italic font-medium">"{{ audit.reason }}"</span>
-            </div>
-          </div>
-
           <!-- Modified Fields Tags -->
           <div
             v-if="audit.modified_fields && audit.modified_fields.length > 0"
@@ -465,6 +471,42 @@ function getEventSummary(audit: TicketAudit): string {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Pagination / Show More Button: Displayed if audits count > 20 per page or server has more -->
+    <div
+      v-if="hasMore"
+      class="p-4 sm:p-4.5 bg-slate-50/70 dark:bg-slate-900/60 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3"
+    >
+      <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+        <span>Showing</span>
+        <span class="font-bold text-slate-800 dark:text-slate-200">{{ visibleAudits.length }}</span>
+        <span>of</span>
+        <span class="font-bold text-slate-800 dark:text-slate-200">{{ totalAuditsCount }}</span>
+        <span>audit records</span>
+      </div>
+
+      <button
+        type="button"
+        @click="handleShowMore"
+        :disabled="ticketStore.isAuditsLoadingMore"
+        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700/80 border border-indigo-200/80 dark:border-indigo-800/80 shadow-2xs transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+      >
+        <RefreshCw
+          v-if="ticketStore.isAuditsLoadingMore"
+          class="w-3.5 h-3.5 animate-spin text-indigo-500"
+        />
+        <ChevronDown v-else class="w-3.5 h-3.5 text-indigo-500" />
+        <span>Show More</span>
+      </button>
+    </div>
+
+    <!-- All Loaded Indicator if total audits > 20 and no more pages -->
+    <div
+      v-else-if="audits.length > PAGE_SIZE"
+      class="py-3 px-4 text-center border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/30 text-[11px] text-slate-400 dark:text-slate-500 font-medium"
+    >
+      Showing all {{ audits.length }} audit records
     </div>
   </div>
 </template>

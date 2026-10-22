@@ -84,7 +84,8 @@ describe('Ticket Audit Features', () => {
       // Verified collapsed by default
       expect(wrapper.text()).toContain('Sophea Admin')
       expect(wrapper.text()).toContain('Audit Trail & History')
-      expect(wrapper.text()).toContain('Expand All')
+      expect(wrapper.text()).not.toContain('Expand All')
+      expect(wrapper.text()).not.toContain('Refresh')
       expect(wrapper.text()).not.toContain('Description Changed:')
 
       // Click to expand the audit row
@@ -95,8 +96,9 @@ describe('Ticket Audit Features', () => {
       const text = wrapper.text()
       // Editor info
       expect(text).toContain('Sophea Admin')
-      // Reason callout
-      expect(text).toContain('Fixed grammar and clarified steps to reproduce')
+      // Audit reason is removed for clean UI
+      expect(text).not.toContain('Fixed grammar and clarified steps to reproduce')
+      expect(text).not.toContain('Audit Reason')
       // Field diffs
       expect(text).toContain('Original Title with poor grammar')
       expect(text).toContain('Enhanced Title: Clarified Database Timeout')
@@ -127,7 +129,7 @@ describe('Ticket Audit Features', () => {
       const wrapper = mount(TicketAuditTimeline)
 
       // By default is collapsed
-      expect(wrapper.text()).toContain('Expand All')
+      expect(wrapper.text()).not.toContain('Expand All')
       expect(wrapper.html()).not.toContain('<li>Point 1</li>')
 
       // Ensure filter tabs (All, Title, Description, Priority) are removed
@@ -160,30 +162,45 @@ describe('Ticket Audit Features', () => {
       expect(wrapper.text()).not.toContain('Description Changed:')
     })
 
-    it('supports Expand All and Collapse All across multiple audit records', async () => {
+    it('does not display Expand All or Refresh buttons in the card header', () => {
       const store = useTicketStore()
       store.selectedTicket = { ...mockTicket }
+      store.ticketAudits = [mockAudit]
+
+      const wrapper = mount(TicketAuditTimeline)
+      expect(wrapper.text()).not.toContain('Expand All')
+      expect(wrapper.text()).not.toContain('Refresh')
+    })
+
+    it('renders total count from data.pagination.total in header badge', () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket }
+      store.ticketAudits = [mockAudit]
+      store.auditPagination = {
+        page: 1,
+        per_page: 20,
+        total: 58,
+        has_more: true,
+      }
+
+      const wrapper = mount(TicketAuditTimeline)
+      expect(wrapper.text()).toContain('58')
+    })
+
+    it('formats 5 minutes relative time as 5min ago instead of 5m', () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket }
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
       store.ticketAudits = [
-        { ...mockAudit, id: 1 },
-        { ...mockAudit, id: 2, event: 'status_changed', modified_fields: ['status'] },
+        {
+          ...mockAudit,
+          created_at: fiveMinutesAgo,
+        },
       ]
 
       const wrapper = mount(TicketAuditTimeline)
-
-      // By default all are collapsed
-      const toggleAllBtn = wrapper.find('button:has(span)')
-      expect(wrapper.text()).toContain('Expand All')
-      expect(wrapper.text()).not.toContain('Description Changed:')
-
-      // Click Expand All
-      await toggleAllBtn.trigger('click')
-      expect(wrapper.text()).toContain('Collapse All')
-      expect(wrapper.text()).toContain('Description Changed:')
-
-      // Click Collapse All
-      await toggleAllBtn.trigger('click')
-      expect(wrapper.text()).toContain('Expand All')
-      expect(wrapper.text()).not.toContain('Description Changed:')
+      expect(wrapper.text()).toContain('5min ago')
+      expect(wrapper.text()).not.toContain('5m ago')
     })
 
     it('renders empty state when ticket has no modifications yet', async () => {
@@ -195,6 +212,67 @@ describe('Ticket Audit Features', () => {
 
       expect(wrapper.text()).toContain('No modifications recorded')
       expect(wrapper.text()).toContain('This ticket is in its original submitted state')
+    })
+
+    it('does not display "Staff Editor" text in audit list items', async () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket }
+      store.ticketAudits = [mockAudit]
+
+      const wrapper = mount(TicketAuditTimeline)
+      expect(wrapper.text()).not.toContain('Staff Editor')
+    })
+
+    it('does not show "Show More" button when audits count is 20 or fewer', async () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket }
+      // Exactly 20 items
+      store.ticketAudits = Array.from({ length: 20 }, (_, i) => ({
+        ...mockAudit,
+        id: i + 1,
+      }))
+
+      const wrapper = mount(TicketAuditTimeline)
+      expect(wrapper.text()).not.toContain('Show More')
+    })
+
+    it('shows "Show More" button and supports pagination when audits count exceeds 20', async () => {
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket }
+      // 25 items
+      store.ticketAudits = Array.from({ length: 25 }, (_, i) => ({
+        ...mockAudit,
+        id: i + 1,
+        editor: {
+          id: i + 1,
+          name: `Editor #${i + 1}`,
+          email: `editor${i + 1}@dev.local`,
+          profile_url: null,
+        },
+      }))
+
+      const wrapper = mount(TicketAuditTimeline)
+
+      // First 20 are visible
+      expect(wrapper.text()).toContain('Editor #1')
+      expect(wrapper.text()).toContain('Editor #20')
+      expect(wrapper.text()).not.toContain('Editor #21')
+
+      // Shows 'Show More' button and record counter
+      expect(wrapper.text()).toContain('Showing')
+      expect(wrapper.text()).toContain('20')
+      expect(wrapper.text()).toContain('25')
+      const showMoreBtn = wrapper.findAll('button').find((b) => b.text().includes('Show More'))
+      expect(showMoreBtn?.exists()).toBe(true)
+
+      // Click Show More
+      await showMoreBtn?.trigger('click')
+
+      // Now all 25 are visible
+      expect(wrapper.text()).toContain('Editor #21')
+      expect(wrapper.text()).toContain('Editor #25')
+      expect(wrapper.text()).toContain('Showing all 25 audit records')
+      expect(wrapper.text()).not.toContain('Show More')
     })
   })
 
@@ -324,8 +402,9 @@ describe('Ticket Audit Features', () => {
       // Status before and after
       expect(wrapper.text()).toContain('in_progress')
       expect(wrapper.text()).toContain('resolved')
-      // Reason callout
-      expect(wrapper.text()).toContain("Status changed from 'in_progress' to 'resolved'")
+      // Reason callout is removed for clean UI
+      expect(wrapper.text()).not.toContain('Audit Reason')
+      expect(wrapper.text()).not.toContain("Status changed from 'in_progress' to 'resolved'")
     })
   })
 })

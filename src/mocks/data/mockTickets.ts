@@ -834,13 +834,26 @@ const mockAuditsState: Record<number, TicketAudit[]> = { ...INITIAL_MOCK_AUDITS 
 
 export function getMockTicketAudits(
   ticketId: number | string,
-  _params: { page?: number; per_page?: number; field?: string } = {},
+  params: { page?: number; per_page?: number; field?: string } = {},
 ) {
   const numId = Number(ticketId)
   const audits = mockAuditsState[numId] || []
+  const page = params.page || 1
+  const perPage = params.per_page || 20
+  const total = audits.length
+  const totalPages = Math.ceil(total / perPage) || 1
+
   return {
     success: true,
     data: audits,
+    meta: {
+      current_page: page,
+      last_page: totalPages,
+      per_page: perPage,
+      total,
+      has_next: page < totalPages,
+      has_previous: page > 1,
+    },
     message: 'Audits retrieved successfully (Mock Mode)',
   }
 }
@@ -904,11 +917,39 @@ export function updateMockTicket(
   }
 
   if (data.status && data.status !== existing.status) {
+    const oldStatus = existing.status
+    const newStatus = data.status
     modifiedFields.push('status')
-    oldValues.status = existing.status
-    newValues.status = data.status
-    diff.status = { old: existing.status, new: data.status }
-    existing.status = data.status
+    oldValues.status = oldStatus
+    newValues.status = newStatus
+    diff.status = { old: oldStatus, new: newStatus }
+    existing.status = newStatus
+
+    if (newStatus === 'open') {
+      existing.first_response_at = null
+      existing.resolved_at = null
+      existing.closed_at = null
+    } else if (newStatus === 'in_progress') {
+      existing.resolved_at = null
+      existing.closed_at = null
+      if (!existing.first_response_at) {
+        existing.first_response_at = now
+      }
+    } else if (newStatus === 'resolved') {
+      existing.resolved_at = now
+      existing.closed_at = null
+      if (!existing.first_response_at) {
+        existing.first_response_at = now
+      }
+    } else if (newStatus === 'closed') {
+      existing.closed_at = now
+      if (!existing.resolved_at) {
+        existing.resolved_at = now
+      }
+      if (!existing.first_response_at) {
+        existing.first_response_at = now
+      }
+    }
   }
 
   if (data.assignee_id !== undefined) {

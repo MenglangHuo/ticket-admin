@@ -604,4 +604,105 @@ describe('useTicketStore State Machine & Core Logic', () => {
 
     updateSpy.mockRestore()
   })
+
+  it('clears SLA timestamps on targetTicket and selectedTicket when reversing status to open', async () => {
+    const { ticketApi } = await import('@/api/ticketApi')
+    const updateSpy = vi.spyOn(ticketApi, 'updateTicket').mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 15,
+        status: 'open',
+        first_response_at: null,
+        resolved_at: null,
+        closed_at: null,
+      } as any,
+    })
+
+    const store = useTicketStore()
+    const ticketObj = {
+      id: 15,
+      public_id: 'uuid-15',
+      ticket_key: 'TCK-15',
+      number: 15,
+      title: 'Reversal SLA Test',
+      status: 'closed' as const,
+      priority: 'high' as const,
+      type: 'issue' as const,
+      source: 'portal',
+      first_response_at: '2026-10-21T10:00:00Z',
+      resolved_at: '2026-10-21T11:00:00Z',
+      closed_at: '2026-10-21T12:00:00Z',
+      created_at: '2026-10-21T09:00:00Z',
+      updated_at: '2026-10-21T12:00:00Z',
+    }
+
+    store.tickets = [{ ...ticketObj } as any]
+    store.selectedTicket = { ...ticketObj } as any
+
+    const success = await store.transitionTicketStatus(15, 'open')
+    expect(success).toBe(true)
+
+    const updated = store.tickets.find((t) => t.id === 15)
+    expect(updated?.status).toBe('open')
+    expect(updated?.first_response_at).toBeNull()
+    expect(updated?.resolved_at).toBeNull()
+    expect(updated?.closed_at).toBeNull()
+
+    // selectedTicket must also reflect cleared timestamps
+    expect(store.selectedTicket?.status).toBe('open')
+    expect(store.selectedTicket?.first_response_at).toBeNull()
+    expect(store.selectedTicket?.resolved_at).toBeNull()
+    expect(store.selectedTicket?.closed_at).toBeNull()
+
+    updateSpy.mockRestore()
+  })
+
+  it('clears resolved_at when reversing status from resolved to in_progress', async () => {
+    const { ticketApi } = await import('@/api/ticketApi')
+    const updateSpy = vi.spyOn(ticketApi, 'updateTicket').mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 16,
+        status: 'in_progress',
+        first_response_at: '2026-10-21T10:00:00Z',
+        resolved_at: null,
+        closed_at: null,
+      } as any,
+    })
+
+    const store = useTicketStore()
+    const ticketObj = {
+      id: 16,
+      public_id: 'uuid-16',
+      ticket_key: 'TCK-16',
+      number: 16,
+      title: 'Resolved to In Progress Test',
+      status: 'resolved' as const,
+      priority: 'high' as const,
+      type: 'issue' as const,
+      source: 'portal',
+      first_response_at: '2026-10-21T10:00:00Z',
+      resolved_at: '2026-10-21T11:00:00Z',
+      closed_at: null,
+      created_at: '2026-10-21T09:00:00Z',
+      updated_at: '2026-10-21T11:00:00Z',
+    }
+
+    store.tickets = [{ ...ticketObj } as any]
+    store.selectedTicket = { ...ticketObj } as any
+
+    const success = await store.transitionTicketStatus(16, 'in_progress')
+    expect(success).toBe(true)
+
+    const updated = store.tickets.find((t) => t.id === 16)
+    expect(updated?.status).toBe('in_progress')
+    expect(updated?.first_response_at).toBe('2026-10-21T10:00:00Z')
+    expect(updated?.resolved_at).toBeNull()
+    expect(updated?.closed_at).toBeNull()
+
+    expect(store.selectedTicket?.status).toBe('in_progress')
+    expect(store.selectedTicket?.resolved_at).toBeNull()
+
+    updateSpy.mockRestore()
+  })
 })

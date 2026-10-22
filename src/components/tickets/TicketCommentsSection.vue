@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useTicketStore } from '@/stores/ticketStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
@@ -13,13 +13,13 @@ import {
   History,
   Send,
   Paperclip,
-  Trash2,
   X,
   ZoomIn,
   Download,
   ShieldCheck,
   Eye,
   FileText,
+  ChevronDown,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -74,6 +74,179 @@ const notes = computed(() => ticketStore.comments || [])
 // Determine admin username
 const currentAdminUsername = computed(() => {
   return authStore.user?.username || authStore.user?.first_name || 'admin'
+})
+
+// -------------------------------------------------------------
+// Auto-Scroll & Floating Action Button (Telegram / Messenger UX)
+// -------------------------------------------------------------
+const commentsStreamRef = ref<HTMLElement | null>(null)
+const commentsBottomSentinelRef = ref<HTMLElement | null>(null)
+const showScrollToBottom = ref(false)
+const isNearBottom = ref(true)
+const unreadCountWhileScrolled = ref(0)
+const isStreamReady = ref(false)
+
+function scrollToBottom(smooth = false) {
+  const performScroll = (isSmooth: boolean) => {
+    const el = commentsStreamRef.value
+    if (!el) return
+    const targetTop = el.scrollHeight
+
+    if (isSmooth) {
+      // Telegram / Messenger optimization:
+      // If user is far up (> 1200px), pre-jump close to bottom first (within 350px),
+      // then smooth scroll the remaining distance.
+      // This eliminates the slow 2.5s scrolling blur when there are 100+ comments!
+      const currentDistance = targetTop - (el.scrollTop + el.clientHeight)
+      if (currentDistance > 1200) {
+        el.scrollTop = targetTop - 350
+      }
+      if (typeof el.scrollTo === 'function') {
+        try {
+          el.scrollTo({
+            top: targetTop,
+            behavior: 'smooth',
+          })
+        } catch {
+          el.scrollTop = targetTop
+        }
+      } else {
+        el.scrollTop = targetTop
+      }
+    } else {
+      // Instant 0ms positioning (for tab preview, opening modal, initial render)
+      // Direct assignment is synchronous and 0ms
+      el.scrollTop = targetTop
+      if (typeof el.scrollTo === 'function') {
+        try {
+          el.scrollTo({
+            top: targetTop,
+            behavior: 'instant' as ScrollBehavior,
+          })
+        } catch {}
+      }
+    }
+
+    if (
+      commentsBottomSentinelRef.value &&
+      typeof commentsBottomSentinelRef.value.scrollIntoView === 'function'
+    ) {
+      try {
+        commentsBottomSentinelRef.value.scrollIntoView({
+          behavior: isSmooth ? 'smooth' : ('instant' as ScrollBehavior),
+          block: 'end',
+        })
+      } catch {}
+    }
+  }
+
+  // 1. Synchronous attempt immediately (0ms)
+  performScroll(smooth)
+
+  // 2. Next tick to account for Vue DOM patch
+  nextTick(() => {
+    performScroll(smooth)
+
+    // 3. Frame commit - mark stream ready so opacity transitions to 100 with bottom in place
+    requestAnimationFrame(() => {
+      performScroll(smooth)
+      isStreamReady.value = true
+    })
+
+    // Fallback safety timeout
+    setTimeout(() => {
+      performScroll(smooth)
+      isStreamReady.value = true
+    }, 40)
+  })
+}
+
+function handleScroll() {
+  const el = commentsStreamRef.value
+  if (!el) return
+  const { scrollTop, scrollHeight, clientHeight } = el
+  const distanceFromBottom = scrollHeight - (scrollTop + clientHeight)
+  const atBottom = distanceFromBottom <= 60
+  isNearBottom.value = atBottom
+  showScrollToBottom.value = !atBottom && scrollHeight > clientHeight + 30
+
+  if (atBottom) {
+    unreadCountWhileScrolled.value = 0
+  }
+}
+
+function selectCommentsTab() {
+  const isAlreadyActive = ticketStore.activeDetailTab === 'comments'
+  ticketStore.activeDetailTab = 'comments'
+  unreadCountWhileScrolled.value = 0
+
+  if (isAlreadyActive) {
+    scrollToBottom(true)
+  } else {
+    isStreamReady.value = false
+    scrollToBottom(false)
+  }
+}
+
+function onImageLoad() {
+  if (ticketStore.activeDetailTab === 'comments' && isNearBottom.value) {
+    scrollToBottom(false)
+  }
+}
+
+// Watch for tab switch to 'comments'
+watch(
+  () => ticketStore.activeDetailTab,
+  (newTab) => {
+    if (newTab === 'comments') {
+      unreadCountWhileScrolled.value = 0
+      isStreamReady.value = false
+      scrollToBottom(false)
+    }
+  },
+  { flush: 'post' },
+)
+
+// Watch for new comments arriving
+watch(
+  () => notes.value.length,
+  (newCount, oldCount) => {
+    if (newCount === 0) {
+      isStreamReady.value = true
+      return
+    }
+    if (ticketStore.activeDetailTab !== 'comments') return
+
+    if (isNearBottom.value || !oldCount) {
+      // If initial load (!oldCount), instant 0ms jump. If new note posted, smooth scroll.
+      scrollToBottom(Boolean(oldCount && oldCount > 0))
+    } else if (newCount > oldCount) {
+      unreadCountWhileScrolled.value += newCount - oldCount
+    }
+  },
+  { flush: 'post' },
+)
+
+// Watch for ticket selection changes
+watch(
+  () => props.ticket?.id,
+  () => {
+    unreadCountWhileScrolled.value = 0
+    if (ticketStore.activeDetailTab === 'comments') {
+      isStreamReady.value = false
+      scrollToBottom(false)
+    }
+  },
+  { flush: 'post' },
+)
+
+onMounted(() => {
+  if (ticketStore.activeDetailTab === 'comments') {
+    isStreamReady.value = false
+    scrollToBottom(false)
+  } else {
+    isStreamReady.value = true
+  }
 })
 
 // -------------------------------------------------------------
@@ -148,16 +321,6 @@ function handleDiscussionKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault()
     submitDiscussionNote()
-  }
-}
-
-// -------------------------------------------------------------
-// Delete Comments in All Comments Chat Stream
-// -------------------------------------------------------------
-async function handleDeleteComment(commentId: number) {
-  if (!props.ticket) return
-  if (confirm('Are you sure you want to delete this comment?')) {
-    await ticketStore.deleteTicketComment(props.ticket.id, commentId)
   }
 }
 
@@ -242,7 +405,11 @@ function isCommentClientSide(comment: TicketComment): boolean {
   if (authorName && currentAdmin && authorName === currentAdmin) {
     return false
   }
-  if (authorName.includes('admin') || authorName.includes('staff') || authorName.startsWith('hq_')) {
+  if (
+    authorName.includes('admin') ||
+    authorName.includes('staff') ||
+    authorName.startsWith('hq_')
+  ) {
     return false
   }
   const reporter = (props.ticket.reporter_name || '').toLowerCase()
@@ -303,7 +470,7 @@ function formatRelativeTime(dateStr?: string | null): string {
   const diffDays = Math.floor(diffHr / 24)
 
   if (diffSec < 60) return 'Just now'
-  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffMin < 60) return `${diffMin}min ago`
   if (diffHr < 24) return `${diffHr}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
   return formatDate(dateStr)
@@ -336,7 +503,7 @@ function formatRelativeTime(dateStr?: string | null): string {
       <!-- TAB 2: All Comments -->
       <button
         type="button"
-        @click="ticketStore.activeDetailTab = 'comments'"
+        @click="selectCommentsTab"
         class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none"
         :class="
           ticketStore.activeDetailTab === 'comments'
@@ -346,16 +513,6 @@ function formatRelativeTime(dateStr?: string | null): string {
       >
         <MessagesSquare class="w-3.5 h-3.5 shrink-0" />
         <span class="truncate">All Comments</span>
-        <span
-          class="px-1.5 py-0.2 rounded-full text-[10px] font-semibold"
-          :class="
-            ticketStore.activeDetailTab === 'comments'
-              ? 'bg-white/20 text-white'
-              : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-          "
-        >
-          {{ notes.length }}
-        </span>
       </button>
 
       <!-- TAB 3: Audit History -->
@@ -371,16 +528,6 @@ function formatRelativeTime(dateStr?: string | null): string {
       >
         <History class="w-3.5 h-3.5 shrink-0" />
         <span class="truncate">Audit History</span>
-        <span
-          class="px-1.5 py-0.2 rounded-full text-[10px] font-semibold"
-          :class="
-            ticketStore.activeDetailTab === 'audits'
-              ? 'bg-white/20 text-white'
-              : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-          "
-        >
-          {{ ticketStore.ticketAudits.length }}
-        </span>
       </button>
     </div>
 
@@ -440,11 +587,7 @@ function formatRelativeTime(dateStr?: string | null): string {
             </div>
 
             <div class="flex flex-wrap gap-2">
-              <div
-                v-for="(f, i) in discussionFiles"
-                :key="f.id"
-                class="group relative"
-              >
+              <div v-for="(f, i) in discussionFiles" :key="f.id" class="group relative">
                 <!-- Compact Image Thumbnail (w-14 h-14) -->
                 <div
                   v-if="f.isImage && f.dataUrl"
@@ -558,12 +701,15 @@ function formatRelativeTime(dateStr?: string | null): string {
     <div
       v-show="ticketStore.activeDetailTab === 'comments'"
       data-testid="all-comments-tab"
-      class="space-y-2"
+      class="space-y-2 relative"
     >
       <!-- Chat Messages Timeline (Scrollable when many comments, compact when single) -->
       <div
+        ref="commentsStreamRef"
+        @scroll="handleScroll"
         data-testid="all-comments-stream"
-        class="space-y-3.5 max-h-[460px] sm:max-h-[520px] overflow-y-auto px-1 py-1 focus:outline-none scrollbar-thin"
+        class="space-y-3.5 max-h-[460px] sm:max-h-[520px] overflow-y-auto px-1 pt-1 pb-4 focus:outline-none scrollbar-thin transition-opacity duration-150"
+        :class="isStreamReady ? 'opacity-100' : 'opacity-0'"
       >
         <!-- Empty State -->
         <div
@@ -623,27 +769,6 @@ function formatRelativeTime(dateStr?: string | null): string {
               >
                 {{ formatRelativeTime(comment.created_at) }}
               </span>
-
-              <!-- Delete action button (reveal on hover) -->
-              <div
-                v-if="!authStore.isReadOnly"
-                class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <button
-                  v-if="
-                    authStore.isHQ ||
-                    authStore.isTicketAdmin ||
-                    authStore.user?.username === comment.username ||
-                    authStore.user?.id === comment.author?.id
-                  "
-                  type="button"
-                  @click="handleDeleteComment(comment.id)"
-                  class="p-0.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                  title="Delete comment"
-                >
-                  <Trash2 class="w-3 h-3" />
-                </button>
-              </div>
             </div>
 
             <!-- Speech Bubble Card (Starts from bottom of profile avatar with unified slate background) -->
@@ -681,6 +806,7 @@ function formatRelativeTime(dateStr?: string | null): string {
                     <img
                       :src="att.url"
                       :alt="att.name"
+                      @load="onImageLoad"
                       class="w-full h-full object-cover transition-transform duration-300 ease-out group-hover/img:scale-110"
                     />
                     <!-- Screen-reader accessible name (satisfies accessibility and text searches) -->
@@ -742,7 +868,45 @@ function formatRelativeTime(dateStr?: string | null): string {
             </div>
           </div>
         </div>
+
+        <!-- Sentinel element for auto-scroll and bottom anchoring -->
+        <div
+          ref="commentsBottomSentinelRef"
+          data-testid="comments-bottom-sentinel"
+          class="h-0.5 w-full pointer-events-none"
+          aria-hidden="true"
+        ></div>
       </div>
+
+      <!-- Telegram / Messenger Style Floating Scroll-to-Bottom Button -->
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0 translate-y-3 scale-75"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0 scale-100"
+        leave-to-class="opacity-0 translate-y-2 scale-75"
+      >
+        <button
+          v-if="showScrollToBottom"
+          type="button"
+          data-testid="scroll-to-bottom-btn"
+          @click="scrollToBottom(true)"
+          class="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-20 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-slate-800/95 text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/80 shadow-lg hover:shadow-xl hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 active:scale-95 transition-all cursor-pointer backdrop-blur-md group"
+          title="Scroll to latest comment"
+          aria-label="Scroll to latest comment"
+        >
+          <ChevronDown
+            class="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-y-0.5"
+          />
+          <span
+            v-if="unreadCountWhileScrolled > 0"
+            class="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white shadow-xs"
+          >
+            {{ unreadCountWhileScrolled > 99 ? '99+' : unreadCountWhileScrolled }}
+          </span>
+        </button>
+      </Transition>
     </div>
 
     <!-- ========================================================= -->

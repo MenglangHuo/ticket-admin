@@ -267,13 +267,10 @@ describe('TicketCommentsSection Component', () => {
       expect(stream.classes()).toContain('overflow-y-auto')
     })
 
-    it('removes edit button in comments and allows deleting comments directly from the chat bubble', async () => {
+    it('removes edit and delete buttons in comments', async () => {
       const ticketStore = useTicketStore()
       ticketStore.comments = [...mockComments]
       ticketStore.activeDetailTab = 'comments'
-
-      const deleteCommentSpy = vi.spyOn(ticketStore, 'deleteTicketComment').mockResolvedValue(true)
-      vi.spyOn(window, 'confirm').mockReturnValue(true)
 
       const wrapper = mount(TicketCommentsSection, {
         props: { ticket: mockTicket },
@@ -284,16 +281,12 @@ describe('TicketCommentsSection Component', () => {
         },
       })
 
-      // Requirement 2: Edit button must NOT exist in comments
+      // Edit and delete buttons must NOT exist in comments
       const editBtn = wrapper.find('button[title="Edit comment"]')
       expect(editBtn.exists()).toBe(false)
 
-      // Click delete on comment #1
       const deleteBtn = wrapper.find('button[title="Delete comment"]')
-      expect(deleteBtn.exists()).toBe(true)
-      await deleteBtn.trigger('click')
-
-      expect(deleteCommentSpy).toHaveBeenCalledWith(mockTicket.id, 1)
+      expect(deleteBtn.exists()).toBe(false)
     })
 
     it('positions username outside the box card and renders space-saving compact images', () => {
@@ -342,5 +335,158 @@ describe('TicketCommentsSection Component', () => {
       expect(imgThumbnail.classes()).toContain('sm:w-16')
       expect(imgThumbnail.classes()).toContain('rounded-xl')
     })
+
+    it('renders the bottom sentinel element for anchoring auto-scroll', () => {
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [...mockComments]
+      ticketStore.activeDetailTab = 'comments'
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const sentinel = wrapper.find('[data-testid="comments-bottom-sentinel"]')
+      expect(sentinel.exists()).toBe(true)
+    })
+
+    it('auto-scrolls to the bottom when clicking the All Comments tab button', async () => {
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [...mockComments]
+      ticketStore.activeDetailTab = 'discussion'
+
+      const scrollToSpy = vi.fn()
+      window.HTMLElement.prototype.scrollTo = scrollToSpy
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const tabButtons = wrapper.findAll('button')
+      const commentsTabBtn = tabButtons.find((b) => b.text().includes('All Comments'))
+      expect(commentsTabBtn).toBeDefined()
+
+      await commentsTabBtn!.trigger('click')
+      expect(ticketStore.activeDetailTab).toBe('comments')
+
+      await wrapper.vm.$nextTick()
+      expect(scrollToSpy).toHaveBeenCalled()
+    })
+
+    it('shows floating scroll-to-bottom button when user scrolls up, and scrolls down on click', async () => {
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [...mockComments]
+      ticketStore.activeDetailTab = 'comments'
+
+      const scrollToSpy = vi.fn()
+      window.HTMLElement.prototype.scrollTo = scrollToSpy
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+            transition: false,
+          },
+        },
+      })
+
+      const stream = wrapper.find('[data-testid="all-comments-stream"]')
+      expect(stream.exists()).toBe(true)
+
+      // Mock scroll dimensions: user scrolled up far from the bottom
+      Object.defineProperty(stream.element, 'scrollHeight', { value: 1200, configurable: true })
+      Object.defineProperty(stream.element, 'clientHeight', { value: 400, configurable: true })
+      Object.defineProperty(stream.element, 'scrollTop', { value: 100, configurable: true, writable: true })
+
+      await stream.trigger('scroll')
+
+      // Floating button should appear
+      const scrollBtn = wrapper.find('[data-testid="scroll-to-bottom-btn"]')
+      expect(scrollBtn.exists()).toBe(true)
+
+      // Clicking floating button triggers smooth scroll to bottom
+      await scrollBtn.trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(scrollToSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          top: 1200,
+          behavior: 'smooth',
+        }),
+      )
+    })
+
+    it('handles 100+ comments with instant 0ms positioning on tab switch and smart jump on floating button', async () => {
+      const ticketStore = useTicketStore()
+      // Generate 100 comments
+      const manyComments: TicketComment[] = Array.from({ length: 100 }, (_, i) => ({
+        id: i + 1,
+        ticket_id: 101,
+        username: i % 2 === 0 ? 'customer_alex' : 'hq_admin',
+        body: `Comment #${i + 1}`,
+        is_internal: false,
+        created_at: new Date(Date.now() - (100 - i) * 60000).toISOString(),
+        updated_at: new Date(Date.now() - (100 - i) * 60000).toISOString(),
+      }))
+      ticketStore.comments = manyComments
+      ticketStore.activeDetailTab = 'discussion'
+
+      const scrollToSpy = vi.fn()
+      window.HTMLElement.prototype.scrollTo = scrollToSpy
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+            transition: false,
+          },
+        },
+      })
+
+      const stream = wrapper.find('[data-testid="all-comments-stream"]')
+      Object.defineProperty(stream.element, 'scrollHeight', { value: 10000, configurable: true })
+      Object.defineProperty(stream.element, 'clientHeight', { value: 500, configurable: true })
+      Object.defineProperty(stream.element, 'scrollTop', { value: 0, configurable: true, writable: true })
+
+      // 1. User clicks "All Comments" tab button
+      const tabButtons = wrapper.findAll('button')
+      const commentsTabBtn = tabButtons.find((b) => b.text().includes('All Comments'))
+      await commentsTabBtn!.trigger('click')
+
+      // Position should be set to bottom without smooth animation (behavior: instant / direct scrollTop)
+      expect(stream.element.scrollTop).toBe(10000)
+      expect(scrollToSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ behavior: 'smooth' }),
+      )
+
+      // 2. User scrolls way up (scrollTop = 200, distance > 1200px)
+      stream.element.scrollTop = 200
+      await stream.trigger('scroll')
+
+      const scrollBtn = wrapper.find('[data-testid="scroll-to-bottom-btn"]')
+      expect(scrollBtn.exists()).toBe(true)
+
+      // 3. User clicks floating button: performs Telegram smart jump to near-bottom first, then glides
+      await scrollBtn.trigger('click')
+      expect(stream.element.scrollTop).toBe(10000 - 350)
+      expect(scrollToSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          top: 10000,
+          behavior: 'smooth',
+        }),
+      )
+    })
   })
 })
+
+
