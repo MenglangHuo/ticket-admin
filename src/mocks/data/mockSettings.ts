@@ -200,13 +200,15 @@ export const INITIAL_MOCK_BOT_INFO: TelegramBotInfo = {
   bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
   bot_token_masked: '54535517...cfs4',
   bot_username: 'menglang6969Bot',
-  chat_id: '-1004247055582',
+  chat_id: '',
   webhook_secret: 'BronxTelegramSecret2026Key99',
   invite_expiry_days: 7,
   is_active: true,
   is_configured: true,
   source: 'database',
   telegram_object: null,
+  invite_url: null,
+  migration_url: null,
   created_at: '2026-10-21T03:49:31.000000Z',
   updated_at: '2026-10-21T03:51:43.000000Z',
 }
@@ -227,7 +229,14 @@ export function getMockTelegramBotInfo(): TelegramBotInfoResponse {
   return {
     success: true,
     message: 'Retrieved successfully.',
-    data: { ...mockBotInfoState },
+    data: {
+      ...mockBotInfoState,
+      migration: null,
+      subscriber_rejoin_link: null,
+      rejoin_link: null,
+      migration_url: null,
+      invite_url: null,
+    },
     timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
   }
 }
@@ -237,12 +246,22 @@ export function updateMockTelegramBotConfig(
 ): TelegramBotInfoResponse {
   const now = new Date().toISOString()
   const token = payload.bot_token || mockBotInfoState.bot_token
+  const isNewBot = Boolean(
+    payload.bot_username &&
+      payload.bot_username.trim().replace(/^@/, '').toLowerCase() !==
+        mockBotInfoState.bot_username.trim().replace(/^@/, '').toLowerCase(),
+  )
+  const cleanUsername = (payload.bot_username || mockBotInfoState.bot_username)
+    .trim()
+    .replace(/^@/, '')
+  const link = `https://t.me/${cleanUsername}?start=mock_migration_token_${Date.now()}`
+
   mockBotInfoState = {
     ...mockBotInfoState,
     bot_token: token,
     bot_token_masked: maskToken(token),
-    bot_username: payload.bot_username || mockBotInfoState.bot_username,
-    chat_id: payload.chat_id || mockBotInfoState.chat_id,
+    bot_username: cleanUsername,
+    chat_id: payload.chat_id !== undefined ? payload.chat_id : mockBotInfoState.chat_id,
     webhook_secret:
       payload.webhook_secret !== undefined
         ? payload.webhook_secret
@@ -253,13 +272,41 @@ export function updateMockTelegramBotConfig(
         : mockBotInfoState.invite_expiry_days,
     is_active:
       payload.is_active !== undefined ? Boolean(payload.is_active) : mockBotInfoState.is_active,
-    is_configured: Boolean(token && payload.bot_username && payload.chat_id),
+    is_configured: Boolean(token && payload.bot_username),
+    subscriber_rejoin_link: isNewBot ? link : null,
+    rejoin_link: isNewBot ? link : null,
+    invite_url: isNewBot ? link : null,
+    migration_url: isNewBot ? link : null,
+    migration: isNewBot
+      ? {
+          mode: 'new_bot_migrated',
+          action_required: true,
+          is_new_bot: true,
+          message: `New bot @${cleanUsername} configured. Existing subscribers must click this link to join the new bot.`,
+          subscriber_rejoin_link: link,
+          rejoin_link: link,
+          invite_url: link,
+          migration_url: link,
+          stats: {
+            total_subscribers: 10,
+            sent: 10,
+            failed: 0,
+          },
+        }
+      : {
+          mode: 'token_updated_same_bot',
+          action_required: false,
+          is_new_bot: false,
+          message: 'Same bot token updated. All existing subscribers remain active.',
+          subscriber_rejoin_link: null,
+          rejoin_link: null,
+        },
     updated_at: now,
   }
 
   return {
     success: true,
-    message: 'Retrieved successfully.',
+    message: 'Telegram bot configuration updated successfully.',
     data: { ...mockBotInfoState },
     timestamp: now.replace('T', ' ').substring(0, 19),
   }

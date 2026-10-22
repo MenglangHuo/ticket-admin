@@ -35,7 +35,7 @@ describe('Environment Management & Switcher Suite', () => {
   describe('Configuration & Default Resolution', () => {
     it('resolves build default environment', () => {
       const def = getBuildDefaultEnvironment()
-      expect(['development', 'production', 'mock']).toContain(def)
+      expect(['local', 'development', 'production', 'mock']).toContain(def)
     })
 
     it('identifies when runtime override is active or not', () => {
@@ -56,12 +56,21 @@ describe('Environment Management & Switcher Suite', () => {
   })
 
   describe('Profile Resolution', () => {
+    it('resolves local profile with correct endpoints and flags', () => {
+      const profile = resolveEnvironmentProfile('local')
+      expect(profile.key).toBe('local')
+      expect(profile.isProduction).toBe(false)
+      expect(profile.isMock).toBe(false)
+      expect(profile.color).toBe('emerald')
+      expect(profile.apiBaseUrl).toBeDefined()
+    })
+
     it('resolves development profile with correct endpoints and flags', () => {
       const profile = resolveEnvironmentProfile('development')
       expect(profile.key).toBe('development')
       expect(profile.isProduction).toBe(false)
       expect(profile.isMock).toBe(false)
-      expect(profile.color).toBe('emerald')
+      expect(profile.color).toBe('amber')
       expect(profile.apiBaseUrl).toBeDefined()
     })
 
@@ -146,8 +155,8 @@ describe('Environment Management & Switcher Suite', () => {
   })
 
   describe('UI Component Integration', () => {
-    it('renders EnvironmentBadge as a static non-clickable badge in development mode', () => {
-      setEnvironment('development')
+    it('renders EnvironmentBadge as a static non-clickable badge in local dev mode', () => {
+      setEnvironment('local')
 
       const wrapper = mount(EnvironmentBadge, {
         global: {

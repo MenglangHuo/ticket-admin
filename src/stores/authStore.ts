@@ -17,14 +17,125 @@ export interface PendingTwoFactorData {
 const PENDING_2FA_STORAGE_KEY = 'bronx_pending_2fa'
 
 // Role Normalization and Validation Helpers
-export function normalizeRole(role: string | null | undefined): string {
+export function normalizeRole(role: unknown): string {
   if (!role) return ''
+  if (typeof role === 'object') {
+    const r = role as any
+    const name = r.role_name || r.name || r.title || r.slug || ''
+    return normalizeRole(name)
+  }
   return role.toString().trim().toUpperCase().replace(/[\s-]+/g, '_')
 }
 
-export function isAllowedRole(role: string | null | undefined): boolean {
+export function isAllowedRole(role: unknown): boolean {
   const norm = normalizeRole(role)
-  return norm === 'HQ_ADMIN' || norm === 'TICKET_ADMIN'
+  if (!norm) return false
+  // Strictly reject branch, viewer, and staff roles
+  if (
+    norm.includes('BRANCH') ||
+    norm === 'STAFF' ||
+    norm === 'VIEWER' ||
+    norm === 'PREVIEW' ||
+    norm === 'NONE'
+  ) {
+    return false
+  }
+  return (
+    norm === 'HQ_ADMIN' ||
+    norm === 'TICKET_ADMIN' ||
+    norm === 'HQ' ||
+    norm === 'SUPER_ADMIN' ||
+    norm === 'SUPERADMIN' ||
+    norm === 'ADMIN' ||
+    norm === 'ADMINISTRATOR'
+  )
+}
+
+/**
+ * Deeply extracts user profile data from various backend API shapes
+ * including Laravel Collections (e.g. \u0000*\u0000items), JsonResource (resource: {}),
+ * wrapped responses (data.user, data.data, user: {}), or raw payloads.
+ */
+export function extractUserData(res: any): any {
+  if (!res || typeof res !== 'object') return res
+
+  // 1. Direct collection items key from PHP collection serialization (e.g. "\u0000*\u0000items" or "*items" or "items")
+  const keys = Object.keys(res)
+  const itemsKey = keys.find((k) => k.endsWith('items') || k.includes('items'))
+  if (itemsKey && res[itemsKey] && typeof res[itemsKey] === 'object' && !Array.isArray(res[itemsKey])) {
+    return extractUserData(res[itemsKey])
+  }
+
+  // 2. Nested under resource (from Laravel JsonResource)
+  if (res.resource && typeof res.resource === 'object' && !Array.isArray(res.resource)) {
+    return extractUserData(res.resource)
+  }
+
+  // 3. Nested under data
+  if (res.data && typeof res.data === 'object') {
+    if (res.data.user && typeof res.data.user === 'object') return extractUserData(res.data.user)
+    if (res.data.profile && typeof res.data.profile === 'object') return extractUserData(res.data.profile)
+    if (res.data.employee && typeof res.data.employee === 'object') return extractUserData(res.data.employee)
+    if (res.data.data && typeof res.data.data === 'object' && !Array.isArray(res.data.data)) {
+      return extractUserData(res.data.data)
+    }
+    // If data itself has user identity or role fields
+    if (res.data.id !== undefined || res.data.role || res.data.username || res.data.email) {
+      return res.data
+    }
+  }
+
+  // 4. Nested under user or profile or result
+  if (res.user && typeof res.user === 'object') return extractUserData(res.user)
+  if (res.profile && typeof res.profile === 'object') return extractUserData(res.profile)
+  if (res.result && typeof res.result === 'object') return extractUserData(res.result)
+
+  return res
+}
+
+/**
+ * Extract user role string from various potential properties and shapes
+ */
+export function extractUserRole(user: any, fallbackRes?: any): string {
+  const candidates = [
+    user?.role,
+    user?.role_name,
+    user?.rolename,
+    user?.role_title,
+    user?.role_slug,
+    user?.role_code,
+    user?.user_role,
+    user?.role?.role_name,
+    user?.role?.name,
+    user?.role?.title,
+    user?.role?.slug,
+    user?.role_object?.role_name,
+    user?.role_object?.name,
+    user?.employee_object?.role,
+    user?.employee_object?.role_name,
+    Array.isArray(user?.roles) ? (user.roles[0]?.name || user.roles[0]?.role_name || user.roles[0]) : null,
+    fallbackRes?.role,
+    fallbackRes?.role_name,
+    fallbackRes?.data?.role,
+    fallbackRes?.data?.role_name,
+    fallbackRes?.user?.role,
+    fallbackRes?.user?.role_name,
+    fallbackRes?.resource?.role,
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate !== null && candidate !== undefined && candidate !== '') {
+      if (typeof candidate === 'string') {
+        const trimmed = candidate.trim()
+        if (trimmed && trimmed !== '[object Object]') return trimmed
+      } else if (typeof candidate === 'object') {
+        const nested = candidate.role_name || candidate.name || candidate.title || candidate.slug
+        if (typeof nested === 'string' && nested.trim()) return nested.trim()
+      }
+    }
+  }
+
+  return ''
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -79,11 +190,16 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   const isHQ = computed<boolean>(() => {
-    return userRole.value === 'HQ_ADMIN'
+    return (
+      userRole.value === 'HQ_ADMIN' ||
+      userRole.value === 'HQ' ||
+      userRole.value === 'SUPER_ADMIN' ||
+      userRole.value === 'SUPERADMIN'
+    )
   })
 
   const isAuthorizedAdmin = computed<boolean>(() => {
-    return isHQ.value || isTicketAdmin.value
+    return isAllowedRole(userRole.value)
   })
 
   const isBranch = computed<boolean>(() => {
@@ -144,7 +260,8 @@ export const useAuthStore = defineStore('auth', () => {
     if (storedToken && storedUserRaw) {
       try {
         const parsed = JSON.parse(storedUserRaw)
-        if (!isAllowedRole(parsed?.role)) {
+        const roleStr = extractUserRole(parsed) || parsed?.role
+        if (!isAllowedRole(roleStr)) {
           logout()
           return
         }
@@ -198,25 +315,26 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       // Extract user profile and role from login response
-      const loginUserData: any =
-        loginRes?.data && (loginRes.data.role || loginRes.data.id)
-          ? loginRes.data
-          : loginRes?.user && (loginRes.user.role || loginRes.user.id)
-            ? loginRes.user
-            : loginRes
-
-      const rawRole = (loginUserData?.role || loginRes?.role || loginRes?.data?.role || '').toString()
+      const loginUserData: any = extractUserData(loginRes)
+      const rawRole = extractUserRole(loginUserData, loginRes)
       const normalizedRole = normalizeRole(rawRole)
 
-      // Validate allowed roles: ONLY 'HQ_ADMIN' and 'TICKET_ADMIN' are allowed. Any other role is rejected!
+      if (import.meta.env.DEV) {
+        console.log('[Auth] Login response received:', loginRes)
+        console.log('[Auth] Extracted user:', loginUserData)
+        console.log('[Auth] Extracted role:', rawRole, 'Normalized:', normalizedRole)
+      }
+
+      // Validate allowed roles: ONLY HQ_ADMIN, TICKET_ADMIN, and authorized admin roles are permitted.
       if (!isAllowedRole(normalizedRole)) {
         logout()
-        error.value = `Access Denied: Your account role (${loginUserData?.role || rawRole || 'User'}) cannot access the dashboard. Only HQ_ADMIN and TICKET_ADMIN roles are permitted.`
+        const displayRole = rawRole || loginUserData?.role || 'User'
+        error.value = `Access Denied: Your account role (${displayRole}) cannot access the dashboard. Only HQ_ADMIN and TICKET_ADMIN roles are permitted.`
         return false
       }
 
       // Check if role is 'HQ_ADMIN'
-      if (normalizedRole === 'HQ_ADMIN') {
+      if (normalizedRole === 'HQ_ADMIN' || normalizedRole === 'HQ') {
         // If twoFactorCode was explicitly provided (e.g. API script or direct invocation)
         if (twoFactorCode && twoFactorCode.trim() !== '') {
           const userProfile = await authApi.validateTwoFactor({
@@ -225,16 +343,36 @@ export const useAuthStore = defineStore('auth', () => {
             token: appToken,
           })
 
-          const finalAccessToken = userProfile.auth?.access_token || appToken
-          setAuthData(finalAccessToken, { ...userProfile, role: userProfile.role || 'HQ_ADMIN' })
+          const extractedProfile = extractUserData(userProfile)
+          const extractedRole = extractUserRole(extractedProfile, userProfile) || 'HQ_ADMIN'
+          const finalAccessToken =
+            extractedProfile.auth?.access_token ||
+            userProfile.auth?.access_token ||
+            (userProfile as any)?.access_token ||
+            appToken
+
+          const finalUser: User = {
+            ...loginUserData,
+            ...extractedProfile,
+            id: extractedProfile.id ?? loginUserData?.id ?? 0,
+            username: extractedProfile.username || loginUserData?.username || username,
+            first_name: extractedProfile.first_name || loginUserData?.first_name || '',
+            last_name: extractedProfile.last_name || loginUserData?.last_name || '',
+            email: extractedProfile.email || loginUserData?.email || '',
+            role: extractedRole,
+            company_id: extractedProfile.company_id ?? loginUserData?.company_id ?? 1,
+          }
+
+          setAuthData(finalAccessToken, finalUser)
           clearPendingTwoFactor()
           return true
         }
 
         // Standard HQ Admin Login Flow: DO NOT AUTO-BYPASS.
         // Create pending 2FA challenge session for verification on /two-factor
-        const rawEmail = loginUserData?.email || ''
-        const rawPhone = loginUserData?.phone || loginUserData?.personal_phone || ''
+        const rawEmail = loginUserData?.email || loginUserData?.personal_email || ''
+        const rawPhone =
+          loginUserData?.phone || loginUserData?.personal_phone || loginUserData?.company_phone || ''
 
         setPendingTwoFactor({
           username: loginUserData?.username || username,
@@ -249,12 +387,18 @@ export const useAuthStore = defineStore('auth', () => {
         remainingAttempts.value = 5
         lockoutUntil.value = null
         return true
-      } else if (normalizedRole === 'TICKET_ADMIN') {
-        // If role is 'TICKET_ADMIN': skips two-factor and authenticates directly
+      } else if (isAllowedRole(normalizedRole)) {
+        // Skips two-factor and authenticates directly (e.g. TICKET_ADMIN, ADMIN, SUPER_ADMIN)
         const finalAccessToken =
           loginUserData?.auth?.access_token ||
+          loginUserData?.access_token ||
+          loginUserData?.token ||
+          loginRes?.data?.auth?.access_token ||
+          loginRes?.data?.access_token ||
+          loginRes?.data?.token ||
           loginRes?.auth?.access_token ||
           loginRes?.access_token ||
+          loginRes?.token ||
           appToken
 
         const finalUser: User = {
@@ -264,7 +408,7 @@ export const useAuthStore = defineStore('auth', () => {
           first_name: loginUserData?.first_name || '',
           last_name: loginUserData?.last_name || '',
           email: loginUserData?.email || '',
-          role: loginUserData?.role || 'TICKET_ADMIN',
+          role: rawRole || 'TICKET_ADMIN',
           company_id: loginUserData?.company_id ?? 1,
         }
 
@@ -324,10 +468,31 @@ export const useAuthStore = defineStore('auth', () => {
         token: pendingTwoFactor.value.appToken,
       })
 
-      const finalAccessToken = userProfile.auth?.access_token || pendingTwoFactor.value.appToken
+      const extractedProfile = extractUserData(userProfile)
+      const extractedRole =
+        extractUserRole(extractedProfile, userProfile) ||
+        pendingTwoFactor.value.role ||
+        'HQ_ADMIN'
+
+      const finalAccessToken =
+        extractedProfile.auth?.access_token ||
+        userProfile.auth?.access_token ||
+        (userProfile as any)?.access_token ||
+        pendingTwoFactor.value.appToken
+
       const verifiedUser: User = {
-        ...userProfile,
-        role: userProfile.role || pendingTwoFactor.value.role || 'HQ_ADMIN',
+        ...pendingTwoFactor.value.user,
+        ...extractedProfile,
+        id: extractedProfile.id ?? pendingTwoFactor.value.user?.id ?? 0,
+        username: extractedProfile.username || pendingTwoFactor.value.username,
+        first_name:
+          extractedProfile.first_name || pendingTwoFactor.value.user?.first_name || '',
+        last_name:
+          extractedProfile.last_name || pendingTwoFactor.value.user?.last_name || '',
+        email: extractedProfile.email || pendingTwoFactor.value.user?.email || '',
+        role: extractedRole,
+        company_id:
+          extractedProfile.company_id ?? pendingTwoFactor.value.user?.company_id ?? 1,
       }
       setAuthData(finalAccessToken, verifiedUser)
 
@@ -395,9 +560,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function setAuthData(newToken: string, newUser: User) {
-    if (!isAllowedRole(newUser?.role)) {
+    const roleStr = extractUserRole(newUser) || newUser?.role
+    if (!isAllowedRole(roleStr)) {
       logout()
-      error.value = `Access Denied: Role "${newUser?.role || 'User'}" cannot access the dashboard. Only HQ_ADMIN and TICKET_ADMIN roles are permitted.`
+      error.value = `Access Denied: Role "${roleStr || 'User'}" cannot access the dashboard. Only HQ_ADMIN and TICKET_ADMIN roles are permitted.`
       return
     }
     token.value = newToken

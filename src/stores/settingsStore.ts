@@ -279,10 +279,22 @@ export const useSettingsStore = defineStore('settings', () => {
           updated.is_configured ?? updated.bot_token ?? updated.bot_token_masked,
         )
       }
-      toastStore.success(
-        'Bot Configuration Saved',
-        res.message || 'Telegram Bot information was updated successfully.',
-      )
+      if (updated?.migration?.mode === 'new_bot_migrated') {
+        toastStore.success(
+          'Subscribers Notified',
+          updated.migration.message || '1-click migration broadcast sent to active subscribers.',
+        )
+      } else if (updated?.migration?.mode === 'token_updated_same_bot') {
+        toastStore.info(
+          'Token Rotated',
+          updated.migration.message || 'Same bot token updated. All subscribers remain active.',
+        )
+      } else {
+        toastStore.success(
+          'Bot Configuration Saved',
+          res.message || 'Telegram Bot information was updated successfully.',
+        )
+      }
       return updated
     } catch (err: any) {
       const message =
@@ -291,6 +303,24 @@ export const useSettingsStore = defineStore('settings', () => {
       throw err
     } finally {
       isSavingBotConfig.value = false
+    }
+  }
+
+  /**
+   * Broadcast migration link to active subscribers via previous bot
+   */
+  async function broadcastMigration(oldToken?: string, newUsername?: string) {
+    try {
+      const res = await telegramApi.broadcastMigration({
+        old_bot_token: oldToken,
+        new_bot_username: newUsername,
+      })
+      toastStore.success('Migration Broadcast Sent', res.message || 'Broadcast completed successfully.')
+      return res
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to send migration broadcast'
+      toastStore.error('Migration Failed', msg)
+      throw err
     }
   }
 
@@ -313,6 +343,7 @@ export const useSettingsStore = defineStore('settings', () => {
     fetchSubscribers,
     fetchBotInfo,
     updateBotConfig,
+    broadcastMigration,
     generateInviteLink,
     removeSubscriber,
     toggleSubscriberNotification,

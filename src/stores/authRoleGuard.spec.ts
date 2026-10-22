@@ -36,6 +36,21 @@ describe('Auth Role Guard & Dashboard Protection', () => {
       expect(isAllowedRole('TICKET-ADMIN')).toBe(true)
     })
 
+    it('allows standard administrative variants (ADMIN, SUPER_ADMIN, SUPERADMIN, ADMINISTRATOR)', () => {
+      expect(isAllowedRole('ADMIN')).toBe(true)
+      expect(isAllowedRole('admin')).toBe(true)
+      expect(isAllowedRole('SUPER_ADMIN')).toBe(true)
+      expect(isAllowedRole('super admin')).toBe(true)
+      expect(isAllowedRole('SUPERADMIN')).toBe(true)
+      expect(isAllowedRole('ADMINISTRATOR')).toBe(true)
+    })
+
+    it('handles role as an object with name or role_name property', () => {
+      expect(isAllowedRole({ name: 'HQ ADMIN' })).toBe(true)
+      expect(isAllowedRole({ role_name: 'TICKET ADMIN' })).toBe(true)
+      expect(isAllowedRole({ name: 'BRANCH ADMIN' })).toBe(false)
+    })
+
     it('rejects BRANCH ADMIN and all unauthorized roles', () => {
       expect(isAllowedRole('BRANCH ADMIN')).toBe(false)
       expect(isAllowedRole('branch admin')).toBe(false)
@@ -132,6 +147,112 @@ describe('Auth Role Guard & Dashboard Protection', () => {
       expect(result).toBe(true)
       expect(authStore.hasPendingTwoFactor).toBe(true)
       expect(authStore.pendingTwoFactor?.role).toBe('HQ_ADMIN')
+    })
+
+    it('handles backend response serialized from PHP Collection with items property', async () => {
+      vi.mocked(authApi.generateToken).mockResolvedValue({
+        success: true,
+        access_token: 'temp_app_token',
+      })
+
+      // Simulates Laravel's (array) collect(...) response format
+      vi.mocked(authApi.loginWithToken).mockResolvedValue({
+        '\u0000*\u0000items': {
+          id: 1,
+          username: 'hq_col_user',
+          role: 'HQ ADMIN',
+          first_name: 'HQ',
+          last_name: 'User',
+          email: 'hq_col@bronx.internal',
+        },
+        success: true,
+        message: 'Two factor auth required',
+      } as any)
+
+      const authStore = useAuthStore()
+      const result = await authStore.login('hq_col_user', 'password123')
+
+      expect(result).toBe(true)
+      expect(authStore.hasPendingTwoFactor).toBe(true)
+      expect(authStore.pendingTwoFactor?.username).toBe('hq_col_user')
+      expect(authStore.pendingTwoFactor?.role).toBe('HQ_ADMIN')
+    })
+
+    it('handles backend response wrapped in Laravel JsonResource (resource: {})', async () => {
+      vi.mocked(authApi.generateToken).mockResolvedValue({
+        success: true,
+        access_token: 'temp_app_token',
+      })
+
+      vi.mocked(authApi.loginWithToken).mockResolvedValue({
+        resource: {
+          id: 302,
+          username: 'ticket_resource_user',
+          role: 'TICKET ADMIN',
+          first_name: 'Ticket',
+          last_name: 'Operator',
+          auth: { access_token: 'resource_ticket_token' },
+        },
+        success: true,
+      } as any)
+
+      const authStore = useAuthStore()
+      const result = await authStore.login('ticket_resource_user', 'password123')
+
+      expect(result).toBe(true)
+      expect(authStore.isAuthenticated).toBe(true)
+      expect(authStore.isTicketAdmin).toBe(true)
+      expect(authStore.token).toBe('resource_ticket_token')
+    })
+
+    it('handles backend response with nested data.user', async () => {
+      vi.mocked(authApi.generateToken).mockResolvedValue({
+        success: true,
+        access_token: 'temp_app_token',
+      })
+
+      vi.mocked(authApi.loginWithToken).mockResolvedValue({
+        data: {
+          user: {
+            id: 303,
+            username: 'nested_ticket_user',
+            role: 'TICKET ADMIN',
+          },
+          access_token: 'nested_user_token',
+        },
+        success: true,
+      } as any)
+
+      const authStore = useAuthStore()
+      const result = await authStore.login('nested_ticket_user', 'password123')
+
+      expect(result).toBe(true)
+      expect(authStore.isAuthenticated).toBe(true)
+      expect(authStore.token).toBe('nested_user_token')
+    })
+
+    it('handles user with role object and roles array', async () => {
+      vi.mocked(authApi.generateToken).mockResolvedValue({
+        success: true,
+        access_token: 'temp_app_token',
+      })
+
+      vi.mocked(authApi.loginWithToken).mockResolvedValue({
+        data: {
+          id: 304,
+          username: 'role_obj_user',
+          role: { id: 1, name: 'TICKET ADMIN' },
+          auth: { access_token: 'role_obj_token' },
+        },
+        success: true,
+      } as any)
+
+      const authStore = useAuthStore()
+      const result = await authStore.login('role_obj_user', 'password123')
+
+      expect(result).toBe(true)
+      expect(authStore.isAuthenticated).toBe(true)
+      expect(authStore.token).toBe('role_obj_token')
     })
   })
 

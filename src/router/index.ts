@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { isAllowedRole, extractUserRole } from '@/stores/authStore'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -66,13 +67,13 @@ router.beforeEach((to) => {
   if (storedUserRaw) {
     try {
       const parsed = JSON.parse(storedUserRaw)
-      userRole = (parsed?.role || '').toString().trim().toUpperCase().replace(/[\s-]+/g, '_')
+      userRole = extractUserRole(parsed) || parsed?.role || ''
     } catch {
       userRole = ''
     }
   }
 
-  const isRoleValid = userRole === 'HQ_ADMIN' || userRole === 'TICKET_ADMIN'
+  const isRoleValid = isAllowedRole(userRole)
   const isAuthenticated = !!token && isRoleValid
 
   // If token exists but user role is unauthorized (e.g. branch_admin), clear tokens immediately

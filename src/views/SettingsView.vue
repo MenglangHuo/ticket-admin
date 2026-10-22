@@ -156,22 +156,6 @@ onMounted(() => {
               </span>
             </button>
           </div>
-
-          <!-- Right: Quick Links / Helper -->
-          <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
-            <button
-              type="button"
-              @click="activeTab = 'subscribers'"
-              class="h-9 px-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-slate-300 dark:hover:border-slate-700 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 text-xs font-medium"
-            >
-              <Users class="w-3.5 h-3.5 text-slate-400" />
-              <span
-                >View Subscribers ({{
-                  settingsStore.totalSubscribersCount || settingsStore.subscribers.length
-                }})</span
-              >
-            </button>
-          </div>
         </div>
 
         <!-- Telegram Bot Config Form Component -->
@@ -238,18 +222,6 @@ onMounted(() => {
               >
                 {{ settingsStore.totalInvitesCount }}
               </span>
-            </button>
-          </div>
-
-          <!-- Right: Return to Subscribers button -->
-          <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
-            <button
-              type="button"
-              @click="activeTab = 'subscribers'"
-              class="h-9 px-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-slate-300 dark:hover:border-slate-700 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 text-xs font-medium"
-            >
-              <Users class="w-3.5 h-3.5 text-slate-400" />
-              <span>View Subscribers</span>
             </button>
           </div>
         </div>

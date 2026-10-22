@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --mode development",
+    "dev": "vite --mode localdev",
+    "dev:local": "vite --mode localdev",
+    "dev:dev": "vite --mode development",
+    "dev:uat": "vite --mode development",
     "dev:prod": "vite --mode production",
     "dev:mock": "vite --mode mock",
     "build": "run-s type-check \"build-only -- --mode production {@}\" --",

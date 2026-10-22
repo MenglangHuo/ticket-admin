@@ -335,6 +335,21 @@ export const telegramApi = {
     )
     return response.data
   },
+
+  /**
+   * Broadcast migration link to active subscribers via previous bot token.
+   * Endpoint: POST /ticket/telegram/broadcast-migration
+   */
+  async broadcastMigration(params?: {
+    old_bot_token?: string
+    new_bot_username?: string
+  }): Promise<{ success: boolean; message: string; data: any }> {
+    const response = await apiClient.post<{ success: boolean; message: string; data: any }>(
+      '/ticket/telegram/broadcast-migration',
+      params || {},
+    )
+    return response.data
+  },
 }
 
 export default telegramApi

@@ -36,15 +36,18 @@ import {
 const themeStore = useThemeStore()
 const toastStore = useToastStore()
 
-const form = reactive({
-  title: '',
-  description: '',
+const DEFAULT_FORM_VALUES = {
+  title: 'Fix issue on Dashboard UI',
+  description:
+    '<p>Encountered an issue with Dashboard UI rendering. Steps to reproduce: 1. Open Dashboard. 2. Observe UI glitch.</p>',
   type: 'bug' as 'bug' | 'enhancement' | 'question' | 'task',
   priority: 'high' as 'low' | 'medium' | 'high' | 'critical',
-  reporter_name: '',
-  reporter_email: '',
-  reporter_phone: '',
-})
+  reporter_name: 'menglang',
+  reporter_email: 'menglanghuo@gmail.com',
+  reporter_phone: '099191919',
+}
+
+const form = reactive({ ...DEFAULT_FORM_VALUES })
 
 interface AttachedFileItem {
   id: string
@@ -288,6 +291,16 @@ async function handleSubmit() {
 }
 
 function resetForm() {
+  Object.assign(form, DEFAULT_FORM_VALUES)
+  attachedFiles.value.forEach((item) => {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  })
+  attachedFiles.value = []
+  submittedTicket.value = null
+  errorMessage.value = null
+}
+
+function clearForm() {
   form.title = ''
   form.description = ''
   form.type = 'bug'
@@ -299,7 +312,6 @@ function resetForm() {
     if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
   })
   attachedFiles.value = []
-  submittedTicket.value = null
   errorMessage.value = null
 }
 </script>
@@ -833,15 +845,25 @@ function resetForm() {
                 <span>{{ isSubmitting ? 'Submitting Ticket...' : 'Submit Support Ticket' }}</span>
               </button>
 
-              <!-- Reset Form Button -->
-              <button
-                type="button"
-                @click="resetForm"
-                :disabled="isSubmitting"
-                class="w-full py-2 px-3 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer text-center"
-              >
-                Clear form fields
-              </button>
+              <!-- Form Field Actions -->
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  @click="clearForm"
+                  :disabled="isSubmitting"
+                  class="flex-1 py-2 px-3 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer text-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Clear form fields
+                </button>
+                <button
+                  type="button"
+                  @click="resetForm"
+                  :disabled="isSubmitting"
+                  class="flex-1 py-2 px-3 text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors cursor-pointer text-center rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                >
+                  Reset defaults
+                </button>
+              </div>
 
               <!-- SLA Guarantee -->
               <div

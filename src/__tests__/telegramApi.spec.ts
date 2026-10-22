@@ -306,7 +306,7 @@ describe('telegramApi getBotInfo and updateBotConfig endpoints', () => {
         bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
         bot_token_masked: '54535517...cfs4',
         bot_username: 'menglang6969Bot',
-        chat_id: '-1004247055582',
+        chat_id: '',
         webhook_secret: 'BronxTelegramSecret2026Key99',
         invite_expiry_days: 7,
         is_active: true,
@@ -327,7 +327,7 @@ describe('telegramApi getBotInfo and updateBotConfig endpoints', () => {
     expect(getSpy).toHaveBeenCalledWith('/ticket/telegram/info')
     expect(res.success).toBe(true)
     expect(res.data.bot_username).toBe('menglang6969Bot')
-    expect(res.data.chat_id).toBe('-1004247055582')
+    expect(res.data.chat_id).toBe('')
     expect(res.data.bot_token_masked).toBe('54535517...cfs4')
   })
 
@@ -335,9 +335,6 @@ describe('telegramApi getBotInfo and updateBotConfig endpoints', () => {
     const payload = {
       bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
       bot_username: 'menglang6969Bot',
-      chat_id: '-1004247055582',
-      webhook_secret: 'BronxTelegramSecret2026Key99',
-      invite_expiry_days: 7,
       is_active: true,
     }
 
@@ -350,9 +347,9 @@ describe('telegramApi getBotInfo and updateBotConfig endpoints', () => {
         bot_token: payload.bot_token,
         bot_token_masked: '54535517...cfs4',
         bot_username: payload.bot_username,
-        chat_id: payload.chat_id,
-        webhook_secret: payload.webhook_secret,
-        invite_expiry_days: payload.invite_expiry_days,
+        chat_id: '',
+        webhook_secret: 'BronxTelegramSecret2026Key99',
+        invite_expiry_days: 7,
         is_active: payload.is_active,
         is_configured: true,
         source: 'database',
@@ -371,7 +368,7 @@ describe('telegramApi getBotInfo and updateBotConfig endpoints', () => {
     expect(putSpy).toHaveBeenCalledWith('/ticket/telegram/config', payload)
     expect(res.success).toBe(true)
     expect(res.data.bot_username).toBe('menglang6969Bot')
-    expect(res.data.chat_id).toBe('-1004247055582')
+    expect(res.data.chat_id).toBe('')
   })
 
   it('settingsStore fetchBotInfo and updateBotConfig update store state', async () => {
@@ -383,7 +380,7 @@ describe('telegramApi getBotInfo and updateBotConfig endpoints', () => {
       bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
       bot_token_masked: '54535517...cfs4',
       bot_username: 'menglang6969Bot',
-      chat_id: '-1004247055582',
+      chat_id: '',
       webhook_secret: 'BronxTelegramSecret2026Key99',
       invite_expiry_days: 7,
       is_active: true,

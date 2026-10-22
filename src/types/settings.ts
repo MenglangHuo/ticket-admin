@@ -22,6 +22,23 @@ export interface TelegramBotConfig {
   deliverySuccessRate: number
 }
 
+export interface TelegramMigrationInfo {
+  mode: 'token_updated_same_bot' | 'new_bot_migrated' | string
+  action_required: boolean
+  is_new_bot?: boolean
+  message: string
+  subscriber_rejoin_link?: string | null
+  rejoin_link?: string | null
+  invite_url?: string | null
+  migration_url?: string | null
+  stats?: {
+    total_subscribers: number
+    sent: number
+    failed: number
+    errors?: string[]
+  }
+}
+
 export interface TelegramBotInfo {
   id?: number
   company_id?: number
@@ -35,6 +52,11 @@ export interface TelegramBotInfo {
   is_configured?: boolean
   source?: string
   telegram_object?: Record<string, any> | null
+  migration?: TelegramMigrationInfo | null
+  subscriber_rejoin_link?: string | null
+  rejoin_link?: string | null
+  invite_url?: string | null
+  migration_url?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -42,10 +64,11 @@ export interface TelegramBotInfo {
 export interface TelegramBotConfigPayload {
   bot_token?: string
   bot_username: string
-  chat_id: string
+  chat_id?: string
   webhook_secret?: string
-  invite_expiry_days: number
-  is_active: boolean
+  invite_expiry_days?: number
+  is_active?: boolean
+  notify_migration?: boolean
 }
 
 export interface TelegramBotInfoResponse {

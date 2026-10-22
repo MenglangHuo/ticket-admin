@@ -126,6 +126,11 @@ apiClient.interceptors.request.use(
     if (token && config.headers && isInternalUrl(config.url, config.baseURL)) {
       config.headers.Authorization = `Bearer ${token}`
     }
+
+    // Log outgoing endpoint call to API
+    const targetEndpoint = `${config.baseURL || ''}${config.url || ''}`
+    console.log(`📡 [API Call] ${config.method?.toUpperCase() || 'GET'} ${targetEndpoint}`)
+
     return config
   },
   (error) => {
@@ -135,8 +140,20 @@ apiClient.interceptors.request.use(
 
 // Response interceptor: handle 401 unauthorized & 403 forbidden
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const targetEndpoint = `${response.config.baseURL || ''}${response.config.url || ''}`
+    console.log(
+      `✅ [API Response] ${response.status} ${response.config.method?.toUpperCase() || 'GET'} ${targetEndpoint}`,
+    )
+    return response
+  },
   (error) => {
+    const targetEndpoint = `${error.config?.baseURL || ''}${error.config?.url || ''}`
+    console.warn(
+      `❌ [API Error] ${error.response?.status || 'Network Error'} ${error.config?.method?.toUpperCase() || 'GET'} ${targetEndpoint}`,
+      error.response?.data || error.message,
+    )
+
     const status = error.response?.status
     if (status === 401 || status === 403) {
       if (window.location.pathname === '/client-ticket') {

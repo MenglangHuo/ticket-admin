@@ -11,7 +11,7 @@ const mockBotInfo: TelegramBotInfo = {
   bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
   bot_token_masked: '54535517...cfs4',
   bot_username: 'menglang6969Bot',
-  chat_id: '-1004247055582',
+  chat_id: '',
   webhook_secret: 'BronxTelegramSecret2026Key99',
   invite_expiry_days: 7,
   is_active: true,
@@ -57,7 +57,7 @@ describe('TelegramBotConfigForm.vue', () => {
     expect(expiryInput.exists()).toBe(false)
 
     // chat_id and webhook_secret fields
-    const chatIdInput = wrapper.find('input[placeholder="-1004247055582"]')
+    const chatIdInput = wrapper.find('input[placeholder=""]')
     expect(chatIdInput.exists()).toBe(false)
     const secretInput = wrapper.find('input[placeholder="BronxTelegramSecret2026Key99"]')
     expect(secretInput.exists()).toBe(false)
@@ -108,14 +108,13 @@ describe('TelegramBotConfigForm.vue', () => {
     expect(wrapper.text()).toContain('Configuration synced with server')
   })
 
-  it('submits updateBotConfig with updated payload and defaults invite_expiry_days to 7 in background', async () => {
+  it('submits updateBotConfig with updated payload and omits static server-managed fields (chat_id, webhook_secret, invite_expiry_days)', async () => {
     const store = useSettingsStore()
-    store.botInfo = { ...mockBotInfo, invite_expiry_days: 7 }
+    store.botInfo = { ...mockBotInfo }
 
     const updateSpy = vi.spyOn(store, 'updateBotConfig').mockResolvedValueOnce({
       ...mockBotInfo,
       bot_username: 'updated69Bot',
-      invite_expiry_days: 7,
     })
 
     const wrapper = mount(TelegramBotConfigForm)
@@ -129,9 +128,6 @@ describe('TelegramBotConfigForm.vue', () => {
     expect(updateSpy).toHaveBeenCalledWith({
       bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
       bot_username: 'updated69Bot',
-      chat_id: '-1004247055582',
-      webhook_secret: 'BronxTelegramSecret2026Key99',
-      invite_expiry_days: 7,
       is_active: true,
     })
 

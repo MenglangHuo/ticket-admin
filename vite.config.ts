@@ -8,29 +8,95 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const port = Number(env.VITE_PORT) || 4000
-  // Default proxy target is strictly for local development (127.0.0.1:8000).
-  // In production / preview, backend domains must be supplied via environment variables
-  // (e.g. VITE_PROXY_TARGET in .env.production or CI/CD) to prevent domain lock-in.
-  const defaultProxyTarget = mode === 'development' ? 'http://127.0.0.1:8000' : ''
 
-  let rawProxyTarget = (
+  const port = Number(env.VITE_PORT) || Number(env.PORT) || 4000
+  const host = env.VITE_HOST || (env.HOST ? env.HOST : undefined)
+
+  // Determine whether running in mock sandbox mode
+  const isMock =
+    mode === 'mock' ||
+    env.VITE_APP_ENV === 'mock' ||
+    env.VITE_ENABLE_MOCK_DATA === 'true' ||
+    env.VITE_USE_MOCK_DATA === 'true'
+
+  // Reverse proxy is enabled by default unless explicitly disabled or running mock mode
+  const useReverseProxy = env.VITE_USE_PROXY !== 'false' && !isMock
+
+  // Check if current mode is a development/local environment
+  const isDevLikeMode =
+    mode === 'development' ||
+    mode === 'localdev' ||
+    mode === 'local' ||
+    mode === 'dev' ||
+    env.VITE_APP_ENV === 'local' ||
+    env.VITE_APP_ENV === 'development'
+
+  // Default proxy target for local development
+  const defaultProxyTarget = isDevLikeMode && useReverseProxy ? 'http://127.0.0.1:8000' : ''
+
+  // Clean explicit proxy target from environment variables
+  const explicitTarget = (
     env.VITE_PROXY_TARGET ||
     env.PROXY_TARGET ||
-    (env.VITE_AUTH_BASE_URL && env.VITE_AUTH_BASE_URL.startsWith('http') ? env.VITE_AUTH_BASE_URL : '') ||
-    (env.VITE_API_BASE_URL && env.VITE_API_BASE_URL.startsWith('http') ? env.VITE_API_BASE_URL.replace(/\/api(\/.*)?$/, '') : '') ||
-    defaultProxyTarget
-  ).trim().replace(/\/+$/, '')
+    (env.VITE_AUTH_BASE_URL && env.VITE_AUTH_BASE_URL.startsWith('http')
+      ? env.VITE_AUTH_BASE_URL
+      : '') ||
+    (env.VITE_API_BASE_URL && env.VITE_API_BASE_URL.startsWith('http')
+      ? env.VITE_API_BASE_URL.replace(/\/api(\/.*)?$/, '')
+      : '') ||
+    ''
+  ).trim()
+
+  let rawProxyTarget = useReverseProxy
+    ? (explicitTarget || defaultProxyTarget).trim().replace(/\/+$/, '')
+    : ''
 
   if (rawProxyTarget && !/^https?:\/\//i.test(rawProxyTarget)) {
-    rawProxyTarget = `http://${rawProxyTarget}`
+    rawProxyTarget = /^localhost|^127\.0\.0\.1|:\d+$/i.test(rawProxyTarget)
+      ? `http://${rawProxyTarget}`
+      : `https://${rawProxyTarget}`
   }
   const proxyTarget = rawProxyTarget
 
+  console.log(
+    `[vite] Mode: ${mode} | Port: ${port} | Env: ${env.VITE_APP_ENV || mode} | Mock: ${isMock ? 'Enabled' : 'Disabled'}`,
+  )
   if (proxyTarget) {
     console.log(`[vite] Reverse proxy target: ${proxyTarget}`)
   } else {
-    console.log('[vite] No reverse proxy target configured (same-origin / relative mode)')
+    console.log('[vite] Reverse proxy: Disabled (same-origin / relative mode)')
+  }
+
+  // SPA navigation bypass for browser page requests on routes that overlap with API endpoints (/login, /two-factor)
+  const bypassHtml = (req: any) => {
+    if (req.headers && req.headers.accept && req.headers.accept.includes('text/html')) {
+      return '/index.html'
+    }
+  }
+
+  // Graceful proxy error handler and endpoint call logger
+  const configureProxyLogging = (proxy: any) => {
+    proxy.on('proxyReq', (_proxyReq: any, req: any) => {
+      console.log(`[vite:proxy] -> ${req.method} ${req.url} -> ${proxyTarget}${req.url}`)
+    })
+    proxy.on('proxyRes', (proxyRes: any, req: any) => {
+      console.log(`[vite:proxy] <- [${proxyRes.statusCode}] ${req.method} ${req.url}`)
+    })
+    proxy.on('error', (err: any, req: any, res: any) => {
+      console.warn(
+        `[vite:proxy] Proxy error: ${req.method} ${req.url} -> ${proxyTarget} (${err.code || err.message})`,
+      )
+      if (res.writeHead && !res.headersSent) {
+        res.writeHead(502, { 'Content-Type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            success: false,
+            message: `Backend proxy target unreachable (${proxyTarget}). Ensure your backend service is running.`,
+            error: err.code || err.message,
+          }),
+        )
+      }
+    })
   }
 
   const proxyConfig = proxyTarget
@@ -39,38 +105,49 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true,
           secure: false,
+          ws: true,
+          configure: configureProxyLogging,
         },
         '/token': {
           target: proxyTarget,
           changeOrigin: true,
           secure: false,
+          configure: configureProxyLogging,
         },
         '/login': {
           target: proxyTarget,
           changeOrigin: true,
           secure: false,
+          bypass: bypassHtml,
+          configure: configureProxyLogging,
         },
         '/two-factor': {
           target: proxyTarget,
           changeOrigin: true,
           secure: false,
+          bypass: bypassHtml,
+          configure: configureProxyLogging,
         },
         '/files': {
           target: proxyTarget,
           changeOrigin: true,
           secure: false,
+          configure: configureProxyLogging,
+        },
+        '/storage': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+          configure: configureProxyLogging,
         },
       }
     : undefined
 
   return {
-    plugins: [
-      vue(),
-      vueDevTools(),
-      tailwindcss(),
-    ],
+    plugins: [vue(), vueDevTools(), tailwindcss()],
     server: {
       port,
+      host,
       headers: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
@@ -81,6 +158,7 @@ export default defineConfig(({ mode }) => {
     },
     preview: {
       port,
+      host,
       headers: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
@@ -96,19 +174,19 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (id.includes('node_modules')) {
               if (id.includes('@tiptap') || id.includes('prosemirror')) {
-                return 'vendor-tiptap';
+                return 'vendor-tiptap'
               }
               if (id.includes('@lezer')) {
-                return 'vendor-lezer';
+                return 'vendor-lezer'
               }
               if (id.includes('codemirror') || id.includes('vue-codemirror6')) {
-                return 'vendor-codemirror';
+                return 'vendor-codemirror'
               }
               if (id.includes('lucide-vue-next')) {
-                return 'vendor-icons';
+                return 'vendor-icons'
               }
               if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router')) {
-                return 'vendor-vue';
+                return 'vendor-vue'
               }
             }
           },

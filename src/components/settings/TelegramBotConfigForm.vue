@@ -4,7 +4,6 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { TelegramBotConfigPayload } from '@/types/settings'
 import {
-  Bot,
   Key,
   RotateCcw,
   RotateCw,
@@ -12,12 +11,12 @@ import {
   Copy,
   Eye,
   EyeOff,
-  ExternalLink,
   AlertCircle,
-  Database,
   Save,
   CheckCircle2,
   ShieldCheck,
+  ExternalLink,
+  X,
 } from 'lucide-vue-next'
 
 const emit = defineEmits<{
@@ -28,16 +27,15 @@ const emit = defineEmits<{
 const settingsStore = useSettingsStore()
 const toastStore = useToastStore()
 
-// Default background invite expiry duration (7 days)
-const DEFAULT_INVITE_EXPIRY_DAYS = 7
-
 // Local editable form state — keeping only bot_username and bot_token
 const form = ref<{
   bot_username: string
   bot_token: string
+  is_active?: boolean
 }>({
   bot_username: '',
   bot_token: '',
+  is_active: true,
 })
 
 // UI state
@@ -54,6 +52,7 @@ function populateFromStore() {
   form.value = {
     bot_username: info.bot_username || '',
     bot_token: info.bot_token || '',
+    is_active: true,
   }
   initialSnapshot.value = JSON.stringify(form.value)
   validationErrors.value = {}
@@ -83,6 +82,27 @@ const isDirty = computed(() => {
   return JSON.stringify(form.value) !== initialSnapshot.value
 })
 
+// Check if a new bot username is being configured
+const isNewBotDetected = computed(() => {
+  const current = (settingsStore.botInfo?.bot_username || '').trim().replace(/^@/, '').toLowerCase()
+  const entered = form.value.bot_username.trim().replace(/^@/, '').toLowerCase()
+  return Boolean(current && entered && current !== entered)
+})
+
+interface MigrationNotice {
+  message: string
+  url: string
+  stats?: {
+    total_subscribers?: number
+    sent?: number
+    failed?: number
+    errors?: string[]
+  }
+}
+
+// One-time banner state: shown only right after replacing with a new bot; hidden on refresh or dismiss
+const migrationNotice = ref<MigrationNotice | null>(null)
+
 // Validation
 function validateForm(): boolean {
   const errors: { [key: string]: string } = {}
@@ -108,19 +128,48 @@ async function handleSave() {
   try {
     const currentInfo = settingsStore.botInfo
 
-    // Construct full payload, preserving background parameters and defaulting invite_expiry_days to 7
+    // Construct payload containing only user-managed bot credentials and active status.
+    // Static server-side parameters (chat_id, webhook_secret, invite_expiry_days) are not sent to the API.
     const payload: TelegramBotConfigPayload = {
-      bot_token: (form.value.bot_token || '').trim() || currentInfo?.bot_token || undefined,
       bot_username: form.value.bot_username.trim().replace(/^@/, ''),
-      chat_id: currentInfo?.chat_id || '-1004247055582',
-      webhook_secret: currentInfo?.webhook_secret || undefined,
-      invite_expiry_days: currentInfo?.invite_expiry_days ?? DEFAULT_INVITE_EXPIRY_DAYS,
       is_active: currentInfo?.is_active ?? true,
+    }
+
+    const token = (form.value.bot_token || '').trim() || currentInfo?.bot_token
+    if (token) {
+      payload.bot_token = token
     }
 
     const updated = await settingsStore.updateBotConfig(payload)
     if (updated) {
       initialSnapshot.value = JSON.stringify(form.value)
+
+      // Only display the 1-click rejoin link ONETIME right after replacing with a new bot
+      const rejoinLink =
+        updated.subscriber_rejoin_link ||
+        updated.rejoin_link ||
+        updated.migration?.subscriber_rejoin_link ||
+        updated.migration?.rejoin_link ||
+        updated.migration?.migration_url ||
+        updated.migration_url ||
+        updated.invite_url ||
+        (updated.migration?.mode === 'new_bot_migrated' && updated.bot_username
+          ? `https://t.me/${updated.bot_username.trim().replace(/^@/, '')}`
+          : null)
+
+      if (updated.migration?.mode === 'new_bot_migrated' && rejoinLink) {
+        migrationNotice.value = {
+          message:
+            updated.migration.message ||
+            `New bot @${updated.bot_username || form.value.bot_username} configured. Existing subscribers must click this link to join the new bot.`,
+          url: rejoinLink,
+          stats: updated.migration.stats,
+        }
+      } else {
+        // Normal save or same bot token rotated: no rejoin banner needed
+        migrationNotice.value = null
+      }
+
       emit('saved')
     }
   } catch (err: any) {
@@ -139,6 +188,7 @@ async function handleRefresh() {
   try {
     await settingsStore.fetchBotInfo(true)
     populateFromStore()
+    migrationNotice.value = null
     toastStore.success('Refreshed', 'Telegram bot configuration refreshed from server.')
   } catch (err: any) {
     toastStore.error('Refresh Failed', err?.message || 'Failed to refresh bot info.')
@@ -191,96 +241,6 @@ async function copyValue(val: string, key: string, label: string) {
 <template>
   <div class="space-y-6 w-full animate-fade-in">
     <!-- Top Summary & Control Strip -->
-    <div
-      class="p-4 sm:p-6 rounded-2xl bg-slate-50/60 dark:bg-slate-950/40 border border-slate-200/80 dark:border-slate-800/80 transition-all"
-    >
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <!-- Title & Badges -->
-        <div class="flex items-start sm:items-center gap-3.5 min-w-0">
-          <div
-            class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-sky-50 dark:bg-sky-500/15 border border-sky-200/90 dark:border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0 shadow-xs shadow-sky-500/10"
-          >
-            <Bot class="w-6 h-6" />
-          </div>
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate">
-                Telegram Bot Configuration
-              </h2>
-
-              <!-- Status Badge (Active / Inactive) -->
-              <span
-                v-if="settingsStore.botInfo?.is_active ?? true"
-                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200/90 dark:border-emerald-500/20"
-              >
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Bot Active
-              </span>
-              <span
-                v-else
-                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200/90 dark:border-amber-500/20"
-              >
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                Bot Paused
-              </span>
-
-              <!-- Configured Badge -->
-              <span
-                v-if="settingsStore.botInfo?.is_configured"
-                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200/90 dark:border-blue-500/20"
-              >
-                <ShieldCheck class="w-3.5 h-3.5 text-blue-500" />
-                Configured
-              </span>
-
-              <!-- Source Pill -->
-              <span
-                v-if="settingsStore.botInfo?.source"
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700"
-              >
-                <Database class="w-3 h-3 text-slate-400" />
-                {{ settingsStore.botInfo.source }}
-              </span>
-            </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              Configure your Telegram bot username and API token for real-time ticket alerts.
-            </p>
-          </div>
-        </div>
-
-        <!-- Quick Top Actions -->
-        <div class="flex items-center gap-2 self-start lg:self-auto shrink-0 flex-wrap">
-          <!-- Refresh Button -->
-          <button
-            type="button"
-            @click="handleRefresh"
-            :disabled="settingsStore.isBotInfoLoading"
-            class="h-9 px-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 hover:border-sky-300 dark:hover:border-sky-800 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 text-xs font-medium disabled:opacity-50"
-            title="Reload configuration from server"
-          >
-            <RotateCw
-              class="w-3.5 h-3.5 text-slate-400"
-              :class="{ 'animate-spin': settingsStore.isBotInfoLoading }"
-            />
-            <span>Refresh</span>
-          </button>
-
-          <!-- Open in Telegram Button -->
-          <a
-            v-if="form.bot_username"
-            :href="`https://t.me/${form.bot_username.trim().replace(/^@/, '')}`"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="h-9 px-3.5 rounded-xl border border-sky-200/90 dark:border-sky-500/30 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 text-xs font-semibold group"
-            title="Open bot conversation on Telegram"
-          >
-            <Bot class="w-3.5 h-3.5 text-sky-500 group-hover:scale-110 transition-transform" />
-            <span>@{{ form.bot_username.trim().replace(/^@/, '') }}</span>
-            <ExternalLink class="w-3 h-3 text-sky-400" />
-          </a>
-        </div>
-      </div>
-    </div>
 
     <!-- Loading Skeleton State -->
     <div
@@ -321,15 +281,110 @@ async function copyValue(val: string, key: string, label: string) {
         class="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-6"
       >
         <div class="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-          <div class="flex items-center gap-2">
-            <Key class="w-4 h-4 text-indigo-500" />
-            <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-              Bot Information & Authentication
-            </h3>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <Key class="w-4 h-4 text-indigo-500" />
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Bot Information & Authentication
+              </h3>
+            </div>
+            <!-- Status badges -->
+            <div class="flex items-center gap-2">
+              <span
+                v-if="settingsStore.botInfo?.is_active"
+                class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60"
+              >
+                <CheckCircle2 class="w-3 h-3" />
+                Bot Active
+              </span>
+              <span
+                v-if="settingsStore.botInfo?.is_configured"
+                class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 border border-sky-200/80 dark:border-sky-800/60"
+              >
+                <ShieldCheck class="w-3 h-3" />
+                Configured
+              </span>
+            </div>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Specify your Telegram bot username and secret API authentication token.
           </p>
+        </div>
+
+        <!-- One-time Migration Status & Subscriber Link Card (shown only right after replacing bot) -->
+        <div
+          v-if="migrationNotice"
+          class="p-4 sm:p-5 rounded-2xl text-xs space-y-3.5 border bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/80 text-emerald-950 dark:text-emerald-100 shadow-xs animate-fade-in"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <CheckCircle2 class="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span class="font-bold text-[13px] text-emerald-900 dark:text-emerald-100">
+                  {{ migrationNotice.message }}
+                </span>
+              </div>
+              <p class="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 leading-relaxed pl-6">
+                Under Telegram platform rules, a new bot cannot send direct messages to users until they start a chat with it. Please copy and share this link to all existing subscribers so they can connect with your new bot.
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span
+                v-if="migrationNotice.stats?.sent"
+                class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 font-semibold text-emerald-700 dark:text-emerald-300"
+              >
+                {{ migrationNotice.stats.sent }} subscribers notified via old bot
+              </span>
+              <button
+                type="button"
+                @click="migrationNotice = null"
+                class="p-1 rounded-lg text-emerald-700/60 hover:text-emerald-800 dark:text-emerald-400/60 dark:hover:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer"
+                title="Dismiss notice"
+              >
+                <X class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Migration Clickable Link Row -->
+          <div
+            v-if="migrationNotice.url"
+            class="pt-3 border-t border-emerald-200/70 dark:border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          >
+            <div class="space-y-1 min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-200 font-semibold">
+                <span>Subscriber Rejoin Link:</span>
+                <span class="text-[10px] font-normal text-emerald-700 dark:text-emerald-400">(Copy and share this to all existing subscribers)</span>
+              </div>
+              <div class="p-2 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200/80 dark:border-emerald-800/50">
+                <p class="font-mono text-xs text-emerald-700 dark:text-emerald-300 truncate select-all">
+                  {{ migrationNotice.url }}
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                @click="copyValue(migrationNotice.url, 'migration_link', 'Subscriber Rejoin Link')"
+                class="h-9 px-3.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 shadow-2xs transition-all"
+              >
+                <Check v-if="copiedKey === 'migration_link'" class="w-3.5 h-3.5 text-emerald-500" />
+                <Copy v-else class="w-3.5 h-3.5" />
+                <span>{{ copiedKey === 'migration_link' ? 'Copied Link' : 'Copy Link' }}</span>
+              </button>
+
+              <a
+                :href="migrationNotice.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 shadow-xs transition-all"
+              >
+                <span>Open in Telegram</span>
+                <ExternalLink class="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -386,6 +441,14 @@ async function copyValue(val: string, key: string, label: string) {
             </p>
             <p v-else class="text-[11px] text-slate-500 dark:text-slate-400">
               Unique handle identifying your Telegram bot in notifications and staff invite links.
+            </p>
+
+            <p
+              v-if="isNewBotDetected"
+              class="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium mt-1"
+            >
+              <AlertCircle class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>Switching bots will automatically send a 1-click migration invite to active subscribers via your current bot.</span>
             </p>
           </div>
 

@@ -58,7 +58,7 @@ describe('useAuthStore Login Pipeline', () => {
     expect(localStorage.getItem('bronx_access_token')).toBe('final_passport_hq_token')
   })
 
-  it('does NOT call two-factor endpoint when role is BRANCH ADMIN', async () => {
+  it('rejects login when role is unauthorized BRANCH ADMIN', async () => {
     const authStore = useAuthStore()
 
     vi.spyOn(authApi, 'generateToken').mockResolvedValue({
@@ -86,12 +86,10 @@ describe('useAuthStore Login Pipeline', () => {
 
     const result = await authStore.login('branch_user', 'secret123')
 
-    expect(result).toBe(true)
+    expect(result).toBe(false)
     expect(twoFactorSpy).not.toHaveBeenCalled()
-    expect(authStore.token).toBe('branch_passport_token_456')
-    expect(authStore.user?.role).toBe('BRANCH ADMIN')
-    expect(authStore.isBranch).toBe(true)
-    expect(localStorage.getItem('bronx_access_token')).toBe('branch_passport_token_456')
+    expect(authStore.token).toBeNull()
+    expect(localStorage.getItem('bronx_access_token')).toBeNull()
   })
 
   it('does NOT call two-factor endpoint when role is TICKET ADMIN', async () => {
@@ -187,11 +185,11 @@ describe('useAuthStore Login Pipeline', () => {
         username: 'custom_operator',
         first_name: 'Custom',
         last_name: 'Op',
-        role: 'BRANCH ADMIN',
+        role: 'TICKET ADMIN',
         company_id: 1,
         auth: {
           token_type: 'Bearer',
-          access_token: 'wrapped_branch_token',
+          access_token: 'wrapped_ticket_token',
         },
       },
       success: true,
@@ -203,8 +201,8 @@ describe('useAuthStore Login Pipeline', () => {
 
     expect(result).toBe(true)
     expect(twoFactorSpy).not.toHaveBeenCalled()
-    expect(authStore.token).toBe('wrapped_branch_token')
-    expect(authStore.user?.role).toBe('BRANCH ADMIN')
+    expect(authStore.token).toBe('wrapped_ticket_token')
+    expect(authStore.user?.role).toBe('TICKET ADMIN')
   })
 
   it('sets error and returns false if login fails', async () => {

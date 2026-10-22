@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_APP_ENV?: 'development' | 'production' | 'mock';
   readonly VITE_PORT?: string;
+  readonly VITE_HOST?: string;
   readonly VITE_PROXY_TARGET?: string;
   readonly VITE_API_BASE_URL?: string;
   readonly VITE_AUTH_BASE_URL?: string;

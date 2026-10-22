@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import mockService from '@/mocks/mockService'
 
-export type AppEnvironmentKey = 'development' | 'production' | 'mock' | 'custom'
+export type AppEnvironmentKey = 'local' | 'development' | 'production' | 'mock' | 'custom'
 
 export interface EnvironmentProfile {
   key: AppEnvironmentKey
@@ -24,15 +24,27 @@ export const STORAGE_KEY_CUSTOM_AUTH_URL = 'bronx_custom_auth_url'
  * Fallback preset URLs based on environment configurations
  */
 const DEFAULT_PRESETS = {
-  development: {
-    key: 'development' as const,
-    name: 'Development (Local)',
+  local: {
+    key: 'local' as const,
+    name: 'Local (127.0.0.1:8000)',
     shortLabel: 'Local Dev',
     description: 'Local development server with Vite reverse proxy',
     apiBaseUrl: '/api',
     authBaseUrl: '',
     proxyTarget: 'http://127.0.0.1:8000',
     color: 'emerald' as const,
+    isProduction: false,
+    isMock: false,
+  },
+  development: {
+    key: 'development' as const,
+    name: 'Development (UAT)',
+    shortLabel: 'UAT / Dev',
+    description: 'UAT testing domain with Vite reverse proxy',
+    apiBaseUrl: '/api',
+    authBaseUrl: '',
+    proxyTarget: undefined,
+    color: 'amber' as const,
     isProduction: false,
     isMock: false,
   },
@@ -87,7 +99,9 @@ export function getBuildDefaultEnvironment(): AppEnvironmentKey {
   const envKey = (import.meta.env.VITE_APP_ENV || import.meta.env.MODE || '').toLowerCase()
   if (envKey === 'production' || envKey === 'prod') return 'production'
   if (envKey === 'mock') return 'mock'
-  return 'development'
+  if (envKey === 'local' || envKey === 'localdev') return 'local'
+  if (envKey === 'development' || envKey === 'uat' || envKey === 'staging') return 'development'
+  return 'local'
 }
 
 /**
@@ -110,21 +124,24 @@ export function getStoredEnvironment(): AppEnvironmentKey {
     if (
       stored === 'production' &&
       (defaultEnv === 'development' ||
+        defaultEnv === 'local' ||
         envKey === 'development' ||
-        import.meta.env.MODE === 'development')
+        envKey === 'local' ||
+        import.meta.env.MODE === 'development' ||
+        import.meta.env.MODE === 'localdev')
     ) {
       localStorage.removeItem(STORAGE_KEY_ENV)
-      return 'development'
+      return defaultEnv
     }
 
-    if (stored && ['development', 'production', 'mock', 'custom'].includes(stored)) {
+    if (stored && ['local', 'development', 'production', 'mock', 'custom'].includes(stored)) {
       return stored
     }
     return defaultEnv
   }
 
   const stored = localStorage.getItem(STORAGE_KEY_ENV) as AppEnvironmentKey | null
-  if (stored && ['development', 'production', 'mock', 'custom'].includes(stored)) {
+  if (stored && ['local', 'development', 'production', 'mock', 'custom'].includes(stored)) {
     return stored
   }
   return defaultEnv
@@ -184,6 +201,19 @@ export function resolveEnvironmentProfile(
   customAuth?: string,
 ): EnvironmentProfile {
   const preset = DEFAULT_PRESETS[key]
+
+  if (key === 'local') {
+    const rawApiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+    const rawAuthBase = (import.meta.env.VITE_AUTH_BASE_URL as string | undefined)?.trim()
+    const rawProxy = (import.meta.env.VITE_PROXY_TARGET as string | undefined)?.trim()
+
+    return {
+      ...preset,
+      apiBaseUrl: rawApiBase || '/api',
+      authBaseUrl: rawAuthBase || '',
+      proxyTarget: rawProxy || preset.proxyTarget || 'http://127.0.0.1:8000',
+    }
+  }
 
   if (key === 'development') {
     const rawApiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
@@ -394,7 +424,7 @@ export function resetEnvironmentToDefault(clearSession = false): EnvironmentProf
  * List all available preset environments
  */
 export function getAvailableEnvironments(): EnvironmentProfile[] {
-  return (['development', 'production', 'mock', 'custom'] as AppEnvironmentKey[]).map((key) =>
-    resolveEnvironmentProfile(key, customApiUrlRef.value, customAuthUrlRef.value),
+  return (['local', 'development', 'production', 'mock', 'custom'] as AppEnvironmentKey[]).map(
+    (key) => resolveEnvironmentProfile(key, customApiUrlRef.value, customAuthUrlRef.value),
   )
 }
