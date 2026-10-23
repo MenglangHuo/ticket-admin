@@ -827,17 +827,6 @@ defineExpose({
                         >
                           <ZoomIn class="w-3 h-3" />
                         </button>
-                        <a
-                          :href="safeUrl(att.url)"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download
-                          class="p-0.5 rounded bg-white/20 hover:bg-white/35 text-white transition-colors cursor-pointer"
-                          title="Download image"
-                          @click.stop
-                        >
-                          <Download class="w-3 h-3" />
-                        </a>
                       </div>
                     </div>
 
@@ -853,16 +842,6 @@ defineExpose({
                       <span v-if="att.sizeText" class="text-[9px] opacity-75">
                         {{ att.sizeText }}
                       </span>
-                      <a
-                        :href="safeUrl(att.url)"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download
-                        class="p-0.5 rounded transition-colors text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                        title="Download"
-                      >
-                        <Download class="w-2.5 h-2.5" />
-                      </a>
                     </div>
                   </template>
                 </div>
@@ -873,10 +852,7 @@ defineExpose({
                 class="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500 shrink-0 select-none pb-0.5 opacity-70 group-hover:opacity-100 transition-opacity"
                 :class="isCommentClientSide(comment) ? 'flex-row' : 'flex-row-reverse'"
               >
-                <span
-                  class="font-normal whitespace-nowrap"
-                  :title="formatDate(comment.created_at)"
-                >
+                <span class="font-normal whitespace-nowrap" :title="formatDate(comment.created_at)">
                   {{ formatRelativeTime(comment.created_at) }}
                 </span>
                 <span class="text-slate-300 dark:text-slate-700">•</span>
