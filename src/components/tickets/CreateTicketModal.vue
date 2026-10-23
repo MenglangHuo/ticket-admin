@@ -42,10 +42,14 @@ const form = reactive({
   reporter_name: 'Admin Staff',
   reporter_email: 'admin@bronx.test',
   reporter_phone: '012345678',
+  reporter_user_id: null as number | null,
 })
 
 function initDefaultReporter() {
   if (authStore.user) {
+    if (authStore.user.id) {
+      form.reporter_user_id = authStore.user.id
+    }
     const fullName = [authStore.user.first_name, authStore.user.last_name]
       .filter(Boolean)
       .join(' ')
@@ -226,6 +230,7 @@ async function handleSubmit() {
     reporter_name: form.reporter_name,
     reporter_email: form.reporter_email,
     reporter_phone: form.reporter_phone,
+    reporter_user_id: form.reporter_user_id,
     files: rawFiles,
   })
 

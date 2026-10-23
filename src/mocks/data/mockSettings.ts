@@ -16,6 +16,7 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     company_id: 1,
     telegram_chat_id: '109283741',
     telegram_username: 'sophea_lead',
+    subscriber_type: 'RESOLVER',
     invite_token: 'inv_tok_9921a',
     is_active: true,
     subscribed_at: '2026-03-10 14:22:00',
@@ -27,6 +28,9 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     company_id: 1,
     telegram_chat_id: '293847561',
     telegram_username: 'alex_dev',
+    subscriber_type: 'REQUESTER',
+    user_id: 101,
+    user: { id: 101, name: 'Alex Client' },
     invite_token: 'inv_tok_8812b',
     is_active: true,
     subscribed_at: '2026-03-12 09:15:30',
@@ -38,6 +42,7 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     company_id: 1,
     telegram_chat_id: '948372615',
     telegram_username: 'dararith_ops',
+    subscriber_type: 'RESOLVER',
     invite_token: 'inv_tok_7734c',
     is_active: true,
     subscribed_at: '2026-03-18 11:45:10',
@@ -49,6 +54,9 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     company_id: 1,
     telegram_chat_id: '847362910',
     telegram_username: 'channary_support',
+    subscriber_type: 'REQUESTER',
+    user_id: 102,
+    user: { id: 102, name: 'Channary Requester' },
     invite_token: 'inv_tok_6645d',
     is_active: true,
     subscribed_at: '2026-03-22 16:30:00',
@@ -60,6 +68,7 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     company_id: 1,
     telegram_chat_id: '384756291',
     telegram_username: 'michael_hq',
+    subscriber_type: 'RESOLVER',
     invite_token: 'inv_tok_5556e',
     is_active: true,
     subscribed_at: '2026-03-25 10:10:00',
@@ -71,6 +80,9 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     company_id: 1,
     telegram_chat_id: '573829104',
     telegram_username: 'sreypov_qa',
+    subscriber_type: 'REQUESTER',
+    user_id: 103,
+    user: { id: 103, name: 'Sreypov User' },
     invite_token: 'inv_tok_4467f',
     is_active: false,
     subscribed_at: '2026-02-14 08:00:00',
@@ -82,6 +94,7 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     company_id: 1,
     telegram_chat_id: '682910384',
     telegram_username: 'bopha_branch1',
+    subscriber_type: 'RESOLVER',
     invite_token: 'inv_tok_3378g',
     is_active: true,
     subscribed_at: '2026-04-01 13:05:00',
@@ -93,6 +106,9 @@ const INITIAL_MOCK_SUBSCRIBERS: TelegramSubscriber[] = [
     company_id: 1,
     telegram_chat_id: '748392019',
     telegram_username: 'vicheka_admin',
+    subscriber_type: 'REQUESTER',
+    user_id: 104,
+    user: { id: 104, name: 'Vicheka Client' },
     invite_token: 'inv_tok_2289h',
     is_active: false,
     subscribed_at: '2026-01-20 15:40:00',
@@ -132,6 +148,15 @@ export function getMockSubscribers(
 
   if (params?.is_active !== undefined) {
     list = list.filter((s) => s.is_active === params.is_active)
+  }
+
+  const rawType = params?.subscriber_type || params?.type
+  if (rawType && rawType !== 'all') {
+    const filterType = rawType.toUpperCase()
+    list = list.filter((s) => {
+      const sType = (s.subscriber_type || 'RESOLVER').toUpperCase()
+      return sType === filterType
+    })
   }
 
   const page = Number(params?.page || 1)

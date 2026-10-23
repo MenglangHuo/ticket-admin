@@ -1,9 +1,19 @@
+export type SubscriberType = 'RESOLVER' | 'REQUESTER'
+
 export interface TelegramSubscriber {
   id: number | string
   company_id?: number
   telegram_chat_id: string
   telegram_username: string | null
   invite_token?: string | null
+  subscriber_type?: SubscriberType | string
+  user_id?: number | null
+  user?: {
+    id: number
+    name?: string | null
+    username?: string | null
+    email?: string | null
+  } | null
   is_active: boolean
   subscribed_at: string
   created_at?: string

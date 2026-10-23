@@ -22,7 +22,9 @@ import {
   Send,
   SlidersHorizontal,
   Trash2,
+  User,
   Users,
+  Headphones,
   X,
   Bot,
 } from 'lucide-vue-next'
@@ -51,14 +53,16 @@ const toastStore = useToastStore()
 // --- Column Visibility Configuration ---
 const columnOptions: Array<{ key: SubscriberColumnKey; label: string }> = [
   { key: 'user', label: 'Telegram User' },
+  { key: 'type', label: 'Subscriber Type' },
   { key: 'chat_id', label: 'Telegram Chat ID' },
-  { key: 'status', label: 'Notifications Status' },
+  { key: 'status', label: 'Ticket Notifications' },
   { key: 'subscribed_at', label: 'Subscribed Date' },
   { key: 'actions', label: 'Action' },
 ]
 
 const defaultColumnVisibility: Record<SubscriberColumnKey, boolean> = {
   user: true,
+  type: true,
   chat_id: true,
   status: true,
   subscribed_at: true,
@@ -99,18 +103,20 @@ const visibleColumnCount = computed(() => {
 
 // --- Column Resizing & Width Configuration ---
 const defaultColumnWidths: Record<SubscriberColumnKey, number> = {
-  user: 260,
-  chat_id: 190,
-  status: 200,
-  subscribed_at: 190,
+  user: 240,
+  type: 170,
+  chat_id: 180,
+  status: 190,
+  subscribed_at: 170,
   actions: 120,
 }
 
 const minColumnWidths: Record<SubscriberColumnKey, number> = {
-  user: 180,
-  chat_id: 140,
-  status: 140,
-  subscribed_at: 140,
+  user: 170,
+  type: 140,
+  chat_id: 130,
+  status: 130,
+  subscribed_at: 130,
   actions: 100,
 }
 
@@ -228,17 +234,20 @@ let resizeObserver: ResizeObserver | null = null
 const rawSearchQuery = ref('')
 const debouncedSearchQuery = ref('')
 const statusFilter = ref<'all' | 'active' | 'inactive'>('all')
+const subscriberTypeFilter = ref<'all' | 'RESOLVER' | 'REQUESTER'>('all')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
 async function loadSubscribers(force = false) {
   const backendSortField =
     sortField.value === 'user'
       ? 'telegram_username'
-      : sortField.value === 'chat_id'
-        ? 'telegram_chat_id'
-        : sortField.value === 'status'
-          ? 'is_active'
-          : sortField.value
+      : sortField.value === 'type'
+        ? 'subscriber_type'
+        : sortField.value === 'chat_id'
+          ? 'telegram_chat_id'
+          : sortField.value === 'status'
+            ? 'is_active'
+            : sortField.value
 
   await settingsStore.fetchSubscribers(
     {
@@ -246,6 +255,9 @@ async function loadSubscribers(force = false) {
       per_page: perPage.value,
       search: debouncedSearchQuery.value || undefined,
       status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+      subscriber_type:
+        subscriberTypeFilter.value !== 'all' ? subscriberTypeFilter.value : undefined,
+      type: subscriberTypeFilter.value !== 'all' ? subscriberTypeFilter.value : undefined,
       sort_by: backendSortField,
       sort_dir: sortOrder.value,
     },
@@ -266,6 +278,16 @@ watch(debouncedSearchQuery, () => {
   loadSubscribers(true)
 })
 
+watch(subscriberTypeFilter, () => {
+  currentPage.value = 1
+  loadSubscribers(true)
+})
+
+watch(statusFilter, () => {
+  currentPage.value = 1
+  loadSubscribers(true)
+})
+
 function clearSearch() {
   rawSearchQuery.value = ''
   debouncedSearchQuery.value = ''
@@ -280,6 +302,7 @@ function clearAllFilters() {
   debouncedSearchQuery.value = ''
   if (debounceTimeout) clearTimeout(debounceTimeout)
   statusFilter.value = 'all'
+  subscriberTypeFilter.value = 'all'
   currentPage.value = 1
   loadSubscribers(true)
 }
@@ -295,7 +318,13 @@ const statusOptions: SelectOption[] = [
   { label: 'Muted Only', value: 'inactive', dotColor: 'bg-amber-500' },
 ]
 
-type SortableField = 'user' | 'chat_id' | 'status' | 'subscribed_at'
+const subscriberTypeOptions: SelectOption[] = [
+  { label: 'All Subscribers', value: 'all', dotColor: 'bg-slate-400' },
+  { label: 'Admin ', value: 'RESOLVER', dotColor: 'bg-blue-500' },
+  { label: 'Requesters', value: 'REQUESTER', dotColor: 'bg-emerald-500' },
+]
+
+type SortableField = 'user' | 'type' | 'chat_id' | 'status' | 'subscribed_at'
 const sortField = ref<SortableField>('subscribed_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 
@@ -366,6 +395,12 @@ const filteredSubscribers = computed(() => {
     if (statusFilter.value === 'active' && !sub.is_active) return false
     if (statusFilter.value === 'inactive' && sub.is_active) return false
 
+    // Subscriber type filter
+    if (subscriberTypeFilter.value !== 'all') {
+      const type = (sub.subscriber_type || 'RESOLVER').toUpperCase()
+      if (type !== subscriberTypeFilter.value) return false
+    }
+
     // Search query
     if (debouncedSearchQuery.value) {
       const q = debouncedSearchQuery.value
@@ -374,7 +409,10 @@ const filteredSubscribers = computed(() => {
         : false
       const matchChatId = sub.telegram_chat_id ? sub.telegram_chat_id.includes(q) : false
       const matchId = String(sub.id).includes(q)
-      return matchHandle || matchChatId || matchId
+      const matchType = (sub.subscriber_type || 'RESOLVER').toLowerCase().includes(q)
+      const matchUserId = sub.user_id ? String(sub.user_id).includes(q) : false
+      const matchUserName = sub.user?.name ? sub.user.name.toLowerCase().includes(q) : false
+      return matchHandle || matchChatId || matchId || matchType || matchUserId || matchUserName
     }
 
     return true
@@ -392,6 +430,11 @@ const sortedSubscribers = computed(() => {
       const uA = (a.telegram_username || '').toLowerCase()
       const uB = (b.telegram_username || '').toLowerCase()
       return uA.localeCompare(uB) * order
+    }
+    if (field === 'type') {
+      const tA = (a.subscriber_type || 'RESOLVER').toLowerCase()
+      const tB = (b.subscriber_type || 'RESOLVER').toLowerCase()
+      return tA.localeCompare(tB) * order
     }
     if (field === 'chat_id') {
       const idA = a.telegram_chat_id || ''
@@ -412,15 +455,29 @@ const sortedSubscribers = computed(() => {
   })
 })
 
+const isFilteringActive = computed(() => {
+  return (
+    subscriberTypeFilter.value !== 'all' ||
+    statusFilter.value !== 'all' ||
+    Boolean(debouncedSearchQuery.value)
+  )
+})
+
+const serverDidFilter = computed(() => {
+  if (!isFilteringActive.value) return true
+  if (settingsStore.subscribers.length === 0) return true
+  return filteredSubscribers.value.length === settingsStore.subscribers.length
+})
+
 const hasServerPagination = computed(() => {
-  return (settingsStore.pagination?.total ?? 0) > 0
+  return (settingsStore.pagination?.total ?? 0) > 0 && serverDidFilter.value
 })
 
 const totalCount = computed(() => {
   if (hasServerPagination.value) {
     return settingsStore.pagination.total
   }
-  return sortedSubscribers.value.length
+  return filteredSubscribers.value.length
 })
 
 const lastPage = computed(() => {
@@ -620,6 +677,14 @@ function formatDate(dateStr?: string) {
           @change="onFilterChange"
         />
 
+        <!-- Custom Subscriber Type Filter Dropdown -->
+        <CustomSelect
+          v-model="subscriberTypeFilter"
+          :options="subscriberTypeOptions"
+          placeholder="All Types"
+          @change="onFilterChange"
+        />
+
         <!-- Columns (Hide or Show) Dropdown matching TicketsView -->
         <CustomDropdown align="left" width="w-60">
           <template #trigger="{ isOpen }">
@@ -680,7 +745,7 @@ function formatDate(dateStr?: string) {
 
         <!-- Clear Active Filters Pill Button -->
         <button
-          v-if="debouncedSearchQuery || statusFilter !== 'all'"
+          v-if="isFilteringActive"
           type="button"
           @click="clearAllFilters"
           class="h-9 px-3 rounded-xl border border-dashed border-rose-300 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs sm:text-[13px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -699,7 +764,6 @@ function formatDate(dateStr?: string) {
           title="Reload subscribers"
         >
           <RotateCw class="w-3.5 h-3.5" :class="{ 'animate-spin': settingsStore.isLoading }" />
-          <span class="hidden sm:inline">Refresh</span>
         </button>
       </div>
     </div>
@@ -734,6 +798,7 @@ function formatDate(dateStr?: string) {
           <!-- Dynamic Column Widths Definition -->
           <colgroup>
             <col v-if="columnVisibility.user" :style="{ width: `${columnWidths.user}px` }" />
+            <col v-if="columnVisibility.type" :style="{ width: `${columnWidths.type}px` }" />
             <col v-if="columnVisibility.chat_id" :style="{ width: `${columnWidths.chat_id}px` }" />
             <col v-if="columnVisibility.status" :style="{ width: `${columnWidths.status}px` }" />
             <col
@@ -777,6 +842,39 @@ function formatDate(dateStr?: string) {
                   <div
                     class="w-0.5 h-3.5 rounded-full bg-slate-300 dark:bg-slate-700 opacity-0 group-hover/th:opacity-100 group-hover/resizer:opacity-100 group-hover/resizer:bg-blue-500 group-hover/resizer:h-full transition-all"
                     :class="{ 'opacity-100 bg-blue-500 h-full': resizingCol === 'user' }"
+                  ></div>
+                </div>
+              </th>
+
+              <!-- Subscriber Type & Role -->
+              <th
+                v-if="columnVisibility.type"
+                class="relative py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors group/th"
+                :style="{ width: `${columnWidths.type}px`, minWidth: `${columnWidths.type}px` }"
+                @click="toggleSort('type')"
+              >
+                <div class="flex items-center gap-1.5 truncate">
+                  <span>Subscriber Type</span>
+                  <component
+                    :is="
+                      sortField === 'type'
+                        ? sortOrder === 'asc'
+                          ? ArrowUp
+                          : ArrowDown
+                        : ArrowUpDown
+                    "
+                    class="w-3 h-3 text-slate-400 shrink-0"
+                  />
+                </div>
+                <div
+                  class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize select-none flex items-center justify-center group/resizer hover:bg-blue-500/15 active:bg-blue-500/30 z-30"
+                  @mousedown.stop="onResizeStart('type', $event)"
+                  @dblclick.stop="resetColWidth('type')"
+                  title="Drag to resize, double-click to reset"
+                >
+                  <div
+                    class="w-0.5 h-3.5 rounded-full bg-slate-300 dark:bg-slate-700 opacity-0 group-hover/th:opacity-100 group-hover/resizer:opacity-100 group-hover/resizer:bg-blue-500 group-hover/resizer:h-full transition-all"
+                    :class="{ 'opacity-100 bg-blue-500 h-full': resizingCol === 'type' }"
                   ></div>
                 </div>
               </th>
@@ -951,11 +1049,83 @@ function formatDate(dateStr?: string) {
                       </a>
                     </div>
                     <div
-                      class="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 truncate leading-tight"
+                      class="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 truncate leading-tight flex items-center gap-1"
                     >
-                      Staff ID #{{ sub.id }}
+                      <template
+                        v-if="
+                          (sub.subscriber_type || '').toUpperCase() === 'REQUESTER' && sub.user_id
+                        "
+                      >
+                        <span class="text-emerald-600 dark:text-emerald-400 font-medium"
+                          >User #{{ sub.user_id }}</span
+                        >
+                        <span
+                          v-if="sub.user?.name"
+                          class="text-slate-500 dark:text-slate-400 truncate"
+                          >({{ sub.user.name }})</span
+                        >
+                      </template>
+                      <template v-else-if="sub.user_id">
+                        <span>Staff ID #{{ sub.id }}</span>
+                        <span class="text-slate-400">• User #{{ sub.user_id }}</span>
+                      </template>
+                      <template v-else>
+                        <span>Staff ID #{{ sub.id }}</span>
+                      </template>
                     </div>
                   </div>
+                </div>
+              </td>
+
+              <!-- Subscriber Type & Role Column -->
+              <td
+                v-if="columnVisibility.type"
+                class="py-3 px-4 whitespace-nowrap"
+                :style="{ width: `${columnWidths.type}px`, minWidth: `${columnWidths.type}px` }"
+              >
+                <!-- Resolver Badge -->
+                <div
+                  v-if="(sub.subscriber_type || 'RESOLVER').toUpperCase() === 'RESOLVER'"
+                  class="inline-flex flex-col"
+                >
+                  <span
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 shadow-2xs select-none w-fit"
+                    title="Resolver: Receives alerts for all tickets"
+                  >
+                    <Headphones class="w-3 h-3 text-blue-500 shrink-0" />
+                    <span>RESOLVER</span>
+                  </span>
+                  <span class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 pl-0.5">
+                    Support Staff
+                  </span>
+                </div>
+
+                <!-- Requester Badge -->
+                <div
+                  v-else-if="(sub.subscriber_type || '').toUpperCase() === 'REQUESTER'"
+                  class="inline-flex flex-col"
+                >
+                  <span
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs select-none w-fit"
+                    title="Requester: Receives alerts exclusively for their own tickets"
+                  >
+                    <User class="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>REQUESTER</span>
+                  </span>
+                  <span
+                    class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 pl-0.5 truncate max-w-[150px]"
+                  >
+                    {{ sub.user?.name || (sub.user_id ? `User #${sub.user_id}` : 'Client User') }}
+                  </span>
+                </div>
+
+                <!-- Custom / Other Badge -->
+                <div v-else class="inline-flex flex-col">
+                  <span
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 w-fit"
+                  >
+                    <span>{{ sub.subscriber_type }}</span>
+                  </span>
                 </div>
               </td>
 
@@ -1121,20 +1291,18 @@ function formatDate(dateStr?: string) {
                   <Inbox class="w-8 h-8 text-slate-300 dark:text-slate-600" />
                   <span class="font-medium text-slate-600 dark:text-slate-400 text-sm">
                     {{
-                      debouncedSearchQuery || statusFilter !== 'all'
-                        ? 'No matching subscribers'
-                        : 'No Telegram subscribers yet'
+                      isFilteringActive ? 'No matching subscribers' : 'No Telegram subscribers yet'
                     }}
                   </span>
                   <span class="text-[11px] text-slate-400 max-w-xs">
                     {{
-                      debouncedSearchQuery || statusFilter !== 'all'
-                        ? 'Try adjusting your search query or status filter'
+                      isFilteringActive
+                        ? 'Try adjusting your search query, status, or subscriber type filter'
                         : 'Generate an invite link to onboard staff members to Telegram notifications'
                     }}
                   </span>
                   <button
-                    v-if="debouncedSearchQuery || statusFilter !== 'all'"
+                    v-if="isFilteringActive"
                     type="button"
                     @click="clearAllFilters"
                     class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium shadow-2xs transition-all cursor-pointer"

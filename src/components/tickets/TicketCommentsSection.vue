@@ -8,7 +8,6 @@ import { safeUrl } from '@/utils/security'
 import { fileToBase64 } from '@/api/ticketApi'
 import TicketAuditTimeline from './TicketAuditTimeline.vue'
 import {
-  MessageSquare,
   MessagesSquare,
   History,
   Send,
@@ -16,18 +15,28 @@ import {
   X,
   ZoomIn,
   Download,
-  ShieldCheck,
-  Eye,
   FileText,
   ChevronDown,
+  Reply,
+  CornerUpLeft,
+  CornerDownRight,
+  Maximize2,
+  Minimize2,
 } from 'lucide-vue-next'
 
-const props = defineProps<{
-  ticket: Ticket
-}>()
+const props = withDefaults(
+  defineProps<{
+    ticket: Ticket
+    isMaximized?: boolean
+  }>(),
+  {
+    isMaximized: false,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'preview-image', url: string): void
+  (e: 'toggle-maximize'): void
 }>()
 
 const ticketStore = useTicketStore()
@@ -46,16 +55,45 @@ export interface ComposerFileItem {
 }
 
 // -------------------------------------------------------------
-// TAB 1: Discussion & Notes State (Admin Comment Only)
+// All Comments & Telegram / Messenger Composer State
 // -------------------------------------------------------------
-const discussionBody = ref('')
-const discussionFiles = ref<ComposerFileItem[]>([])
-const discussionFileInputRef = ref<HTMLInputElement | null>(null)
-const discussionIsInternal = ref(true)
+const composerBody = ref('')
+const composerFiles = ref<ComposerFileItem[]>([])
+const composerFileInputRef = ref<HTMLInputElement | null>(null)
+const composerTextareaRef = ref<HTMLTextAreaElement | null>(null)
 
-// -------------------------------------------------------------
-// TAB 2: All Comments State (Chat UI)
-// -------------------------------------------------------------
+// 1-Row Compact Composer state (expands on click, focus, or input)
+const isComposerExpanded = ref(false)
+
+const shouldShowExpandedComposer = computed(() => {
+  return (
+    isComposerExpanded.value ||
+    composerBody.value.trim().length > 0 ||
+    composerFiles.value.length > 0 ||
+    replyingToComment.value !== null
+  )
+})
+
+function expandComposer() {
+  isComposerExpanded.value = true
+  nextTick(() => {
+    composerTextareaRef.value?.focus()
+  })
+}
+
+function collapseComposerManual() {
+  if (composerFiles.value.length > 0 || composerBody.value.trim().length > 0) {
+    composerBody.value = ''
+    composerFiles.value = []
+  }
+  replyingToComment.value = null
+  isComposerExpanded.value = false
+}
+
+// Reply state
+const replyingToComment = ref<TicketComment | null>(null)
+const highlightedCommentId = ref<number | null>(null)
+
 // Local fallback lightbox for self-contained image previewing
 const localPreviewImage = ref<string | null>(null)
 
@@ -68,8 +106,16 @@ function closeImagePreview() {
   localPreviewImage.value = null
 }
 
-// Comments from store
-const notes = computed(() => ticketStore.comments || [])
+// Comments from store sorted chronologically so newest comments and replies always appear at the bottom
+const notes = computed(() => {
+  const list = ticketStore.comments || []
+  return [...list].sort((a, b) => {
+    const timeA = new Date(a.created_at || 0).getTime()
+    const timeB = new Date(b.created_at || 0).getTime()
+    if (timeA !== timeB) return timeA - timeB
+    return (Number(a.id) || 0) - (Number(b.id) || 0)
+  })
+})
 
 // Determine admin username
 const currentAdminUsername = computed(() => {
@@ -96,7 +142,6 @@ function scrollToBottom(smooth = false) {
       // Telegram / Messenger optimization:
       // If user is far up (> 1200px), pre-jump close to bottom first (within 350px),
       // then smooth scroll the remaining distance.
-      // This eliminates the slow 2.5s scrolling blur when there are 100+ comments!
       const currentDistance = targetTop - (el.scrollTop + el.clientHeight)
       if (currentDistance > 1200) {
         el.scrollTop = targetTop - 350
@@ -115,7 +160,6 @@ function scrollToBottom(smooth = false) {
       }
     } else {
       // Instant 0ms positioning (for tab preview, opening modal, initial render)
-      // Direct assignment is synchronous and 0ms
       el.scrollTop = targetTop
       if (typeof el.scrollTo === 'function') {
         try {
@@ -125,18 +169,6 @@ function scrollToBottom(smooth = false) {
           })
         } catch {}
       }
-    }
-
-    if (
-      commentsBottomSentinelRef.value &&
-      typeof commentsBottomSentinelRef.value.scrollIntoView === 'function'
-    ) {
-      try {
-        commentsBottomSentinelRef.value.scrollIntoView({
-          behavior: isSmooth ? 'smooth' : ('instant' as ScrollBehavior),
-          block: 'end',
-        })
-      } catch {}
     }
   }
 
@@ -194,60 +226,60 @@ function onImageLoad() {
   }
 }
 
-// Watch for tab switch to 'comments'
-watch(
-  () => ticketStore.activeDetailTab,
-  (newTab) => {
-    if (newTab === 'comments') {
-      unreadCountWhileScrolled.value = 0
-      isStreamReady.value = false
-      scrollToBottom(false)
+// -------------------------------------------------------------
+// Reply and Quote Navigation
+// -------------------------------------------------------------
+function startReply(comment: TicketComment) {
+  replyingToComment.value = comment
+  isComposerExpanded.value = true
+  nextTick(() => {
+    if (composerTextareaRef.value) {
+      composerTextareaRef.value.focus()
     }
-  },
-  { flush: 'post' },
-)
+  })
+}
 
-// Watch for new comments arriving
-watch(
-  () => notes.value.length,
-  (newCount, oldCount) => {
-    if (newCount === 0) {
-      isStreamReady.value = true
-      return
-    }
-    if (ticketStore.activeDetailTab !== 'comments') return
+function cancelReply() {
+  replyingToComment.value = null
+}
 
-    if (isNearBottom.value || !oldCount) {
-      // If initial load (!oldCount), instant 0ms jump. If new note posted, smooth scroll.
-      scrollToBottom(Boolean(oldCount && oldCount > 0))
-    } else if (newCount > oldCount) {
-      unreadCountWhileScrolled.value += newCount - oldCount
-    }
-  },
-  { flush: 'post' },
-)
-
-// Watch for ticket selection changes
-watch(
-  () => props.ticket?.id,
-  () => {
-    unreadCountWhileScrolled.value = 0
-    if (ticketStore.activeDetailTab === 'comments') {
-      isStreamReady.value = false
-      scrollToBottom(false)
-    }
-  },
-  { flush: 'post' },
-)
-
-onMounted(() => {
-  if (ticketStore.activeDetailTab === 'comments') {
-    isStreamReady.value = false
-    scrollToBottom(false)
-  } else {
-    isStreamReady.value = true
+function jumpToComment(commentId?: number | null) {
+  if (!commentId) return
+  const el = document.getElementById(`comment-${commentId}`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    highlightedCommentId.value = commentId
+    setTimeout(() => {
+      if (highlightedCommentId.value === commentId) {
+        highlightedCommentId.value = null
+      }
+    }, 1800)
   }
-})
+}
+
+function getParentPreview(
+  parentId?: number | null,
+  parentObj?: TicketComment | null,
+): { authorName: string; text: string } | null {
+  if (!parentId && !parentObj) return null
+  if (parentObj) {
+    return {
+      authorName: getAuthorDisplayName(parentObj),
+      text: parentObj.body || 'Attachment',
+    }
+  }
+  const found = notes.value.find((c) => c.id === parentId)
+  if (found) {
+    return {
+      authorName: getAuthorDisplayName(found),
+      text: found.body || 'Attachment',
+    }
+  }
+  return {
+    authorName: 'Previous Message',
+    text: 'Original message',
+  }
+}
 
 // -------------------------------------------------------------
 // File Processing & Image Pre-Submit Preview Helpers
@@ -276,51 +308,62 @@ async function processFiles(files: FileList | File[]): Promise<ComposerFileItem[
   return items
 }
 
-// Discussion Tab file handlers
-async function onDiscussionFileSelect(event: Event) {
+async function onComposerFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
   if (!target.files || target.files.length === 0) return
   const processed = await processFiles(target.files)
-  discussionFiles.value = [...discussionFiles.value, ...processed]
+  composerFiles.value = [...composerFiles.value, ...processed]
+  isComposerExpanded.value = true
   target.value = ''
 }
 
-function removeDiscussionFile(index: number) {
-  discussionFiles.value.splice(index, 1)
+function removeComposerFile(index: number) {
+  composerFiles.value.splice(index, 1)
 }
 
 // -------------------------------------------------------------
-// Submission Handlers (Admin Comment Only)
+// Submission Handlers (Telegram / Messenger Chat UI)
 // -------------------------------------------------------------
-async function submitDiscussionNote() {
+async function submitComposerComment() {
   if (!props.ticket) return
-  if (!discussionBody.value.trim() && discussionFiles.value.length === 0) {
-    toastStore.warning('Note is empty', 'Please type a message or attach an image/file.')
+  if (!composerBody.value.trim() && composerFiles.value.length === 0) {
+    toastStore.warning('Empty Comment', 'Please type a message or attach an image/file.')
     return
   }
 
   const username = currentAdminUsername.value
-  const base64Files = discussionFiles.value.map((f) => f.dataUrl).filter(Boolean)
+  const base64Files = composerFiles.value.map((f) => f.dataUrl).filter(Boolean)
+  const parentId = replyingToComment.value ? replyingToComment.value.id : null
 
   const success = await ticketStore.addTicketComment(props.ticket.id, {
     username,
-    body: discussionBody.value.trim(),
-    is_internal: discussionIsInternal.value,
+    body: composerBody.value.trim(),
+    parent_id: parentId,
+    is_internal: false,
     files: base64Files,
   })
 
   if (success) {
-    // Clean all text inside textarea & reset files
-    discussionBody.value = ''
-    discussionFiles.value = []
+    composerBody.value = ''
+    composerFiles.value = []
+    replyingToComment.value = null
+    isComposerExpanded.value = false
+    nextTick(() => {
+      scrollToBottom(true)
+    })
   }
 }
 
-// Keyboard shortcut (Ctrl/Cmd + Enter)
-function handleDiscussionKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+// Keyboard shortcuts: Enter to send (Shift+Enter for newline), or Ctrl/Cmd + Enter
+function handleComposerKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    if (e.shiftKey) {
+      // Allow newline
+      return
+    }
+    // Enter sends the comment
     e.preventDefault()
-    submitDiscussionNote()
+    submitComposerComment()
   }
 }
 
@@ -388,7 +431,8 @@ function getCommentAttachments(comment: TicketComment): DisplayAttachmentItem[] 
   return result
 }
 
-function getAuthorDisplayName(comment: TicketComment): string {
+function getAuthorDisplayName(comment?: TicketComment | null): string {
+  if (!comment) return 'User'
   if (comment.username) return comment.username
   if (comment.author?.name) return comment.author.name
   return comment.is_internal ? 'Staff Admin' : 'Client / Customer'
@@ -424,6 +468,16 @@ function isCommentClientSide(comment: TicketComment): boolean {
     return true
   }
   return !comment.is_internal
+}
+
+function isFirstInGroup(index: number): boolean {
+  if (index === 0) return true
+  const curr = notes.value[index]
+  const prev = notes.value[index - 1]
+  if (!curr || !prev) return true
+  const sameSide = isCommentClientSide(curr) === isCommentClientSide(prev)
+  const sameAuthor = getAuthorDisplayName(curr) === getAuthorDisplayName(prev)
+  return !(sameSide && sameAuthor)
 }
 
 function formatAttachmentDisplayName(name: string): string {
@@ -475,246 +529,164 @@ function formatRelativeTime(dateStr?: string | null): string {
   if (diffDays < 7) return `${diffDays}d ago`
   return formatDate(dateStr)
 }
+
+// Watch for tab switch to 'comments'
+watch(
+  () => ticketStore.activeDetailTab,
+  (newTab) => {
+    if (newTab === 'discussion') {
+      ticketStore.activeDetailTab = 'comments'
+      return
+    }
+    if (newTab === 'comments') {
+      unreadCountWhileScrolled.value = 0
+      isStreamReady.value = false
+      scrollToBottom(false)
+    }
+  },
+  { flush: 'post' },
+)
+
+// Watch for new comments arriving
+watch(
+  () => notes.value.length,
+  (newCount, oldCount) => {
+    if (newCount === 0) {
+      isStreamReady.value = true
+      return
+    }
+    if (ticketStore.activeDetailTab !== 'comments') return
+
+    if (isNearBottom.value || !oldCount) {
+      // If initial load (!oldCount), instant 0ms jump. If new note posted, smooth scroll.
+      scrollToBottom(Boolean(oldCount && oldCount > 0))
+    } else if (newCount > oldCount) {
+      unreadCountWhileScrolled.value += newCount - oldCount
+    }
+  },
+  { flush: 'post' },
+)
+
+// Watch for ticket selection changes
+watch(
+  () => props.ticket?.id,
+  () => {
+    unreadCountWhileScrolled.value = 0
+    replyingToComment.value = null
+    composerBody.value = ''
+    composerFiles.value = []
+    if (ticketStore.activeDetailTab === 'comments') {
+      isStreamReady.value = false
+      scrollToBottom(false)
+    }
+  },
+  { flush: 'post' },
+)
+
+onMounted(() => {
+  if (ticketStore.activeDetailTab === 'discussion') {
+    ticketStore.activeDetailTab = 'comments'
+  }
+  if (ticketStore.activeDetailTab === 'comments') {
+    isStreamReady.value = false
+    scrollToBottom(false)
+  } else {
+    isStreamReady.value = true
+  }
+})
+
+defineExpose({
+  scrollToBottom,
+  commentsBottomSentinelRef,
+})
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="flex-1 min-h-0 flex flex-col h-full space-y-3">
     <!-- ========================================================= -->
-    <!-- TABS SWITCHER: Discussion & Notes vs All Comments vs Audits -->
+    <!-- TABS SWITCHER: All Comments vs Audit History               -->
     <!-- ========================================================= -->
     <div
-      class="flex items-center gap-1.5 sm:gap-2 p-1 bg-slate-100/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800"
+      class="flex items-center justify-between gap-1.5 sm:gap-2 p-1 bg-slate-100/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 shrink-0"
     >
-      <!-- TAB 1: Discussion -->
-      <button
-        type="button"
-        @click="ticketStore.activeDetailTab = 'discussion'"
-        class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none"
-        :class="
-          ticketStore.activeDetailTab === 'discussion'
-            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25'
-            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/50'
-        "
-      >
-        <MessageSquare class="w-3.5 h-3.5 shrink-0" />
-        <span class="truncate">Discussion</span>
-      </button>
-
-      <!-- TAB 2: All Comments -->
-      <button
-        type="button"
-        @click="selectCommentsTab"
-        class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none"
-        :class="
-          ticketStore.activeDetailTab === 'comments'
-            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25'
-            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/50'
-        "
-      >
-        <MessagesSquare class="w-3.5 h-3.5 shrink-0" />
-        <span class="truncate">All Comments</span>
-      </button>
-
-      <!-- TAB 3: Audit History -->
-      <button
-        type="button"
-        @click="ticketStore.activeDetailTab = 'audits'"
-        class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none"
-        :class="
-          ticketStore.activeDetailTab === 'audits'
-            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25'
-            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/50'
-        "
-      >
-        <History class="w-3.5 h-3.5 shrink-0" />
-        <span class="truncate">Audit History</span>
-      </button>
-    </div>
-
-    <!-- ========================================================= -->
-    <!-- TAB 1 CONTENT: Discussion & Notes (Admin Comment Only)    -->
-    <!-- ========================================================= -->
-    <div v-show="ticketStore.activeDetailTab === 'discussion'" class="space-y-4">
-      <!-- Composer Card: Admin only, multiple notes supported -->
-      <div
-        class="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs focus-within:border-indigo-500/80 dark:focus-within:border-indigo-500/80 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all"
-      >
-        <!-- Composer Header -->
-        <div
-          class="px-4 py-2.5 bg-slate-50/80 dark:bg-slate-950/60 border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2"
+      <div class="flex items-center gap-1.5 flex-1 min-w-0">
+        <!-- TAB 1: All Comments -->
+        <button
+          type="button"
+          @click="selectCommentsTab"
+          class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none"
+          :class="
+            ticketStore.activeDetailTab === 'comments'
+              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/50'
+          "
         >
-          <div class="flex items-center gap-2">
-            <div
-              class="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0"
-            >
-              <ShieldCheck class="w-4 h-4" />
-            </div>
-            <div>
-              <h3
-                class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"
-              >
-                <span>Add Admin Discussion Note</span>
-              </h3>
-            </div>
-          </div>
-        </div>
-
-        <!-- Textarea Body -->
-        <div class="p-3">
-          <textarea
-            v-model="discussionBody"
-            @keydown="handleDiscussionKeydown"
-            rows="3"
-            placeholder="Write an internal discussion note or admin update... (Markdown and images supported)"
-            class="w-full text-xs sm:text-[13px] p-2 bg-transparent border-none focus:outline-none text-slate-800 dark:text-slate-100 placeholder:text-slate-400 resize-y min-h-[70px]"
-          ></textarea>
-
-          <!-- ======================================================== -->
-          <!-- PRE-SUBMIT IMAGE & FILE PREVIEW GALLERY (Compact)         -->
-          <!-- ======================================================== -->
-          <div
-            v-if="discussionFiles.length > 0"
-            class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5"
-          >
-            <div
-              class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1"
-            >
-              <span class="font-semibold flex items-center gap-1">
-                <Eye class="w-3 h-3 text-indigo-500" />
-                <span>Attachments ({{ discussionFiles.length }})</span>
-              </span>
-              <span class="text-[10px] text-slate-400">Click to preview</span>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-              <div v-for="(f, i) in discussionFiles" :key="f.id" class="group relative">
-                <!-- Compact Image Thumbnail (w-14 h-14) -->
-                <div
-                  v-if="f.isImage && f.dataUrl"
-                  @click="openImagePreview(f.dataUrl)"
-                  class="w-14 h-14 rounded-xl overflow-hidden relative cursor-pointer bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs group-hover:ring-2 group-hover:ring-indigo-500/30 transition-all"
-                  :title="f.name"
-                >
-                  <img :src="f.dataUrl" :alt="f.name" class="w-full h-full object-cover" />
-                  <div
-                    class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white"
-                  >
-                    <ZoomIn class="w-3.5 h-3.5" />
-                  </div>
-                  <!-- Floating Remove Button -->
-                  <button
-                    type="button"
-                    @click.stop="removeDiscussionFile(i)"
-                    class="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center transition-colors cursor-pointer z-2"
-                    title="Remove image"
-                  >
-                    <X class="w-2.5 h-2.5" />
-                  </button>
-                </div>
-
-                <!-- Compact Non-image file pill -->
-                <div
-                  v-else
-                  class="h-14 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-2 shadow-2xs"
-                >
-                  <FileText class="w-4 h-4 text-indigo-500 shrink-0" />
-                  <div class="max-w-[110px] truncate">
-                    <p
-                      class="text-[11px] font-medium text-slate-800 dark:text-slate-200 truncate"
-                      :title="f.name"
-                    >
-                      {{ f.name }}
-                    </p>
-                    <span class="text-[9px] text-slate-400 uppercase font-mono">{{
-                      f.type.split('/')[1] || 'FILE'
-                    }}</span>
-                  </div>
-                  <button
-                    type="button"
-                    @click="removeDiscussionFile(i)"
-                    class="text-slate-400 hover:text-rose-500 p-0.5 rounded cursor-pointer transition-colors shrink-0 ml-1"
-                    title="Remove file"
-                  >
-                    <X class="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Composer Action Bar -->
-        <div
-          class="px-3.5 py-2 bg-slate-50/70 dark:bg-slate-950/60 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2"
-        >
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              @click="discussionFileInputRef?.click()"
-              class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 px-2.5 py-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Attach screenshot or file"
-            >
-              <Paperclip class="w-3.5 h-3.5" />
-              <span class="text-xs">Attach image / file</span>
-            </button>
-            <input
-              ref="discussionFileInputRef"
-              type="file"
-              multiple
-              accept="image/*,.pdf,.doc,.docx,.txt,.csv,.json"
-              class="hidden"
-              @change="onDiscussionFileSelect"
-            />
-
-            <span class="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline">
-              Press
-              <kbd class="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px]"
-                >Ctrl+Enter</kbd
-              >
-              to submit
-            </span>
-          </div>
-
-          <button
-            type="button"
-            @click="submitDiscussionNote"
-            :disabled="
-              ticketStore.isPostingComment ||
-              (!discussionBody.trim() && discussionFiles.length === 0)
+          <MessagesSquare class="w-3.5 h-3.5 shrink-0" />
+          <span class="truncate">All Comments</span>
+          <span
+            v-if="notes.length > 0"
+            class="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none"
+            :class="
+              ticketStore.activeDetailTab === 'comments'
+                ? 'bg-white/25 text-white'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
             "
-            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm shadow-indigo-600/20 transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Send v-if="!ticketStore.isPostingComment" class="w-3 h-3" />
-            <span
-              v-else
-              class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"
-            ></span>
-            <span>Submit Note</span>
-          </button>
-        </div>
+            {{ notes.length }}
+          </span>
+        </button>
+
+        <!-- TAB 2: Audit History -->
+        <button
+          type="button"
+          @click="ticketStore.activeDetailTab = 'audits'"
+          class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none"
+          :class="
+            ticketStore.activeDetailTab === 'audits'
+              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/50'
+          "
+        >
+          <History class="w-3.5 h-3.5 shrink-0" />
+          <span class="truncate">Audit History</span>
+        </button>
       </div>
+
+      <!-- Action Button: Toggle Maximize Height for Comment Section -->
+      <button
+        type="button"
+        @click="emit('toggle-maximize')"
+        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700 transition-all cursor-pointer shrink-0 shadow-2xs border border-transparent hover:border-slate-200/80 dark:hover:border-slate-700"
+        :title="
+          isMaximized ? 'Show ticket details (Normal View)' : 'Expand comments area (Full Height)'
+        "
+      >
+        <Minimize2 v-if="isMaximized" class="w-3.5 h-3.5 text-indigo-500" />
+        <Maximize2 v-else class="w-3.5 h-3.5 text-indigo-500" />
+        <span class="hidden sm:inline text-[11px]">{{ isMaximized ? 'Normal' : '' }}</span>
+      </button>
     </div>
 
     <!-- ========================================================= -->
-    <!-- TAB 2 CONTENT: All Comments Stream (Clean Chat-like UI)     -->
+    <!-- TAB 1 CONTENT: All Comments Stream & Bottom Chat Composer -->
     <!-- ========================================================= -->
     <div
       v-show="ticketStore.activeDetailTab === 'comments'"
       data-testid="all-comments-tab"
-      class="space-y-2 relative"
+      class="flex-1 min-h-0 flex flex-col relative"
     >
-      <!-- Chat Messages Timeline (Scrollable when many comments, compact when single) -->
+      <!-- Chat Messages Timeline (Scrollable, fills available space, client on left, admin on right) -->
       <div
         ref="commentsStreamRef"
         @scroll="handleScroll"
         data-testid="all-comments-stream"
-        class="space-y-3.5 max-h-[460px] sm:max-h-[520px] overflow-y-auto px-1 pt-1 pb-4 focus:outline-none scrollbar-thin transition-opacity duration-150"
+        class="flex-1 min-h-0 overflow-y-auto px-1 pt-1 pb-2 space-y-2 focus:outline-none scrollbar-thin transition-opacity duration-150"
         :class="isStreamReady ? 'opacity-100' : 'opacity-0'"
       >
         <!-- Empty State -->
         <div
           v-if="notes.length === 0"
-          class="p-8 rounded-2xl border border-dashed border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-center space-y-2"
+          class="p-8 rounded-2xl border border-dashed border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-center space-y-2 my-auto"
         >
           <div
             class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-500 flex items-center justify-center mx-auto"
@@ -725,20 +697,29 @@ function formatRelativeTime(dateStr?: string | null): string {
             No comments yet
           </h4>
           <p class="text-xs text-slate-400 max-w-xs mx-auto">
-            Comments and notes will appear here in chronological order.
+            Comments and notes will appear here in chronological order. Send a message below to
+            start the conversation.
           </p>
         </div>
 
         <!-- Chat Bubble Message Item (Admin on Right, Client on Left) -->
         <div
-          v-for="comment in notes"
+          v-for="(comment, index) in notes"
+          :id="`comment-${comment.id}`"
           :key="comment.id"
-          class="flex items-start gap-2.5 group"
-          :class="isCommentClientSide(comment) ? 'flex-row' : 'flex-row-reverse justify-start'"
+          class="flex items-start gap-2 group transition-colors duration-200 rounded-2xl p-0.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+          :class="[
+            isCommentClientSide(comment) ? 'flex-row' : 'flex-row-reverse',
+            isFirstInGroup(index) ? 'mt-2.5' : 'mt-1',
+            highlightedCommentId === comment.id
+              ? 'bg-indigo-100/60 dark:bg-indigo-950/50 ring-2 ring-indigo-500/60'
+              : '',
+          ]"
         >
-          <!-- Modern Avatar with Initials & Subtle Gradient Ring (h-8 aligns with header h-8) -->
+          <!-- Modern Avatar (Only shown on FIRST comment in consecutive group) -->
           <div
-            class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 select-none shadow-2xs"
+            v-if="isFirstInGroup(index)"
+            class="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0 select-none shadow-2xs mt-0.5"
             :class="
               isCommentClientSide(comment)
                 ? 'bg-gradient-to-br from-emerald-500 to-teal-600 ring-2 ring-emerald-500/20'
@@ -747,124 +728,181 @@ function formatRelativeTime(dateStr?: string | null): string {
           >
             {{ (getAuthorDisplayName(comment) || 'U').charAt(0).toUpperCase() }}
           </div>
-
-          <!-- Speech Bubble Container (Hugs content, max-width prevents taking full screen) -->
+          <!-- Spacer placeholder for consecutive messages in group so bubbles stay aligned -->
           <div
-            class="flex flex-col max-w-[85%] sm:max-w-[78%] min-w-0"
+            v-else
+            class="w-7 sm:w-7.5 shrink-0 select-none pointer-events-none"
+            aria-hidden="true"
+          ></div>
+
+          <!-- Speech Bubble & Metadata Container -->
+          <div
+            class="flex flex-col max-w-[85%] sm:max-w-[82%] min-w-0"
             :class="isCommentClientSide(comment) ? 'items-start' : 'items-end'"
           >
-            <!-- Comment Header OUTSIDE box card: Username (at vertical middle of profile) + Timestamp + Actions -->
+            <!-- Group Header: Username + Role Indicator (Only shown once at top of consecutive group) -->
             <div
+              v-if="isFirstInGroup(index)"
               data-testid="comment-header"
-              class="h-8 flex items-center gap-2 px-1 select-none"
+              class="flex items-center gap-1.5 px-1 mb-1 select-none text-[11px]"
               :class="isCommentClientSide(comment) ? 'flex-row' : 'flex-row-reverse'"
             >
-              <span class="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+              <span class="font-bold text-slate-800 dark:text-slate-200 truncate">
                 {{ getAuthorDisplayName(comment) }}
               </span>
 
-              <span
-                class="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-normal shrink-0"
-                :title="formatDate(comment.created_at)"
-              >
-                {{ formatRelativeTime(comment.created_at) }}
-              </span>
+              <span class="sr-only">{{
+                isCommentClientSide(comment) ? 'Customer' : 'Support Staff'
+              }}</span>
             </div>
 
-            <!-- Speech Bubble Card (Starts from bottom of profile avatar with unified slate background) -->
+            <!-- Bubble Row: Date & Reply shown at Left for Admin, Right for Client -->
             <div
-              class="w-fit max-w-full px-3.5 py-2.5 transition-all text-left shadow-2xs rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700/60 text-slate-800 dark:text-slate-200 mt-0.5"
-              :class="isCommentClientSide(comment) ? 'rounded-tl-xs' : 'rounded-tr-xs'"
+              class="flex items-end gap-1.5 max-w-full"
+              :class="isCommentClientSide(comment) ? 'flex-row' : 'flex-row-reverse'"
             >
-              <!-- Comment Body Text -->
-              <p
-                v-if="comment.body"
-                class="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words"
-              >
-                {{ comment.body }}
-              </p>
-
-              <!-- Attachments & Snapshots Gallery (Minimized space for images, beautiful compact cards) -->
+              <!-- Speech Bubble Card (Compact & smaller font size: text-[11px] sm:text-xs) -->
               <div
-                v-if="getCommentAttachments(comment).length > 0"
-                class="flex flex-wrap gap-1.5"
-                :class="[
-                  isCommentClientSide(comment) ? 'justify-start' : 'justify-end',
-                  comment.body
-                    ? 'mt-2 pt-1.5 border-t border-slate-200/50 dark:border-slate-700/40'
-                    : '',
-                ]"
+                class="w-fit max-w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs rounded-2xl shadow-2xs text-left bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700/60 text-slate-800 dark:text-slate-200"
+                :class="isCommentClientSide(comment) ? 'rounded-tl-sm' : 'rounded-tr-sm'"
               >
-                <template v-for="att in getCommentAttachments(comment)" :key="att.id">
-                  <!-- Image thumbnail: sleek, space-saving thumbnail with hover zoom & download -->
+                <!-- Replying-to Quote Banner -->
+                <div
+                  v-if="comment.parent_id && getParentPreview(comment.parent_id, comment.parent)"
+                  @click="jumpToComment(comment.parent_id)"
+                  class="mb-1.5 p-1 sm:p-1.5 rounded-lg border-l-[3px] border-indigo-500 bg-black/5 dark:bg-white/5 hover:bg-black/10 transition-colors cursor-pointer select-none text-left text-slate-700 dark:text-slate-200"
+                  title="Click to jump to original message"
+                >
                   <div
-                    v-if="att.isImage"
-                    class="group/img relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border border-slate-200/90 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-900 shadow-2xs shrink-0 cursor-pointer hover:shadow-md hover:border-indigo-400 dark:hover:border-indigo-500 transition-all duration-200"
-                    :title="att.name + (att.sizeText ? ' (' + att.sizeText + ')' : '')"
-                    @click="openImagePreview(att.url)"
+                    class="flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-indigo-600 dark:text-indigo-400"
                   >
-                    <img
-                      :src="att.url"
-                      :alt="att.name"
-                      @load="onImageLoad"
-                      class="w-full h-full object-cover transition-transform duration-300 ease-out group-hover/img:scale-110"
-                    />
-                    <!-- Screen-reader accessible name (satisfies accessibility and text searches) -->
-                    <span class="sr-only">{{ formatAttachmentDisplayName(att.name) }}</span>
-                    <!-- Hover overlay with quick actions -->
+                    <CornerUpLeft class="w-2.5 h-2.5 shrink-0" />
+                    <span class="truncate">{{
+                      getParentPreview(comment.parent_id, comment.parent)?.authorName
+                    }}</span>
+                  </div>
+                  <p class="text-[9px] sm:text-[10px] truncate max-w-sm mt-0.5 opacity-90">
+                    {{ getParentPreview(comment.parent_id, comment.parent)?.text }}
+                  </p>
+                </div>
+
+                <!-- Comment Body Text -->
+                <p v-if="comment.body" class="leading-relaxed whitespace-pre-wrap break-words">
+                  {{ comment.body }}
+                </p>
+
+                <!-- Attachments & Snapshots Gallery -->
+                <div
+                  v-if="getCommentAttachments(comment).length > 0"
+                  class="flex flex-wrap gap-1.5"
+                  :class="
+                    comment.body
+                      ? 'mt-1.5 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/50'
+                      : ''
+                  "
+                >
+                  <template v-for="att in getCommentAttachments(comment)" :key="att.id">
+                    <!-- Image thumbnail (Compact: w-8 h-8 sm:w-9 sm:h-9) -->
                     <div
-                      class="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px] opacity-0 group-hover/img:opacity-100 flex items-center justify-center gap-1 text-white transition-opacity duration-150"
+                      v-if="att.isImage"
+                      class="group/img relative w-9 h-9 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 shadow-2xs shrink-0 cursor-pointer hover:shadow-md transition-all duration-200"
+                      :title="att.name + (att.sizeText ? ' (' + att.sizeText + ')' : '')"
+                      @click="openImagePreview(att.url)"
                     >
-                      <button
-                        type="button"
-                        @click.stop="openImagePreview(att.url)"
-                        class="p-1 rounded-md bg-white/20 hover:bg-white/35 text-white transition-colors cursor-pointer"
-                        title="Zoom image"
+                      <img
+                        :src="att.url"
+                        :alt="att.name"
+                        @load="onImageLoad"
+                        class="w-full h-full object-cover transition-transform duration-300 ease-out group-hover/img:scale-110"
+                      />
+                      <span class="sr-only">{{ formatAttachmentDisplayName(att.name) }}</span>
+                      <div
+                        class="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px] opacity-0 group-hover/img:opacity-100 flex items-center justify-center gap-1 text-white transition-opacity duration-150"
                       >
-                        <ZoomIn class="w-3 h-3" />
-                      </button>
+                        <button
+                          type="button"
+                          @click.stop="openImagePreview(att.url)"
+                          class="p-0.5 rounded bg-white/20 hover:bg-white/35 text-white transition-colors cursor-pointer"
+                          title="Zoom image"
+                        >
+                          <ZoomIn class="w-3 h-3" />
+                        </button>
+                        <a
+                          :href="safeUrl(att.url)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download
+                          class="p-0.5 rounded bg-white/20 hover:bg-white/35 text-white transition-colors cursor-pointer"
+                          title="Download image"
+                          @click.stop
+                        >
+                          <Download class="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+
+                    <!-- Non-image file attachment: compact pill -->
+                    <div
+                      v-else
+                      class="inline-flex items-center gap-1.5 py-0.5 px-2 rounded-lg text-[10px] shadow-2xs transition-all border border-slate-200/80 dark:border-slate-700/70 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                    >
+                      <FileText class="w-3 h-3 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                      <span class="font-medium truncate max-w-[110px]" :title="att.name">
+                        {{ formatAttachmentDisplayName(att.name) }}
+                      </span>
+                      <span v-if="att.sizeText" class="text-[9px] opacity-75">
+                        {{ att.sizeText }}
+                      </span>
                       <a
                         :href="safeUrl(att.url)"
                         target="_blank"
                         rel="noopener noreferrer"
                         download
-                        class="p-1 rounded-md bg-white/20 hover:bg-white/35 text-white transition-colors cursor-pointer"
-                        title="Download image"
-                        @click.stop
+                        class="p-0.5 rounded transition-colors text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                        title="Download"
                       >
-                        <Download class="w-3 h-3" />
+                        <Download class="w-2.5 h-2.5" />
                       </a>
                     </div>
-                  </div>
-
-                  <!-- Non-image file attachment: compact pill -->
-                  <div
-                    v-else
-                    class="inline-flex items-center gap-1.5 py-1 px-2 rounded-lg border border-slate-200/80 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/80 text-xs shadow-2xs hover:border-indigo-300 dark:hover:border-indigo-700 transition-all"
-                  >
-                    <FileText class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                    <span
-                      class="text-[11px] font-medium text-slate-800 dark:text-slate-200 truncate max-w-[120px]"
-                      :title="att.name"
-                    >
-                      {{ formatAttachmentDisplayName(att.name) }}
-                    </span>
-                    <span v-if="att.sizeText" class="text-[10px] text-slate-400">
-                      {{ att.sizeText }}
-                    </span>
-                    <a
-                      :href="safeUrl(att.url)"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download
-                      class="p-0.5 rounded text-slate-400 hover:text-indigo-600 transition-colors"
-                      title="Download"
-                    >
-                      <Download class="w-3 h-3" />
-                    </a>
-                  </div>
-                </template>
+                  </template>
+                </div>
               </div>
+
+              <!-- Date and Reply Action (at LEFT of comment for Admin, RIGHT of comment for Client) -->
+              <div
+                class="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500 shrink-0 select-none pb-0.5 opacity-70 group-hover:opacity-100 transition-opacity"
+                :class="isCommentClientSide(comment) ? 'flex-row' : 'flex-row-reverse'"
+              >
+                <span
+                  class="font-normal whitespace-nowrap"
+                  :title="formatDate(comment.created_at)"
+                >
+                  {{ formatRelativeTime(comment.created_at) }}
+                </span>
+                <span class="text-slate-300 dark:text-slate-700">•</span>
+                <button
+                  type="button"
+                  @click="startReply(comment)"
+                  class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                  title="Reply to comment"
+                >
+                  <Reply class="w-2.5 h-2.5" />
+                  <span>Reply</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Replies count indicator if comment has replies -->
+            <div
+              v-if="comment.replies_count && comment.replies_count > 0"
+              class="flex items-center gap-1 px-1 mt-0.5 text-[10px] text-slate-400 dark:text-slate-500 font-medium"
+              :class="isCommentClientSide(comment) ? 'justify-start' : 'justify-end'"
+            >
+              <CornerDownRight class="w-2.5 h-2.5 text-indigo-500" />
+              <span
+                >{{ comment.replies_count }}
+                {{ comment.replies_count === 1 ? 'reply' : 'replies' }}</span
+              >
             </div>
           </div>
         </div>
@@ -892,7 +930,7 @@ function formatRelativeTime(dateStr?: string | null): string {
           type="button"
           data-testid="scroll-to-bottom-btn"
           @click="scrollToBottom(true)"
-          class="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-20 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-slate-800/95 text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/80 shadow-lg hover:shadow-xl hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 active:scale-95 transition-all cursor-pointer backdrop-blur-md group"
+          class="absolute bottom-24 right-3 sm:bottom-28 sm:right-4 z-20 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-slate-800/95 text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/80 shadow-lg hover:shadow-xl hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 active:scale-95 transition-all cursor-pointer backdrop-blur-md group"
           title="Scroll to latest comment"
           aria-label="Scroll to latest comment"
         >
@@ -907,12 +945,232 @@ function formatRelativeTime(dateStr?: string | null): string {
           </span>
         </button>
       </Transition>
+
+      <!-- ========================================================= -->
+      <!-- 2-MODE COMPOSER: Compact 1-Row Bar & Full Expanded Editor  -->
+      <!-- ========================================================= -->
+      <div data-testid="comments-composer" class="relative shrink-0 pt-1 pb-0.5">
+        <!-- MODE A: Single Row Compact Input Bar (attachmentIcon - input - sendbutton) -->
+        <div
+          v-show="!shouldShowExpandedComposer"
+          data-testid="compact-composer-bar"
+          class="flex items-center gap-1.5 p-1 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+        >
+          <!-- Attachment Icon Button -->
+          <button
+            type="button"
+            @click="composerFileInputRef?.click()"
+            class="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+            title="Attach files or screenshots"
+          >
+            <Paperclip class="w-4 h-4" />
+          </button>
+
+          <!-- 1-Row Input (Expands on focus / click / enter) -->
+          <input
+            data-testid="compact-composer-input"
+            type="text"
+            placeholder="Write a comment... (Enter to type)"
+            class="flex-1 min-w-0 bg-transparent text-xs sm:text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none py-1.5 px-2 cursor-text"
+            @click="expandComposer"
+            @focus="expandComposer"
+            @keydown.enter.prevent="expandComposer"
+          />
+
+          <!-- Send Icon Button -->
+          <button
+            type="button"
+            @click="expandComposer"
+            class="w-8 h-8 rounded-full flex items-center justify-center text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
+            title="Open comment editor"
+          >
+            <Send class="w-3.5 h-3.5 translate-x-px" />
+          </button>
+        </div>
+
+        <!-- MODE B: Full Multi-Line Rich Textarea Composer -->
+        <div
+          v-show="shouldShowExpandedComposer"
+          data-testid="expanded-composer-box"
+          class="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden transition-all duration-200 focus-within:border-indigo-500/80 focus-within:ring-2 focus-within:ring-indigo-500/20"
+        >
+          <!-- 1. Replying-To Banner -->
+          <div
+            v-if="replyingToComment"
+            data-testid="composer-reply-banner"
+            class="px-3.5 py-2 bg-indigo-50/80 dark:bg-indigo-950/50 border-b border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between gap-2"
+          >
+            <div class="flex items-center gap-2 min-w-0">
+              <CornerUpLeft class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <div class="text-xs truncate">
+                <span class="font-bold text-indigo-900 dark:text-indigo-200">
+                  Replying to {{ getAuthorDisplayName(replyingToComment) }}
+                </span>
+                <span class="text-indigo-600/70 dark:text-indigo-400/70 ml-1.5 truncate">
+                  "{{ replyingToComment.body?.substring(0, 45) }}..."
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="cancelReply"
+              class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-black/5 transition-colors cursor-pointer shrink-0"
+              title="Cancel reply"
+            >
+              <X class="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <!-- 2. Attached Files Preview Strip -->
+          <div
+            v-if="composerFiles.length > 0"
+            class="p-2 sm:p-2.5 bg-slate-50/50 dark:bg-slate-950/40 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto"
+          >
+            <div v-for="(f, i) in composerFiles" :key="f.id" class="shrink-0 relative group">
+              <!-- Thumbnail Image Preview -->
+              <div
+                v-if="f.isImage && f.dataUrl"
+                @click="openImagePreview(f.dataUrl)"
+                class="w-12 h-12 rounded-lg overflow-hidden relative cursor-pointer bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs group-hover:ring-2 group-hover:ring-indigo-500/30 transition-all"
+                :title="f.name"
+              >
+                <img :src="f.dataUrl" :alt="f.name" class="w-full h-full object-cover" />
+                <div
+                  class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white"
+                >
+                  <ZoomIn class="w-3 h-3" />
+                </div>
+                <button
+                  type="button"
+                  @click.stop="removeComposerFile(i)"
+                  class="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center transition-colors cursor-pointer z-2"
+                  title="Remove image"
+                >
+                  <X class="w-2 h-2" />
+                </button>
+              </div>
+
+              <!-- Non-image file pill -->
+              <div
+                v-else
+                class="h-10 px-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shadow-2xs"
+              >
+                <FileText class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <div class="max-w-[100px] truncate">
+                  <p
+                    class="text-[10px] font-medium text-slate-800 dark:text-slate-200 truncate"
+                    :title="f.name"
+                  >
+                    {{ f.name }}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  @click="removeComposerFile(i)"
+                  class="text-slate-400 hover:text-rose-500 p-0.5 rounded cursor-pointer transition-colors shrink-0"
+                  title="Remove file"
+                >
+                  <X class="w-2.5 h-2.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Textarea Input Area -->
+          <div class="p-2 sm:p-2.5">
+            <textarea
+              ref="composerTextareaRef"
+              v-model="composerBody"
+              @keydown="handleComposerKeydown"
+              rows="2"
+              :placeholder="
+                replyingToComment
+                  ? 'Write a reply to ' +
+                    getAuthorDisplayName(replyingToComment) +
+                    '... (Enter to send)'
+                  : 'Write a comment... (Enter to send, Shift+Enter for new line)'
+              "
+              class="w-full text-xs sm:text-[13px] px-2 py-1 bg-transparent border-none focus:outline-none text-slate-800 dark:text-slate-100 placeholder:text-slate-400 resize-y min-h-[44px] max-h-[140px]"
+            ></textarea>
+          </div>
+
+          <!-- 4. Bottom Action Bar -->
+          <div
+            class="px-3 py-1.5 bg-slate-50/80 dark:bg-slate-950/60 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2"
+          >
+            <div class="flex items-center gap-2">
+              <!-- Attach File Button -->
+              <button
+                type="button"
+                @click="composerFileInputRef?.click()"
+                class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 px-2 py-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Attach screenshot or file"
+              >
+                <Paperclip class="w-3.5 h-3.5" />
+                <span class="text-xs hidden sm:inline">Attach</span>
+              </button>
+
+              <span class="text-[11px] text-slate-400 dark:text-slate-500 hidden md:inline ml-1">
+                Press
+                <kbd class="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px]"
+                  >Enter</kbd
+                >
+                to send
+              </span>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <!-- Collapse button to minimize back to 1-row if desired -->
+              <button
+                type="button"
+                @click="collapseComposerManual"
+                class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Minimize composer"
+              >
+                <ChevronDown class="w-4 h-4" />
+              </button>
+
+              <!-- Send Button -->
+              <button
+                type="button"
+                @click="submitComposerComment"
+                :disabled="
+                  ticketStore.isPostingComment ||
+                  (!composerBody.trim() && composerFiles.length === 0)
+                "
+                class="w-8 h-8 rounded-full flex items-center justify-center text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm shadow-indigo-600/25 transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                :title="replyingToComment ? 'Send Reply' : 'Send Comment'"
+              >
+                <Send v-if="!ticketStore.isPostingComment" class="w-3.5 h-3.5 translate-x-px" />
+                <span
+                  v-else
+                  class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
+                ></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden input for file picking -->
+        <input
+          ref="composerFileInputRef"
+          type="file"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.txt,.csv,.json"
+          class="hidden"
+          @change="onComposerFileSelect"
+        />
+      </div>
     </div>
 
     <!-- ========================================================= -->
-    <!-- TAB 3 CONTENT: Audit Trail Timeline                        -->
+    <!-- TAB 2 CONTENT: Audit Trail Timeline (Scrollable)           -->
     <!-- ========================================================= -->
-    <div v-show="ticketStore.activeDetailTab === 'audits'">
+    <div
+      v-show="ticketStore.activeDetailTab === 'audits'"
+      data-testid="audit-history-tab"
+      class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin"
+    >
       <TicketAuditTimeline />
     </div>
 

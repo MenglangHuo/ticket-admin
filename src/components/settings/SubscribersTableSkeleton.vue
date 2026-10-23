@@ -1,5 +1,11 @@
 <script setup lang="ts">
-export type SubscriberColumnKey = 'user' | 'chat_id' | 'status' | 'subscribed_at' | 'actions'
+export type SubscriberColumnKey =
+  | 'user'
+  | 'type'
+  | 'chat_id'
+  | 'status'
+  | 'subscribed_at'
+  | 'actions'
 
 withDefaults(
   defineProps<{
@@ -11,19 +17,21 @@ withDefaults(
   {
     columnWidths: () => ({
       user: 240,
-      chat_id: 180,
-      status: 190,
-      subscribed_at: 180,
-      actions: 130,
+      type: 180,
+      chat_id: 170,
+      status: 180,
+      subscribed_at: 170,
+      actions: 120,
     }),
     visibleColumns: () => ({
       user: true,
+      type: true,
       chat_id: true,
       status: true,
       subscribed_at: true,
       actions: true,
     }),
-    totalWidth: 920,
+    totalWidth: 1060,
     rowCount: 5,
   },
 )
@@ -37,6 +45,7 @@ withDefaults(
     >
       <colgroup>
         <col v-if="visibleColumns.user" :style="{ width: `${columnWidths.user}px` }" />
+        <col v-if="visibleColumns.type" :style="{ width: `${columnWidths.type}px` }" />
         <col v-if="visibleColumns.chat_id" :style="{ width: `${columnWidths.chat_id}px` }" />
         <col v-if="visibleColumns.status" :style="{ width: `${columnWidths.status}px` }" />
         <col
@@ -55,6 +64,15 @@ withDefaults(
             v-if="visibleColumns.user"
             class="py-3.5 px-4 sm:px-5"
             :style="{ width: `${columnWidths.user}px` }"
+          >
+            <div class="h-3 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+          </th>
+
+          <!-- Subscriber Type & Role -->
+          <th
+            v-if="visibleColumns.type"
+            class="py-3.5 px-4"
+            :style="{ width: `${columnWidths.type}px` }"
           >
             <div class="h-3 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
           </th>
@@ -114,6 +132,15 @@ withDefaults(
                 <div class="h-2.5 w-16 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
               </div>
             </div>
+          </td>
+
+          <!-- Subscriber Type & Role -->
+          <td
+            v-if="visibleColumns.type"
+            class="py-3.5 px-4"
+            :style="{ width: `${columnWidths.type}px` }"
+          >
+            <div class="h-6 w-24 bg-slate-200 dark:bg-slate-800 rounded-md"></div>
           </td>
 
           <!-- Chat ID -->

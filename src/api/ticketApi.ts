@@ -158,6 +158,7 @@ export const ticketApi = {
           reporter_name?: string
           reporter_email?: string
           reporter_phone?: string
+          reporter_user_id?: number | null
           phone?: string
           due_at?: string
           metadata?: Record<string, any>
@@ -295,8 +296,10 @@ export const ticketApi = {
     const jsonPayload = {
       username: payload.username || 'customer_alex',
       body: payload.body,
+      parent_id: payload.parent_id !== undefined ? payload.parent_id : null,
       is_internal: typeof payload.is_internal === 'boolean' ? payload.is_internal : false,
       files: base64Files,
+      ...(payload.metadata ? { metadata: payload.metadata } : {}),
     }
 
     const response = await apiClient.post<{
@@ -347,7 +350,21 @@ export const ticketApi = {
   },
 
   async submitClientTicket(
-    payload: FormData | Record<string, any>,
+    payload:
+      | FormData
+      | {
+          title: string
+          description?: string
+          type?: string
+          priority?: string
+          reporter_name?: string
+          reporter_email?: string
+          reporter_phone?: string
+          reporter_user_id?: number | null
+          files?: (File | string)[]
+          metadata?: Record<string, any>
+          [key: string]: any
+        },
     clientId = (import.meta.env.VITE_CLIENT_ID as string) || '',
     clientSecret = (import.meta.env.VITE_CLIENT_SECRET as string) || '',
   ): Promise<TicketSingleResponse> {

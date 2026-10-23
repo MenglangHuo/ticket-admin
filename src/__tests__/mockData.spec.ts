@@ -132,10 +132,12 @@ describe('Mock Data Configuration & Service Suite', () => {
         type: 'bug',
         reporter_name: 'External Client',
         reporter_email: 'client@domain.com',
+        reporter_user_id: 104,
       })
       expect(res.success).toBe(true)
       expect(res.data.title).toBe('Client Public Portal Issue')
       expect(res.data.ticket_key).toMatch(/^TCK-\d+$/)
+      expect(res.data.reporter_user_id).toBe(104)
     })
   })
 

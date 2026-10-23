@@ -64,6 +64,7 @@ export interface Ticket {
   external_ref?: string | null
   reporter_name?: string | null
   reporter_email?: string | null
+  reporter_user_id?: number | null
   reporter?: TicketReporter | null
   assignee?: TicketAssignee | null
   due_at?: string | null
@@ -88,7 +89,12 @@ export interface CommentAuthor {
 export interface TicketComment {
   id: number
   ticket_id: number
+  parent_id?: number | null
+  parent?: TicketComment | null
+  replies_count?: number
+  replies?: TicketComment[]
   username?: string
+  author_type?: string
   body: string
   is_internal: boolean
   author?: CommentAuthor | null
@@ -102,6 +108,7 @@ export interface TicketComment {
 export interface CreateCommentPayload {
   username?: string
   body: string
+  parent_id?: number | null
   is_internal?: boolean
   files?: (File | string)[]
   metadata?: Record<string, any>

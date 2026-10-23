@@ -31,6 +31,7 @@ import {
   Check,
   RotateCcw,
   Sparkle,
+  Hash,
 } from 'lucide-vue-next'
 
 const themeStore = useThemeStore()
@@ -45,6 +46,7 @@ const DEFAULT_FORM_VALUES = {
   reporter_name: 'menglang',
   reporter_email: 'menglanghuo@gmail.com',
   reporter_phone: '099191919',
+  reporter_user_id: null as number | null,
 }
 
 const form = reactive({ ...DEFAULT_FORM_VALUES })
@@ -264,6 +266,13 @@ async function handleSubmit() {
     if (form.reporter_phone.trim()) {
       formData.append('reporter_phone', form.reporter_phone.trim())
     }
+    if (
+      form.reporter_user_id !== null &&
+      form.reporter_user_id !== undefined &&
+      (form.reporter_user_id as any) !== ''
+    ) {
+      formData.append('reporter_user_id', String(form.reporter_user_id))
+    }
 
     // Attach raw files
     attachedFiles.value.forEach((item) => {
@@ -308,6 +317,7 @@ function clearForm() {
   form.reporter_name = ''
   form.reporter_email = ''
   form.reporter_phone = ''
+  form.reporter_user_id = null
   attachedFiles.value.forEach((item) => {
     if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
   })
@@ -461,6 +471,15 @@ function clearForm() {
               <span class="font-medium text-slate-900 dark:text-white truncate">{{
                 form.reporter_email
               }}</span>
+            </div>
+            <div
+              v-if="submittedTicket.reporter_user_id || form.reporter_user_id"
+              class="flex justify-between items-center"
+            >
+              <span class="text-slate-500 dark:text-slate-400">Reporter User ID:</span>
+              <span class="font-semibold text-slate-900 dark:text-white font-mono text-[11px]"
+                >#{{ submittedTicket.reporter_user_id || form.reporter_user_id }}</span
+              >
             </div>
             <div v-if="attachedFiles.length > 0" class="flex justify-between items-center">
               <span class="text-slate-500 dark:text-slate-400">Attachments:</span>
@@ -808,6 +827,27 @@ function clearForm() {
                     v-model="form.reporter_phone"
                     type="tel"
                     placeholder="e.g. 099191919"
+                    class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  />
+                </div>
+              </div>
+
+              <!-- Reporter User ID -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Reporter User ID
+                  </label>
+                  <span class="text-[11px] text-slate-400">Optional</span>
+                </div>
+                <div class="relative">
+                  <Hash
+                    class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"
+                  />
+                  <input
+                    v-model.number="form.reporter_user_id"
+                    type="number"
+                    placeholder="e.g. 104"
                     class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                   />
                 </div>

@@ -10,10 +10,14 @@ const props = withDefaults(
   defineProps<{
     content?: string | null
     emptyText?: string
+    hideHeader?: boolean
+    borderless?: boolean
   }>(),
   {
     content: '',
     emptyText: 'No description provided for this ticket.',
+    hideHeader: false,
+    borderless: false,
   },
 )
 
@@ -35,10 +39,16 @@ const isHtmlContent = computed(() => {
 
 <template>
   <div
-    class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
+    class="overflow-hidden"
+    :class="
+      borderless
+        ? ''
+        : 'rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs'
+    "
   >
     <!-- Header Controls Bar -->
     <div
+      v-if="!hideHeader"
       class="px-3.5 py-2 bg-slate-50/80 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs"
     >
       <div class="flex items-center gap-2">
@@ -52,7 +62,10 @@ const isHtmlContent = computed(() => {
     </div>
 
     <!-- Main Content Area -->
-    <div class="p-4 overflow-y-auto max-h-[380px]">
+    <div
+      class="overflow-y-auto scrollbar-thin"
+      :class="borderless ? 'p-1 max-h-[160px]' : 'p-4 max-h-[380px]'"
+    >
       <!-- Empty State -->
       <div
         v-if="!rawHtml || !rawHtml.trim()"

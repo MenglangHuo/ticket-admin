@@ -95,7 +95,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!force && !params && subscribers.value.length > 0) {
       return
     }
-    if (subscribersPromise) return subscribersPromise
+    if (!force && subscribersPromise) return subscribersPromise
 
     isLoading.value = true
     error.value = null
@@ -106,7 +106,13 @@ export const useSettingsStore = defineStore('settings', () => {
         subscribers.value = Array.isArray(res.data) ? res.data : []
         if (res.pagination) {
           pagination.value = res.pagination
-          if (!totalSubscribersCount.value && res.pagination.total !== undefined) {
+          const isFiltered = Boolean(
+            params?.search ||
+              (params?.status && params.status !== 'all') ||
+              (params?.subscriber_type && params.subscriber_type !== 'all') ||
+              (params?.type && params.type !== 'all'),
+          )
+          if (!isFiltered && res.pagination.total !== undefined) {
             totalSubscribersCount.value = res.pagination.total
           }
         }

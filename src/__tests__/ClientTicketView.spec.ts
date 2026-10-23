@@ -131,4 +131,53 @@ describe('ClientTicketView Component', () => {
     expect(wrapper.text()).toContain('Ticket Submitted Successfully')
     expect(wrapper.text()).toContain('TCK-999')
   })
+
+  it('submits reporter_user_id when provided in the form', async () => {
+    let capturedFormData: FormData | null = null
+    const submitSpy = vi.spyOn(ticketApi, 'submitClientTicket').mockImplementation(async (payload) => {
+      if (payload instanceof FormData) {
+        capturedFormData = payload
+      }
+      return {
+        success: true,
+        data: {
+          id: 1001,
+          ticket_key: 'TCK-1001',
+          title: 'Fix issue on Dashboard UI',
+          type: 'bug',
+          priority: 'high',
+          status: 'open',
+          reporter_user_id: 104,
+        },
+      } as any
+    })
+
+    router.push('/client-ticket')
+    await router.isReady()
+
+    const wrapper = mount(ClientTicketView, {
+      global: {
+        plugins: [router],
+        stubs: {
+          HtmlDescriptionEditor: {
+            props: ['modelValue'],
+            template: '<textarea class="mock-editor" :value="modelValue" />',
+          },
+        },
+      },
+    })
+
+    const userIdInput = wrapper.find('input[placeholder="e.g. 104"]')
+    expect(userIdInput.exists()).toBe(true)
+    await userIdInput.setValue(104)
+
+    await wrapper.find('form').trigger('submit.prevent')
+    expect(submitSpy).toHaveBeenCalled()
+    expect(capturedFormData).not.toBeNull()
+    expect(capturedFormData!.get('reporter_user_id')).toBe('104')
+
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('Reporter User ID:')
+    expect(wrapper.text()).toContain('#104')
+  })
 })

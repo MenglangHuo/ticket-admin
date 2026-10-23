@@ -655,6 +655,7 @@ export function createMockTicket(
         reporter_name?: string
         reporter_email?: string
         reporter_phone?: string
+        reporter_user_id?: number | null
         phone?: string
         due_at?: string
         metadata?: Record<string, any>
@@ -669,6 +670,7 @@ export function createMockTicket(
   let reporter_name = 'Admin User'
   let reporter_email = 'admin@bronx.internal'
   let reporter_phone = '012 345 678'
+  let reporter_user_id: number | null = null
   let due_at: string | null = null
   let metadata: Record<string, any> = {}
   const mockAttachments: Attachment[] = []
@@ -682,6 +684,11 @@ export function createMockTicket(
     reporter_name = (payload.get('reporter_name') as string) || reporter_name
     reporter_email = (payload.get('reporter_email') as string) || reporter_email
     reporter_phone = (payload.get('reporter_phone') as string) || reporter_phone
+    const rawUserId = payload.get('reporter_user_id')
+    if (rawUserId !== null && rawUserId !== '') {
+      const parsed = Number(rawUserId)
+      reporter_user_id = isNaN(parsed) ? null : parsed
+    }
     due_at = (payload.get('due_at') as string) || null
 
     const files = payload.getAll('files[]') as File[]
@@ -710,6 +717,10 @@ export function createMockTicket(
     reporter_name = payload.reporter_name || reporter_name
     reporter_email = payload.reporter_email || reporter_email
     reporter_phone = payload.reporter_phone || payload.phone || reporter_phone
+    if (payload.reporter_user_id !== undefined && payload.reporter_user_id !== null && (payload.reporter_user_id as any) !== '') {
+      const parsed = Number(payload.reporter_user_id)
+      reporter_user_id = isNaN(parsed) ? null : parsed
+    }
     due_at = payload.due_at || null
     metadata = payload.metadata || {}
 
@@ -757,8 +768,9 @@ export function createMockTicket(
     reporter_name,
     reporter_email,
     reporter_phone,
+    reporter_user_id,
     reporter: {
-      id: 999,
+      id: reporter_user_id || 999,
       name: reporter_name,
       phone: reporter_phone,
       role: 'ADMIN',
@@ -1063,9 +1075,26 @@ export function createMockTicketComment(
     })
   }
 
+  const parentComment = payload.parent_id
+    ? ticket?.comments?.find((c) => c.id === payload.parent_id) || null
+    : null
+
   const newComment: TicketComment = {
     id: Math.floor(Math.random() * 10000) + 1000,
     ticket_id: numId,
+    parent_id: payload.parent_id !== undefined ? payload.parent_id : null,
+    parent: parentComment
+      ? {
+          id: parentComment.id,
+          ticket_id: parentComment.ticket_id,
+          username: parentComment.username,
+          body: parentComment.body,
+          is_internal: parentComment.is_internal,
+          author: parentComment.author,
+          created_at: parentComment.created_at,
+          updated_at: parentComment.updated_at,
+        }
+      : null,
     username: payload.username,
     body: payload.body,
     is_internal: Boolean(payload.is_internal),
@@ -1078,6 +1107,10 @@ export function createMockTicketComment(
     files: attachments,
     created_at: now,
     updated_at: now,
+  }
+
+  if (parentComment) {
+    parentComment.replies_count = (parentComment.replies_count || 0) + 1
   }
 
   if (ticket) {
@@ -1117,6 +1150,7 @@ export function submitMockClientTicket(
   let reporter_name = 'Client Ingestion User'
   let reporter_email = 'client@partner.com'
   let reporter_phone = '012 999 888'
+  let reporter_user_id: number | null = null
 
   if (payload instanceof FormData) {
     title = (payload.get('title') as string) || title
@@ -1125,6 +1159,11 @@ export function submitMockClientTicket(
     reporter_name = (payload.get('reporter_name') as string) || reporter_name
     reporter_email = (payload.get('reporter_email') as string) || reporter_email
     reporter_phone = (payload.get('reporter_phone') as string) || reporter_phone
+    const rawUserId = payload.get('reporter_user_id')
+    if (rawUserId !== null && rawUserId !== '') {
+      const parsed = Number(rawUserId)
+      reporter_user_id = isNaN(parsed) ? null : parsed
+    }
   } else if (typeof payload === 'object') {
     title = payload.title || title
     description = payload.description || ''
@@ -1132,6 +1171,10 @@ export function submitMockClientTicket(
     reporter_name = payload.reporter_name || reporter_name
     reporter_email = payload.reporter_email || reporter_email
     reporter_phone = payload.reporter_phone || reporter_phone
+    if (payload.reporter_user_id !== undefined && payload.reporter_user_id !== null && (payload.reporter_user_id as any) !== '') {
+      const parsed = Number(payload.reporter_user_id)
+      reporter_user_id = isNaN(parsed) ? null : parsed
+    }
   }
 
   return createMockTicket({
@@ -1143,6 +1186,7 @@ export function submitMockClientTicket(
     reporter_name,
     reporter_email,
     reporter_phone,
+    reporter_user_id,
     metadata: {
       api_client_name: 'Client Ingestion Portal',
       client_submitted: true,

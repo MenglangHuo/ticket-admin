@@ -428,7 +428,10 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Main Editor Body -->
-    <div class="relative bg-white dark:bg-slate-900 min-h-[180px]">
+    <div
+      class="relative bg-white dark:bg-slate-900"
+      :style="{ minHeight: props.minHeight, '--editor-min-height': props.minHeight }"
+    >
       <!-- Visual Mode: Tiptap Editor (WYSIWYG, No HTML tags displayed) -->
       <div v-show="viewMode === 'visual'" class="rich-tiptap-wrapper">
         <EditorContent
@@ -451,7 +454,7 @@ onBeforeUnmount(() => {
           :wrap="true"
           :gutter="true"
           :placeholder="placeholder"
-          class="text-xs font-mono min-h-[180px]"
+          class="text-xs font-mono"
         />
       </div>
     </div>
@@ -476,8 +479,8 @@ onBeforeUnmount(() => {
 /* Tiptap / ProseMirror Visual Editor Styles */
 .rich-tiptap-wrapper .ProseMirror {
   outline: none;
-  min-height: 180px;
-  max-height: 460px;
+  min-height: var(--editor-min-height, 180px);
+  max-height: 560px;
   overflow-y: auto;
   padding: 12px 14px;
   line-height: 1.6;
@@ -604,8 +607,8 @@ onBeforeUnmount(() => {
 
 /* CodeMirror Container */
 .cm-editor-container .cm-editor {
-  min-height: 180px;
-  max-height: 460px;
+  min-height: var(--editor-min-height, 180px);
+  max-height: 560px;
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;

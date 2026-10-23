@@ -13,6 +13,8 @@ export interface TelegramSubscriberFilterParams {
   username?: string
   status?: 'all' | 'active' | 'inactive' | string
   is_active?: boolean
+  subscriber_type?: string
+  type?: string
   sort_by?: string
   sort_dir?: 'asc' | 'desc'
 }
@@ -105,6 +107,13 @@ export const telegramApi = {
         cleanParams.username = params.username.trim()
       if (params.status && params.status !== 'all') cleanParams.status = params.status
       if (params.is_active !== undefined) cleanParams.is_active = params.is_active
+      if (params.subscriber_type && params.subscriber_type !== 'all') {
+        cleanParams.subscriber_type = params.subscriber_type
+        cleanParams.type = params.subscriber_type
+      } else if (params.type && params.type !== 'all') {
+        cleanParams.subscriber_type = params.type
+        cleanParams.type = params.type
+      }
       if (params.sort_by) cleanParams.sort_by = params.sort_by
       if (params.sort_dir) cleanParams.sort_dir = params.sort_dir
     }

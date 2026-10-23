@@ -11,6 +11,14 @@ const mockSubscribers: TelegramSubscriber[] = [
     id: 1,
     telegram_chat_id: '12345678',
     telegram_username: 'alex_dev',
+    subscriber_type: 'RESOLVER',
+    user_id: 12,
+    user: {
+      id: 12,
+      name: 'Alex Resolver',
+      username: 'alex',
+      email: 'alex@example.com',
+    },
     is_active: true,
     subscribed_at: '2026-03-01T10:00:00.000Z',
   },
@@ -18,6 +26,14 @@ const mockSubscribers: TelegramSubscriber[] = [
     id: 2,
     telegram_chat_id: '87654321',
     telegram_username: 'sarah_ops',
+    subscriber_type: 'REQUESTER',
+    user_id: 105,
+    user: {
+      id: 105,
+      name: 'Sokha Mean',
+      username: 'sokha',
+      email: 'sokha@example.com',
+    },
     is_active: false,
     subscribed_at: '2026-03-05T14:30:00.000Z',
   },
@@ -25,6 +41,8 @@ const mockSubscribers: TelegramSubscriber[] = [
     id: 3,
     telegram_chat_id: '99887766',
     telegram_username: null,
+    subscriber_type: 'RESOLVER',
+    user_id: null,
     is_active: true,
     subscribed_at: '2026-03-10T08:15:00.000Z',
   },
@@ -49,6 +67,7 @@ describe('SubscribersTable Component', () => {
     const headerTexts = headers.map((h) => h.text())
 
     expect(headerTexts.some((t) => t.includes('Telegram User'))).toBe(true)
+    expect(headerTexts.some((t) => t.includes('Subscriber Type'))).toBe(true)
     expect(headerTexts.some((t) => t.includes('Telegram Chat ID'))).toBe(true)
     expect(headerTexts.some((t) => t.includes('Ticket Notifications'))).toBe(true)
     expect(headerTexts.some((t) => t.includes('Subscribed Date'))).toBe(true)
@@ -62,6 +81,33 @@ describe('SubscribersTable Component', () => {
     expect(text).toContain('87654321')
     expect(text).toContain('Active')
     expect(text).toContain('Muted')
+    expect(text).toContain('RESOLVER')
+    expect(text).toContain('Support Staff')
+    expect(text).toContain('REQUESTER')
+    expect(text).toContain('User #105')
+    expect(text).toContain('Sokha Mean')
+  })
+
+  it('renders subscriber type badges and linked requester user ID clearly', async () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.subscribers = [...mockSubscribers]
+    settingsStore.isLoading = false
+
+    const wrapper = mount(SubscribersTable)
+    await wrapper.vm.$nextTick()
+
+    // Assert resolver badge
+    const resolverBadge = wrapper.findAll('td').find((td) => td.text().includes('RESOLVER'))
+    expect(resolverBadge).toBeDefined()
+    expect(resolverBadge?.text()).toContain('Support Staff')
+
+    // Assert requester badge and linked user
+    const requesterBadge = wrapper.findAll('td').find((td) => td.text().includes('REQUESTER'))
+    expect(requesterBadge).toBeDefined()
+    expect(requesterBadge?.text()).toContain('Sokha Mean')
+
+    // Assert requester identity in the user column
+    expect(wrapper.text()).toContain('User #105')
   })
 
   it('renders SubscribersTableSkeleton when isLoading is true and subscribers list is empty', async () => {
@@ -181,5 +227,110 @@ describe('SubscribersTable Component', () => {
 
     await copyBtn.trigger('click')
     expect(writeTextSpy).toHaveBeenCalledWith('99887766')
+  })
+
+  it('filters subscribers by subscriber_type REQUESTER correctly and updates total count', async () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.subscribers = [...mockSubscribers]
+    settingsStore.isLoading = false
+    // Mock server pagination object
+    settingsStore.pagination = {
+      page: 1,
+      per_page: 10,
+      total: 3,
+      total_pages: 1,
+      has_next: false,
+      has_previous: false,
+    }
+
+    const wrapper = mount(SubscribersTable)
+    await wrapper.vm.$nextTick()
+
+    // Find custom selects - second one is subscriber type
+    const selects = wrapper.findAllComponents({ name: 'CustomSelect' })
+    expect(selects.length).toBeGreaterThanOrEqual(2)
+    const typeSelect = selects[1]!
+
+    // Select REQUESTER
+    await typeSelect.vm.$emit('update:modelValue', 'REQUESTER')
+    await wrapper.vm.$nextTick()
+
+    // Assert only requester is rendered
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows.length).toBe(1)
+    expect(rows[0]!.text()).toContain('@sarah_ops')
+    expect(rows[0]!.text()).toContain('REQUESTER')
+    expect(rows[0]!.text()).not.toContain('@alex_dev')
+
+    // Assert pagination total count updated to 1
+    expect(wrapper.text()).toContain('Showing 1-1 of 1 subscribers')
+  })
+
+  it('filters subscribers by subscriber_type RESOLVER correctly', async () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.subscribers = [...mockSubscribers]
+    settingsStore.isLoading = false
+    settingsStore.pagination = {
+      page: 1,
+      per_page: 10,
+      total: 3,
+      total_pages: 1,
+      has_next: false,
+      has_previous: false,
+    }
+
+    const wrapper = mount(SubscribersTable)
+    await wrapper.vm.$nextTick()
+
+    const selects = wrapper.findAllComponents({ name: 'CustomSelect' })
+    const typeSelect = selects[1]!
+
+    // Select RESOLVER
+    await typeSelect.vm.$emit('update:modelValue', 'RESOLVER')
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows.length).toBe(2)
+    expect(wrapper.text()).toContain('@alex_dev')
+    expect(wrapper.text()).toContain('No username')
+    expect(wrapper.text()).not.toContain('@sarah_ops')
+    expect(wrapper.text()).toContain('Showing 1-2 of 2 subscribers')
+  })
+
+  it('shows empty state when subscriber type filter yields no results and allows reset', async () => {
+    const settingsStore = useSettingsStore()
+    // Provide only resolver subscribers
+    settingsStore.subscribers = mockSubscribers.filter((s) => s.subscriber_type === 'RESOLVER')
+    settingsStore.isLoading = false
+    settingsStore.pagination = {
+      page: 1,
+      per_page: 10,
+      total: 2,
+      total_pages: 1,
+      has_next: false,
+      has_previous: false,
+    }
+
+    const wrapper = mount(SubscribersTable)
+    await wrapper.vm.$nextTick()
+
+    const selects = wrapper.findAllComponents({ name: 'CustomSelect' })
+    const typeSelect = selects[1]!
+
+    // Filter by REQUESTER (which none exist in this list)
+    await typeSelect.vm.$emit('update:modelValue', 'REQUESTER')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('No matching subscribers')
+    expect(wrapper.text()).toContain('Try adjusting your search query, status, or subscriber type filter')
+
+    const resetBtn = wrapper.find('button[title="Clear all active filters"]')
+    expect(resetBtn.exists()).toBe(true)
+
+    await resetBtn.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    // After reset, both resolver items should be visible
+    expect(wrapper.findAll('tbody tr').length).toBe(2)
   })
 })

@@ -18,6 +18,7 @@ import {
   Edit3,
   FileText,
   Globe,
+  Info,
   Mail,
   PanelBottom,
   PanelLeft,
@@ -237,7 +238,18 @@ function formatDate(dateStr?: string | null): string {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  if (isEditingTicket.value) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault()
+      saveEditTicket()
+      return
+    }
+  }
   if (e.key === 'Escape' && ticketStore.isDrawerOpen && !previewImage.value) {
+    if (isEditingTicket.value) {
+      cancelEditTicket()
+      return
+    }
     ticketStore.closeTicketDrawer()
   }
 }
@@ -512,7 +524,7 @@ onUnmounted(() => {
                 v-if="!authStore.isReadOnly"
                 type="button"
                 @click="startEditTicket"
-                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800/90 hover:bg-slate-50 dark:hover:bg-slate-700/60 border border-slate-200/90 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800/80 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
+                class="inline-flex items-center gap-2 px-2.5 py-2 rounded-sm text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800/90 hover:bg-slate-50 dark:hover:bg-slate-700/60 border border-slate-200/90 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800/80 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
                 title="Edit title, description, and record change audit"
               >
                 <Edit3 class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
@@ -528,8 +540,12 @@ onUnmounted(() => {
                 >
                   <Edit3 class="w-3.5 h-3.5" />
                   <span>Edit Ticket Title</span>
+                  <span class="text-rose-500">*</span>
                 </label>
                 <div class="flex items-center gap-2">
+                  <span class="text-[11px] font-mono text-slate-400 mr-1">
+                    {{ editTitle.length }} / 500
+                  </span>
                   <button
                     type="button"
                     @click="cancelEditTicket"
@@ -572,22 +588,31 @@ onUnmounted(() => {
             :content="ticket.description"
             empty-text="No description provided for this ticket."
           />
-          <div v-else class="space-y-2">
+          <div v-else class="space-y-3">
             <div class="flex items-center justify-between">
               <label
-                class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5"
+                class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
               >
                 <span>Description & Details</span>
               </label>
-              <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium"
-                >Rich text editor</span
-              >
+              <span class="text-[11px] text-slate-400 font-medium">
+                Supports rich text formatting, lists, code, and HTML mode
+              </span>
             </div>
             <HtmlDescriptionEditor
               v-model="editDescription"
               placeholder="Provide accurate, polished description or reproduction steps..."
-              min-height="200px"
+              min-height="260px"
             />
+            <!-- Bottom Helper & Quick Action Footer -->
+            <div
+              class="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400"
+            >
+              <div class="flex items-center gap-2">
+                <Info class="w-4 h-4 text-indigo-500 shrink-0" />
+                <span>Changes will be recorded in the ticket audit history.</span>
+              </div>
+            </div>
           </div>
 
           <!-- Submitter Details Card -->

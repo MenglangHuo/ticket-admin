@@ -7,10 +7,9 @@ import { useTicketStore } from '@/stores/ticketStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { TicketStatus } from '@/types/ticket'
 import { safeUrl } from '@/utils/security'
-import { getSourceCategory, getTicketCompany, getTicketSource } from '@/utils/ticket'
+import { getTicketCompany, getTicketSource } from '@/utils/ticket'
 import {
   Bug,
-  Building,
   Building2,
   Calendar,
   Check,
@@ -20,13 +19,11 @@ import {
   Download,
   Edit3,
   FileText,
-  Globe,
   HelpCircle,
+  Info,
   Mail,
-  Paperclip,
   Phone,
   RefreshCw,
-  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Trash2,
@@ -34,7 +31,7 @@ import {
   X,
   ZoomIn,
 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import StatusDropdown from './StatusDropdown.vue'
 import EditTicketModal from './EditTicketModal.vue'
 import TicketCommentsSection from './TicketCommentsSection.vue'
@@ -49,6 +46,9 @@ const hasCopiedEmail = ref(false)
 const hasCopiedPhone = ref(false)
 const hasCopiedCompany = ref(false)
 
+// Discussion stream maximize state (collapses pinned header to 1-line bar to maximize comment area)
+const isCommentsMaximized = ref(false)
+
 // Inline ticket title & description editing state
 const isEditingTicket = ref(false)
 const editTitle = ref('')
@@ -58,6 +58,7 @@ function startEditTicket() {
   if (!ticket.value) return
   editTitle.value = ticket.value.title || ''
   editDescription.value = ticket.value.description || ''
+  isCommentsMaximized.value = false
   isEditingTicket.value = true
 }
 
@@ -107,6 +108,7 @@ watch(
   () => ticket.value?.id,
   () => {
     cancelEditTicket()
+    isCommentsMaximized.value = false
   },
 )
 
@@ -115,14 +117,33 @@ watch(
   (isOpen) => {
     if (!isOpen) {
       cancelEditTicket()
+      isCommentsMaximized.value = false
     }
   },
 )
+
+function onKeydown(e: KeyboardEvent) {
+  if (!isEditingTicket.value) return
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault()
+    saveEditTicket()
+  } else if (e.key === 'Escape') {
+    cancelEditTicket()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
+
 const notes = computed(() => ticketStore.comments || [])
 
 const ticketCompany = computed(() => getTicketCompany(ticket.value))
 const ticketSource = computed(() => getTicketSource(ticket.value))
-const sourceCategory = computed(() => getSourceCategory(ticketSource.value))
 
 const reporterPhone = computed(() => {
   if (!ticket.value) return ''
@@ -172,6 +193,17 @@ function formatFileSize(bytes?: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+}
+
+function isImageAttachment(file: {
+  mime_type?: string
+  file_url?: string
+  file_name?: string
+}): boolean {
+  if (file.mime_type?.startsWith('image/')) return true
+  if (file.file_url?.startsWith('data:image/')) return true
+  const name = file.file_name || file.file_url || ''
+  return Boolean(name.match(/\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i))
 }
 
 function formatDate(dateStr?: string | null): string {
@@ -225,26 +257,14 @@ function formatDate(dateStr?: string | null): string {
             </button>
           </div>
 
-          <!-- Type Badge with Icon -->
-          <span
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider shadow-2xs"
-            :class="{
-              'bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30':
-                ticket.type === 'bug',
-              'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30':
-                ticket.type === 'enhancement',
-              'bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30':
-                ticket.type === 'question',
-              'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30':
-                ticket.type === 'task',
-            }"
+          <!-- Created Datetime Badge (Beautiful header timestamp) -->
+          <div
+            class="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 text-xs font-medium text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs select-none"
+            :title="`Created at: ${formatDate(ticket.created_at)}`"
           >
-            <Bug v-if="ticket.type === 'bug'" class="w-3.5 h-3.5" />
-            <Sparkles v-else-if="ticket.type === 'enhancement'" class="w-3.5 h-3.5" />
-            <HelpCircle v-else-if="ticket.type === 'question'" class="w-3.5 h-3.5" />
-            <CheckSquare v-else class="w-3.5 h-3.5" />
-            <span>{{ ticket.type }}</span>
-          </span>
+            <Calendar class="w-3.5 h-3.5 text-slate-400 dark:text-slate-400 shrink-0" />
+            <span class="truncate">{{ formatDate(ticket.created_at) }}</span>
+          </div>
         </div>
       </template>
 
@@ -315,231 +335,282 @@ function formatDate(dateStr?: string | null): string {
         v-if="ticket"
         class="flex flex-col lg:flex-row h-full min-h-full divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-slate-800"
       >
-        <!-- LEFT COLUMN: Ticket Content, Attachments & Discussion Stream (65%) -->
-        <div class="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4">
-          <!-- Hero Section: Title & Details -->
+        <!-- LEFT COLUMN: Ticket Content, Pinned Context & Discussion Stream (65%) -->
+        <div
+          class="flex-1 flex flex-col min-h-0 overflow-hidden lg:h-full bg-white dark:bg-slate-900"
+        >
+          <!-- Dedicated Edit Workspace Mode (Spacious, full height, distraction-free) -->
           <div
-            class="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-2xs"
+            v-if="isEditingTicket"
+            class="flex-1 min-h-0 flex flex-col h-full bg-white dark:bg-slate-900 overflow-hidden"
           >
+            <!-- Sticky Edit Header -->
             <div
-              class="flex flex-wrap items-center gap-2 mb-2.5 text-xs text-slate-500 dark:text-slate-400"
+              class="shrink-0 px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-between gap-3 z-10"
             >
-              <span class="inline-flex items-center gap-1.5">
-                <Calendar class="w-3.5 h-3.5 text-slate-400" />
-                <span>Created {{ formatDate(ticket.created_at) }}</span>
-              </span>
-              <span class="text-slate-300 dark:text-slate-700">•</span>
-              <!-- Company Pill -->
-              <!-- <span
-                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/70 dark:border-indigo-800/50 shadow-2xs"
-                :title="`Company: ${ticketCompany}`"
-              >
-                <Building2 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>{{ ticketCompany }}</span>
-              </span> -->
-              <span class="text-slate-300 dark:text-slate-700">•</span>
-              <!-- Source Pill -->
-              <span
-                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold border shadow-2xs"
-                :class="{
-                  'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/50':
-                    sourceCategory === 'hq',
-                  'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800/50':
-                    sourceCategory === 'branch',
-                  'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/60':
-                    sourceCategory === 'other',
-                }"
-                :title="`Source: ${ticketSource}`"
-              >
-                <ShieldCheck
-                  v-if="sourceCategory === 'hq'"
-                  class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400"
-                />
-                <Building
-                  v-else-if="sourceCategory === 'branch'"
-                  class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
-                />
-                <Globe v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                <span>{{ ticketSource }}</span>
-              </span>
-            </div>
-
-            <!-- View Mode: Title & Edit Button -->
-            <div
-              v-if="!isEditingTicket"
-              class="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
-            >
-              <h2
-                class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-snug flex-1"
-              >
-                {{ ticket.title }}
-              </h2>
-              <button
-                v-if="!authStore.isReadOnly"
-                type="button"
-                @click="startEditTicket"
-                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800/90 hover:bg-slate-50 dark:hover:bg-slate-700/60 border border-slate-200/90 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800/80 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
-                title="Edit title, description, and record change audit"
-              >
-                <Edit3 class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                <span>Edit Ticket</span>
-              </button>
-            </div>
-
-            <!-- Edit Mode: Title input form -->
-            <div v-else class="space-y-2">
-              <div class="flex items-center justify-between gap-3">
-                <label
-                  class="block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5"
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div
+                  class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800/60 shrink-0"
                 >
-                  <Edit3 class="w-3.5 h-3.5" />
-                  <span>Edit Ticket Title</span>
-                </label>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    @click="cancelEditTicket"
-                    :disabled="ticketStore.isSavingTicketEdit"
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
-                  >
-                    <X class="w-3.5 h-3.5" />
-                    <span>Cancel</span>
-                  </button>
-                  <button
-                    type="button"
-                    @click="saveEditTicket"
-                    :disabled="ticketStore.isSavingTicketEdit || !editTitle.trim()"
-                    class="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
+                  <Edit3 class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">
+                      Edit Ticket Details
+                    </h3>
                     <span
-                      v-if="ticketStore.isSavingTicketEdit"
-                      class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
-                    ></span>
-                    <Check v-else class="w-3.5 h-3.5" />
-                    <span>Save</span>
-                  </button>
+                      class="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-indigo-100/70 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/40 shrink-0"
+                    >
+                      {{ ticket.ticket_key }}
+                    </span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    Created {{ formatDate(ticket.created_at) }} • {{ ticketSource }}
+                  </p>
                 </div>
               </div>
-              <input
-                v-model="editTitle"
-                type="text"
-                maxlength="500"
-                placeholder="Enter ticket title..."
-                class="w-full text-base sm:text-lg font-bold px-3.5 py-2.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
-                @keydown.enter.prevent="saveEditTicket"
-                @keydown.esc="cancelEditTicket"
-              />
+
+              <!-- Header Action Buttons -->
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  class="hidden md:inline-flex items-center text-[11px] text-slate-400 mr-1 select-none"
+                >
+                  <kbd
+                    class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-mono mr-1"
+                    >Esc</kbd
+                  >
+                  cancel
+                </span>
+                <button
+                  type="button"
+                  @click="cancelEditTicket"
+                  :disabled="ticketStore.isSavingTicketEdit"
+                  class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
+                >
+                  <X class="w-3.5 h-3.5" />
+                  <span>Cancel</span>
+                </button>
+                <button
+                  type="button"
+                  @click="saveEditTicket"
+                  :disabled="ticketStore.isSavingTicketEdit || !editTitle.trim()"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer shadow-2xs hover:shadow-indigo-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span
+                    v-if="ticketStore.isSavingTicketEdit"
+                    class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
+                  ></span>
+                  <Check v-else class="w-3.5 h-3.5" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
             </div>
 
-            <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/60">
-              <HtmlDescriptionViewer
-                v-if="!isEditingTicket"
-                :content="ticket.description"
-                empty-text="No description provided for this ticket."
-              />
-              <div v-else class="space-y-2">
+            <!-- Edit Workspace Form Body: Scrollable & Spacious -->
+            <div class="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-5 scrollbar-thin">
+              <!-- Ticket Title Field -->
+              <div class="space-y-2">
                 <div class="flex items-center justify-between">
                   <label
-                    class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5"
+                    class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
+                  >
+                    <span>Ticket Title</span>
+                    <span class="text-rose-500">*</span>
+                  </label>
+                  <span class="text-[11px] font-mono text-slate-400">
+                    {{ editTitle.length }} / 500
+                  </span>
+                </div>
+                <input
+                  v-model="editTitle"
+                  type="text"
+                  maxlength="500"
+                  placeholder="Enter ticket title..."
+                  class="w-full text-base sm:text-lg font-bold px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
+                  @keydown.enter.prevent="saveEditTicket"
+                  @keydown.esc="cancelEditTicket"
+                />
+              </div>
+
+              <!-- Ticket Description Field -->
+              <div class="space-y-2 flex-1 flex flex-col">
+                <div class="flex items-center justify-between">
+                  <label
+                    class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
                   >
                     <span>Description & Details</span>
                   </label>
-                  <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium"
-                    >Rich text editor</span
-                  >
+                  <span class="text-[11px] text-slate-400 font-medium">
+                    Supports rich text formatting, lists, code, and HTML mode
+                  </span>
                 </div>
+
+                <!-- HtmlDescriptionEditor with generous height and full toolbar visibility -->
                 <HtmlDescriptionEditor
                   v-model="editDescription"
                   placeholder="Provide accurate, polished description or reproduction steps..."
-                  min-height="200px"
+                  min-height="300px"
+                  class="w-full"
                 />
+              </div>
+
+              <!-- Bottom Helper & Quick Action Footer -->
+              <div
+                class="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400"
+              >
+                <div class="flex items-center gap-2">
+                  <Info class="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span>Changes will be saved and recorded in the ticket audit history.</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Attachments Card (Admin View Only - shown when attachments exist) -->
-          <div
-            v-if="ticket.attachments && ticket.attachments.length > 0"
-            class="bg-slate-50/80 dark:bg-slate-950/60 rounded-2xl p-4 border border-slate-200 dark:border-slate-800/80"
-          >
-            <div class="flex items-center justify-between mb-3">
-              <h4
-                class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2"
-              >
-                <Paperclip class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span>Ticket Attachments ({{ ticket.attachments.length }})</span>
-              </h4>
-              <span class="text-[11px] text-slate-400 dark:text-slate-500">
-                View & download only
-              </span>
+          <!-- Normal Non-Editing Workspace: Pinned Context & Discussion Stream -->
+          <template v-else>
+            <!-- When isCommentsMaximized is true: Slim 1-line top bar to maximize comments stream -->
+            <div
+              v-if="isCommentsMaximized"
+              class="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 px-4 py-2.5 flex items-center justify-between gap-3 z-10"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0"
+                >
+                  {{ ticket.ticket_key }}
+                </span>
+                <span class="text-slate-300 dark:text-slate-700 shrink-0">•</span>
+                <h2
+                  class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate"
+                >
+                  {{ ticket.title }}
+                </h2>
+              </div>
             </div>
 
-            <!-- Attachments grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- When isCommentsMaximized is false: Normal Context Header: Title, Description & Attachments (45% Height) -->
+            <div
+              v-else
+              class="h-[45%] shrink-0 min-h-0 flex flex-col border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 sm:px-5 sm:py-2 space-y-1 z-10 shadow-2xs overflow-hidden"
+            >
+              <!-- View Mode: Title & Edit Button -->
+              <div class="shrink-0 flex items-start justify-between gap-3">
+                <h2
+                  class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-snug flex-1"
+                >
+                  {{ ticket.title }}
+                </h2>
+                <button
+                  v-if="!authStore.isReadOnly"
+                  type="button"
+                  @click="startEditTicket"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200/90 dark:border-slate-700 hover:border-slate-300 hover:scale-105 duration-200 dark:hover:border-indigo-800/80 hover:text-slate-600 dark:hover:text-indigo-400 transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
+                  title="Edit title, description, and record change audit"
+                >
+                  <Edit3 class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                  <span>Edit Ticket</span>
+                </button>
+              </div>
+
+              <!-- Scrollable Description Area Only (No attachments inside scroll area) -->
               <div
-                v-for="file in ticket.attachments"
-                :key="file.id"
-                class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 group hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs"
+                class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin text-xs text-slate-700 dark:text-slate-300"
               >
-                <div class="flex items-center gap-2.5 min-w-0">
+                <HtmlDescriptionViewer
+                  :content="ticket.description"
+                  :hide-header="true"
+                  :borderless="true"
+                  empty-text="No description provided for this ticket."
+                />
+              </div>
+
+              <!-- Fixed Position Attachments Area (Does NOT scroll with description, pinned at bottom) -->
+              <div
+                v-if="ticket.attachments && ticket.attachments.length > 0"
+                class="shrink-0 pt-1 border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center gap-2"
+              >
+                <template v-for="file in ticket.attachments" :key="file.id">
+                  <!-- Image Attachment: Proportional preview card (w-10 h-10) without name -->
                   <div
-                    v-if="file.mime_type?.startsWith('image/')"
+                    v-if="isImageAttachment(file)"
+                    class="group/img relative w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 shadow-2xs hover:shadow-md transition-all duration-200 shrink-0 cursor-pointer"
+                    :title="
+                      file.file_size
+                        ? `Image attachment (${formatFileSize(file.file_size)}) - Click to preview`
+                        : 'Click to preview image'
+                    "
                     @click="previewImage = file.file_url"
-                    class="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-950 cursor-pointer relative group/thumb border border-slate-200 dark:border-slate-800"
                   >
                     <img
                       :src="file.file_url"
-                      :alt="file.file_name"
-                      class="w-full h-full object-cover"
+                      :alt="file.file_name || 'Attachment'"
+                      class="w-full h-full object-cover transition-transform duration-300 ease-out group-hover/img:scale-105"
                     />
+
+                    <!-- Hover Action Overlay -->
                     <div
-                      class="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity"
+                      class="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px] opacity-0 group-hover/img:opacity-100 flex items-center justify-center gap-1 text-white transition-opacity duration-150"
                     >
-                      <ZoomIn class="w-3.5 h-3.5 text-white" />
+                      <button
+                        type="button"
+                        @click.stop="previewImage = file.file_url"
+                        class="p-0.5 rounded bg-white/20 hover:bg-white/35 text-white transition-colors cursor-pointer"
+                        title="Preview image"
+                      >
+                        <ZoomIn class="w-3 h-3" />
+                      </button>
                     </div>
                   </div>
+
+                  <!-- Non-Image Attachment: Compact pill with name and size -->
                   <div
                     v-else
-                    class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-500 shrink-0 border border-slate-200 dark:border-slate-700/60"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 border border-slate-200/80 dark:border-slate-700/80 text-xs shadow-2xs transition-colors group"
                   >
-                    <FileText class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <div class="truncate">
-                    <p
-                      class="text-xs font-medium text-slate-800 dark:text-slate-200 truncate"
+                    <FileText class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span
+                      class="max-w-[130px] sm:max-w-[180px] truncate font-medium text-slate-700 dark:text-slate-300"
                       :title="file.file_name"
                     >
                       {{ file.file_name }}
-                    </p>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">
-                      {{ formatFileSize(file.file_size) }}
                     </span>
+                    <span class="text-[10px] text-slate-400">
+                      ({{ formatFileSize(file.file_size) }})
+                    </span>
+                    <a
+                      :href="safeUrl(file.file_url)"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
+                      class="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 rounded cursor-pointer transition-colors"
+                      title="Download"
+                    >
+                      <Download class="w-3 h-3" />
+                    </a>
                   </div>
-                </div>
-
-                <div class="flex items-center gap-1 shrink-0">
-                  <a
-                    :href="safeUrl(file.file_url)"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download
-                    class="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    title="Download"
-                  >
-                    <Download class="w-3.5 h-3.5" />
-                  </a>
-                </div>
+                </template>
               </div>
             </div>
-          </div>
 
-          <!-- Discussion, All Comments & Audit History Section -->
-          <TicketCommentsSection :ticket="ticket" @preview-image="previewImage = $event" />
+            <!-- Bottom Independent Activity & Comments Stream (55% Height, or flex-1 when maximized) -->
+            <div
+              class="min-h-0 flex flex-col overflow-hidden p-3 sm:p-4 bg-slate-50/40 dark:bg-slate-950/20"
+              :class="isCommentsMaximized ? 'flex-1' : 'h-[55%] min-h-0 flex-1'"
+            >
+              <TicketCommentsSection
+                :ticket="ticket"
+                :is-maximized="isCommentsMaximized"
+                @toggle-maximize="isCommentsMaximized = !isCommentsMaximized"
+                @preview-image="previewImage = $event"
+              />
+            </div>
+          </template>
         </div>
 
         <!-- RIGHT COLUMN: Submitter Info & SLA Milestones (35%) -->
         <div
-          class="w-full lg:w-80 p-5 sm:p-6 space-y-5 bg-slate-50/50 dark:bg-slate-950/40 shrink-0 overflow-y-auto"
+          class="w-full lg:w-80 p-2 sm:p-6 space-y-2 bg-slate-50/50 dark:bg-slate-950/40 shrink-0 overflow-y-auto"
         >
           <!-- Submitter Card -->
           <div
@@ -709,37 +780,34 @@ function formatDate(dateStr?: string | null): string {
                 </span>
               </div>
 
-              <!-- Source Row
+              <!-- Source Row -->
               <div
                 class="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60"
               >
                 <span class="text-xs font-medium text-slate-600 dark:text-slate-300 pl-1"
-                  >Source</span
+                  >Type</span
                 >
+                <!-- Type Badge with Icon -->
                 <span
-                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold tracking-wide border shadow-2xs"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider shadow-2xs"
                   :class="{
-                    'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/50':
-                      sourceCategory === 'hq',
-                    'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800/50':
-                      sourceCategory === 'branch',
-                    'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/60':
-                      sourceCategory === 'other',
+                    'bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30':
+                      ticket.type === 'bug',
+                    'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30':
+                      ticket.type === 'enhancement',
+                    'bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30':
+                      ticket.type === 'question',
+                    'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30':
+                      ticket.type === 'task',
                   }"
-                  :title="`Source: ${ticketSource}`"
                 >
-                  <ShieldCheck
-                    v-if="sourceCategory === 'hq'"
-                    class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400"
-                  />
-                  <Building
-                    v-else-if="sourceCategory === 'branch'"
-                    class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
-                  />
-                  <Globe v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                  <span>{{ ticketSource }}</span>
+                  <Bug v-if="ticket.type === 'bug'" class="w-3.5 h-3.5" />
+                  <Sparkles v-else-if="ticket.type === 'enhancement'" class="w-3.5 h-3.5" />
+                  <HelpCircle v-else-if="ticket.type === 'question'" class="w-3.5 h-3.5" />
+                  <CheckSquare v-else class="w-3 h-3" />
+                  <span>{{ ticket.type }}</span>
                 </span>
-              </div> -->
+              </div>
             </div>
           </div>
 

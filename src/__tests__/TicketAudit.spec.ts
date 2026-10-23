@@ -321,9 +321,9 @@ describe('Ticket Audit Features', () => {
   })
 
   describe('TicketStore Audit Actions', () => {
-    it('switches tabs between discussion and audits', () => {
+    it('switches tabs between comments and audits', () => {
       const store = useTicketStore()
-      expect(store.activeDetailTab).toBe('discussion')
+      expect(store.activeDetailTab).toBe('comments')
 
       store.activeDetailTab = 'audits'
       expect(store.activeDetailTab).toBe('audits')

@@ -149,7 +149,7 @@ export const useTicketStore = defineStore('tickets', () => {
   })
   const isEditTicketModalOpen = ref<boolean>(false)
   const isSavingTicketEdit = ref<boolean>(false)
-  const activeDetailTab = ref<'discussion' | 'comments' | 'audits'>('discussion')
+  const activeDetailTab = ref<'comments' | 'audits' | 'discussion'>('comments')
 
   // Modern Modal & Window State
   const detailViewMode = ref<'modal' | 'drawer'>('modal')
@@ -860,7 +860,7 @@ export const useTicketStore = defineStore('tickets', () => {
       total: 0,
       has_more: false,
     }
-    activeDetailTab.value = 'discussion'
+    activeDetailTab.value = 'comments'
 
     try {
       const response = await ticketApi.getTicketById(ticket.id)
@@ -1069,10 +1069,24 @@ export const useTicketStore = defineStore('tickets', () => {
         username,
       })
       const createdComment = (response as any).data || response
+      if (createdComment.parent_id) {
+        const parentInList = comments.value.find((c) => c.id === createdComment.parent_id)
+        if (parentInList) {
+          parentInList.replies_count = (parentInList.replies_count || 0) + 1
+        }
+      }
       comments.value.push(createdComment)
       if (selectedTicket.value) {
         if (!selectedTicket.value.comments) {
           selectedTicket.value.comments = []
+        }
+        if (createdComment.parent_id) {
+          const parentInTicket = selectedTicket.value.comments.find(
+            (c) => c.id === createdComment.parent_id,
+          )
+          if (parentInTicket) {
+            parentInTicket.replies_count = (parentInTicket.replies_count || 0) + 1
+          }
         }
         if (!selectedTicket.value.comments.some((c) => c.id === createdComment.id)) {
           selectedTicket.value.comments.push(createdComment)
@@ -1141,6 +1155,7 @@ export const useTicketStore = defineStore('tickets', () => {
     reporter_name: string
     reporter_email: string
     reporter_phone?: string
+    reporter_user_id?: number | null
     source?: string
     client_name?: string
     files?: File[]
@@ -1171,6 +1186,9 @@ export const useTicketStore = defineStore('tickets', () => {
           formData.append('reporter_phone', payload.reporter_phone)
           formData.append('phone', payload.reporter_phone)
         }
+        if (payload.reporter_user_id !== undefined && payload.reporter_user_id !== null && (payload.reporter_user_id as any) !== '') {
+          formData.append('reporter_user_id', String(payload.reporter_user_id))
+        }
         formData.append('metadata[reporter_phone]', payload.reporter_phone || '')
         formData.append('metadata[api_client_name]', payload.client_name || '')
         formData.append('metadata[role]', authStore.user?.role || 'HQ ADMIN')
@@ -1193,6 +1211,7 @@ export const useTicketStore = defineStore('tickets', () => {
           reporter_name: payload.reporter_name,
           reporter_email: payload.reporter_email,
           reporter_phone: payload.reporter_phone,
+          reporter_user_id: payload.reporter_user_id,
           phone: payload.reporter_phone,
           metadata: {
             reporter_phone: payload.reporter_phone,
