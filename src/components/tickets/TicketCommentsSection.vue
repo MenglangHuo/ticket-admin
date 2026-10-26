@@ -1,28 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { useTicketStore } from '@/stores/ticketStore'
+import { fileToBase64 } from '@/api/ticketApi'
 import { useAuthStore } from '@/stores/authStore'
+import { useTicketStore } from '@/stores/ticketStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { Ticket, TicketComment } from '@/types/ticket'
-import { safeUrl } from '@/utils/security'
-import { fileToBase64 } from '@/api/ticketApi'
-import TicketAuditTimeline from './TicketAuditTimeline.vue'
 import {
-  MessagesSquare,
+  ChevronDown,
+  CornerDownRight,
+  CornerUpLeft,
+  FileText,
   History,
-  Send,
+  Maximize2,
+  MessagesSquare,
+  Minimize2,
   Paperclip,
+  Reply,
+  Send,
   X,
   ZoomIn,
-  Download,
-  FileText,
-  ChevronDown,
-  Reply,
-  CornerUpLeft,
-  CornerDownRight,
-  Maximize2,
-  Minimize2,
 } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import TicketAuditTimeline from './TicketAuditTimeline.vue'
 
 const props = withDefaults(
   defineProps<{
