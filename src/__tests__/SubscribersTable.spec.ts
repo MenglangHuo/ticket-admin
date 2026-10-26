@@ -333,4 +333,30 @@ describe('SubscribersTable Component', () => {
     // After reset, both resolver items should be visible
     expect(wrapper.findAll('tbody tr').length).toBe(2)
   })
+
+  it('calls deleteSubscriber when clicking on action delete button', async () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.subscribers = [...mockSubscribers]
+    settingsStore.isLoading = false
+
+    const deleteSpy = vi.spyOn(settingsStore, 'deleteSubscriber').mockResolvedValue({
+      data: null,
+      success: true,
+      message: 'Subscriber removed successfully from database.',
+    })
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    const wrapper = mount(SubscribersTable)
+    await wrapper.vm.$nextTick()
+
+    const deleteButtons = wrapper.findAll('button[title="Delete subscriber"]')
+    expect(deleteButtons.length).toBeGreaterThan(0)
+
+    // Click delete on first sorted row (subscriber id: 3, most recent subscribed_at)
+    await deleteButtons[0]!.trigger('click')
+
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(deleteSpy).toHaveBeenCalledWith(3, 'RESOLVER')
+  })
 })
+

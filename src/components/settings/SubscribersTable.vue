@@ -31,6 +31,7 @@ import {
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import SubscribersTableSkeleton, { type SubscriberColumnKey } from './SubscribersTableSkeleton.vue'
+import type { TelegramSubscriber } from '@/types/settings'
 
 withDefaults(
   defineProps<{
@@ -342,6 +343,7 @@ function toggleSort(field: SortableField) {
 const copiedChatId = ref<string | null>(null)
 const togglingChatId = ref<string | null>(null)
 const pingingChatId = ref<string | null>(null)
+const deletingIdentifier = ref<string | number | null>(null)
 
 // Pagination
 const currentPage = ref(1)
@@ -535,13 +537,53 @@ async function handlePingUser(chatId: string, username?: string | null) {
   }
 }
 
-async function handleRemove(chatId: string, username?: string | null) {
-  const label = username ? `@${username} (${chatId})` : `Chat ID ${chatId}`
-  if (confirm(`Are you sure you want to unlink Telegram notifications for ${label}?`)) {
-    await settingsStore.removeSubscriber(chatId)
-    await loadSubscribers(true)
+function getSubscriberIdentifier(sub: TelegramSubscriber): string | number {
+  return (sub as any).identifier ?? sub.id ?? sub.telegram_chat_id
+}
+
+async function handleDelete(sub: TelegramSubscriber) {
+  const identifier = getSubscriberIdentifier(sub)
+  const label = sub.telegram_username
+    ? `@${sub.telegram_username} (${sub.telegram_chat_id})`
+    : `Chat ID ${sub.telegram_chat_id}`
+
+  if (confirm(`Are you sure you want to delete subscriber ${label}?`)) {
+    deletingIdentifier.value = identifier
+    try {
+      await settingsStore.deleteSubscriber(identifier, sub.subscriber_type)
+      await loadSubscribers(true)
+    } catch (err) {
+      console.error('Failed to delete subscriber:', err)
+    } finally {
+      deletingIdentifier.value = null
+    }
   }
 }
+
+async function handleRemove(chatIdOrSub: string | TelegramSubscriber, username?: string | null) {
+  if (typeof chatIdOrSub === 'object') {
+    return handleDelete(chatIdOrSub)
+  }
+  const found = settingsStore.subscribers.find(
+    (s) => s.telegram_chat_id === chatIdOrSub || String(s.id) === String(chatIdOrSub),
+  )
+  if (found) {
+    return handleDelete(found)
+  }
+  return handleDelete({
+    id: chatIdOrSub,
+    telegram_chat_id: chatIdOrSub,
+    telegram_username: username || null,
+    is_active: false,
+    subscribed_at: '',
+  })
+}
+
+defineExpose({
+  handleDelete,
+  handleRemove,
+  loadSubscribers,
+})
 
 function handleRefresh() {
   loadSubscribers(true)
@@ -1268,14 +1310,20 @@ function formatDate(dateStr?: string) {
                     <span>Ping</span>
                   </button>
 
-                  <!-- Remove/unlink -->
+                  <!-- Delete subscriber action -->
                   <button
                     type="button"
-                    @click="handleRemove(sub.telegram_chat_id, sub.telegram_username)"
-                    title="Unlink and deactivate Telegram subscriber"
-                    class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    @click="handleDelete(sub)"
+                    :disabled="deletingIdentifier === getSubscriberIdentifier(sub)"
+                    title="Delete subscriber"
+                    aria-label="Delete subscriber"
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Trash2 class="w-3.5 h-3.5" />
+                    <Loader2
+                      v-if="deletingIdentifier === getSubscriberIdentifier(sub)"
+                      class="w-3.5 h-3.5 animate-spin text-rose-500"
+                    />
+                    <Trash2 v-else class="w-3.5 h-3.5" />
                   </button>
                 </div>
               </td>

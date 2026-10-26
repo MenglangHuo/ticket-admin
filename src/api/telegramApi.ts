@@ -203,15 +203,35 @@ export const telegramApi = {
   },
 
   /**
-   * Remove or soft-deactivate a subscriber by their Telegram chat ID.
-   * Endpoint: DELETE /ticket/telegram/subscribers/{chatId}
+   * Delete a subscriber by identifier (ID or chat ID) from the database.
+   * Endpoint: DELETE /ticket/telegram/subscribers/{identifier} (Full URL: /api/ticket/telegram/subscribers/{identifier})
    */
-  async removeSubscriber(chatId: string): Promise<void> {
+  async deleteSubscriber(
+    identifier: string | number,
+    subscriberType?: string,
+  ): Promise<TelegramActionResponse> {
     if (mockService.isMockDataEnabled()) {
-      mockService.removeSubscriber(chatId)
-      return
+      mockService.removeSubscriber(String(identifier))
+      return {
+        data: null,
+        success: true,
+        message: 'Subscriber removed successfully from database (Mock Mode)',
+      }
     }
-    await apiClient.delete<TelegramActionResponse>(`/ticket/telegram/subscribers/${chatId}`)
+    const params = subscriberType ? { subscriber_type: subscriberType } : undefined
+    const response = await apiClient.delete<TelegramActionResponse>(
+      `/ticket/telegram/subscribers/${identifier}`,
+      { params },
+    )
+    return response.data
+  },
+
+  /**
+   * Backwards-compatible alias for deleteSubscriber.
+   * Endpoint: DELETE /ticket/telegram/subscribers/{identifier}
+   */
+  async removeSubscriber(identifier: string | number, subscriberType?: string): Promise<void> {
+    await this.deleteSubscriber(identifier, subscriberType)
   },
 
   /**

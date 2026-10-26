@@ -20,6 +20,7 @@ import { getMockReports } from './data/mockReports'
 import {
   getMockSubscribers,
   generateMockInviteLink,
+  deleteMockSubscriber,
   removeMockSubscriber,
   updateMockSubscriberStatus,
   getMockTelegramCounts,
@@ -72,6 +73,7 @@ export const mockService = {
   // Telegram
   getSubscribers: getMockSubscribers,
   generateInviteLink: generateMockInviteLink,
+  deleteSubscriber: deleteMockSubscriber,
   removeSubscriber: removeMockSubscriber,
   updateSubscriberStatus: updateMockSubscriberStatus,
   getTelegramCounts: getMockTelegramCounts,

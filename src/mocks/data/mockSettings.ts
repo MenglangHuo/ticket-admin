@@ -196,12 +196,16 @@ export function generateMockInviteLink(): string {
   return `https://t.me/${cleanBot}?start=inv_${randToken}`
 }
 
-export function removeMockSubscriber(chatId: string): void {
-  const sub = mockSubscribersState.find((s) => s.telegram_chat_id === chatId)
+export function removeMockSubscriber(identifier: string | number): void {
+  const sub = mockSubscribersState.find(
+    (s) => String(s.id) === String(identifier) || s.telegram_chat_id === String(identifier),
+  )
   if (sub) {
     sub.is_active = false
   }
 }
+
+export const deleteMockSubscriber = removeMockSubscriber
 
 export function updateMockSubscriberStatus(chatId: string, isActive: boolean): void {
   const sub = mockSubscribersState.find((s) => s.telegram_chat_id === chatId)

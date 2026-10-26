@@ -423,3 +423,76 @@ describe('telegramApi getBotInfo and updateBotConfig endpoints', () => {
     expect(store.botConfig.botUsername).toBe('newBotName')
   })
 })
+
+describe('telegramApi deleteSubscriber endpoint', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.restoreAllMocks()
+  })
+
+  it('deleteSubscriber calls DELETE /ticket/telegram/subscribers/{identifier} on apiClient', async () => {
+    const deleteSpy = vi.spyOn(apiClient, 'delete').mockResolvedValueOnce({
+      data: {
+        success: true,
+        message: 'Subscriber removed successfully from database.',
+        data: null,
+      },
+    })
+
+    const res = await telegramApi.deleteSubscriber('12345678')
+    expect(deleteSpy).toHaveBeenCalledWith('/ticket/telegram/subscribers/12345678', {
+      params: undefined,
+    })
+    expect(res.success).toBe(true)
+  })
+
+  it('deleteSubscriber passes numeric id and subscriberType if provided', async () => {
+    const deleteSpy = vi.spyOn(apiClient, 'delete').mockResolvedValueOnce({
+      data: {
+        success: true,
+        message: 'Subscriber removed successfully from database.',
+        data: null,
+      },
+    })
+
+    await telegramApi.deleteSubscriber(42, 'RESOLVER')
+    expect(deleteSpy).toHaveBeenCalledWith('/ticket/telegram/subscribers/42', {
+      params: { subscriber_type: 'RESOLVER' },
+    })
+  })
+
+  it('settingsStore.deleteSubscriber calls telegramApi and removes subscriber from local store', async () => {
+    const store = useSettingsStore()
+    store.subscribers = [
+      {
+        id: 1,
+        telegram_chat_id: '12345678',
+        telegram_username: 'alex_dev',
+        is_active: true,
+        subscribed_at: '2026-03-01T10:00:00.000Z',
+      },
+      {
+        id: 2,
+        telegram_chat_id: '87654321',
+        telegram_username: 'sarah_ops',
+        is_active: false,
+        subscribed_at: '2026-03-05T14:30:00.000Z',
+      },
+    ]
+    store.totalSubscribersCount = 2
+
+    const deleteSpy = vi.spyOn(telegramApi, 'deleteSubscriber').mockResolvedValueOnce({
+      success: true,
+      message: 'Subscriber removed successfully from database.',
+      data: null,
+    })
+
+    await store.deleteSubscriber(1)
+
+    expect(deleteSpy).toHaveBeenCalledWith(1, undefined)
+    expect(store.subscribers).toHaveLength(1)
+    expect(store.subscribers[0]!.id).toBe(2)
+    expect(store.totalSubscribersCount).toBe(1)
+  })
+})
+

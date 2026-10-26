@@ -157,22 +157,41 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   /**
-   * Deactivate a subscriber via DELETE /tickets/telegram/subscribers/{chatId}
+   * Delete a subscriber via DELETE /api/ticket/telegram/subscribers/{identifier}
    */
-  async function removeSubscriber(chatId: string) {
+  async function deleteSubscriber(identifier: string | number, subscriberType?: string) {
     try {
-      await telegramApi.removeSubscriber(chatId)
-      // Soft deactivate or filter out from local list
-      const target = subscribers.value.find((s) => s.telegram_chat_id === chatId)
-      if (target) {
-        target.is_active = false
+      const res = await telegramApi.deleteSubscriber(identifier, subscriberType)
+      // Remove subscriber from local list
+      const targetIndex = subscribers.value.findIndex(
+        (s) => String(s.id) === String(identifier) || s.telegram_chat_id === String(identifier),
+      )
+      if (targetIndex !== -1) {
+        subscribers.value.splice(targetIndex, 1)
       }
-      toastStore.success('Subscriber Deactivated', `Chat ID ${chatId} was unlinked`)
+      if (totalSubscribersCount.value > 0) {
+        totalSubscribersCount.value = Math.max(0, totalSubscribersCount.value - 1)
+      }
+      if (pagination.value && pagination.value.total > 0) {
+        pagination.value.total = Math.max(0, pagination.value.total - 1)
+      }
+      const successMsg =
+        res?.message || `Subscriber ${identifier} removed successfully from database.`
+      toastStore.success('Subscriber Deleted', successMsg)
+      return res
     } catch (err: any) {
-      const message = err.response?.data?.message || err.message || 'Failed to remove subscriber'
-      toastStore.error('Deactivation Failed', message)
+      const message =
+        err.response?.data?.message || err.message || 'Failed to delete subscriber'
+      toastStore.error('Deletion Failed', message)
       throw err
     }
+  }
+
+  /**
+   * Backwards-compatible alias for deleteSubscriber
+   */
+  async function removeSubscriber(identifier: string | number, subscriberType?: string) {
+    return deleteSubscriber(identifier, subscriberType)
   }
 
   /**
@@ -351,6 +370,7 @@ export const useSettingsStore = defineStore('settings', () => {
     updateBotConfig,
     broadcastMigration,
     generateInviteLink,
+    deleteSubscriber,
     removeSubscriber,
     toggleSubscriberNotification,
     sendTestNotification,
