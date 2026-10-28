@@ -58,7 +58,7 @@ describe('TwoFactorView Component', () => {
         role: 'HQ ADMIN',
         company_id: 1,
       },
-      expiresAt: Date.now() + 600 * 1000,
+      expiresAt: Date.now() + 60 * 1000,
     }
 
     router.push('/two-factor')
@@ -95,7 +95,7 @@ describe('TwoFactorView Component', () => {
         role: 'HQ ADMIN',
         company_id: 1,
       },
-      expiresAt: Date.now() + 600 * 1000,
+      expiresAt: Date.now() + 60 * 1000,
       maskedEmail: 'm***g@bronx.internal',
     }
 
@@ -131,7 +131,7 @@ describe('TwoFactorView Component', () => {
         role: 'HQ ADMIN',
         company_id: 1,
       },
-      expiresAt: Date.now() + 600 * 1000,
+      expiresAt: Date.now() + 60 * 1000,
     }
 
     const pushSpy = vi.spyOn(router, 'push')

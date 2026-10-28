@@ -1211,20 +1211,16 @@ defineExpose({
                 }"
               >
                 <div class="flex items-center justify-end gap-1.5">
-                  <!-- Refresh Invite Link Action Button -->
+                  <!-- Refresh Invite Link Action Button (only shown when expired) -->
                   <button
+                    v-if="isExpired(invite)"
                     type="button"
                     @click="handleRefreshInvite(invite)"
                     :disabled="refreshingId === invite.id"
-                    :title="isExpired(invite) ? 'Refresh expired invite link' : 'Refresh invite link'"
-                    aria-label="Refresh invite link"
+                    title="Refresh expired invite link"
+                    aria-label="Refresh expired invite link"
                     data-test="refresh-invite-btn"
-                    class="p-1.5 rounded-lg transition-all cursor-pointer shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed border"
-                    :class="
-                      isExpired(invite)
-                        ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 border-amber-200/90 dark:border-amber-800'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-slate-200 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-500/30'
-                    "
+                    class="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200/90 dark:border-amber-800 transition-all cursor-pointer shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <RotateCw
                       class="w-3.5 h-3.5"
@@ -1270,40 +1266,52 @@ defineExpose({
               </td>
             </tr>
 
-            <!-- Empty Row if No Filter Match -->
+            <!-- Empty Row if No Filter Match / No Invites Yet -->
             <tr v-if="paginatedInvites.length === 0">
               <td
                 :colspan="visibleColumnCount"
-                class="py-16 text-center text-slate-400 dark:text-slate-500 text-xs"
+                class="py-14 sm:py-20 text-center"
               >
-                <div class="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
-                  <Inbox class="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                  <span class="font-medium text-slate-600 dark:text-slate-400 text-sm">
+                <div class="flex flex-col items-center justify-center max-w-sm mx-auto text-center px-4 animate-fade-in">
+                  <!-- Beautiful Icon Badge -->
+                  <div
+                    class="w-14 h-14 rounded-2xl bg-gradient-to-b from-blue-50 to-blue-100/60 dark:from-blue-500/15 dark:to-blue-500/5 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/80 dark:border-blue-500/25 shadow-xs mb-3.5 transition-transform hover:scale-105"
+                  >
+                    <Search v-if="isFilteringActive" class="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                    <LinkIcon v-else class="w-6 h-6" />
+                  </div>
+
+                  <!-- Headline -->
+                  <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base tracking-tight">
                     {{ isFilteringActive ? 'No matching invite links' : 'No unused invite links yet' }}
-                  </span>
-                  <span class="text-[11px] text-slate-400 max-w-xs">
+                  </h3>
+
+                  <!-- Subtitle -->
+                  <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs sm:max-w-sm leading-relaxed mt-1 mb-4 text-center">
                     {{
                       isFilteringActive
-                        ? 'Try adjusting your search query or status filter'
-                        : 'Generate a Telegram bot invite link so staff members can onboard and subscribe'
+                        ? 'Try adjusting your search query or status filter to find the invite link you are looking for.'
+                        : 'Generate a Telegram bot invite link so staff members can quickly onboard and subscribe.'
                     }}
-                  </span>
+                  </p>
+
+                  <!-- Call To Action -->
                   <button
                     v-if="isFilteringActive"
                     type="button"
                     @click="clearAllFilters"
-                    class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium shadow-2xs transition-all cursor-pointer"
+                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200/90 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
                   >
-                    <RotateCcw class="w-3 h-3" />
+                    <RotateCcw class="w-3.5 h-3.5" />
                     <span>Reset Filters</span>
                   </button>
                   <button
                     v-else
                     type="button"
                     @click="openGenerateModal"
-                    class="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-semibold shadow-xs shadow-blue-500/20 transition-all cursor-pointer"
                   >
-                    <Plus class="w-3.5 h-3.5" />
+                    <Plus class="w-4 h-4" />
                     <span>Generate Invite Link</span>
                   </button>
                 </div>

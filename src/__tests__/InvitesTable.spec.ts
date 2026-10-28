@@ -200,7 +200,7 @@ describe('InvitesTable Component', () => {
     expect(refreshSpy).toHaveBeenCalledWith(1)
   })
 
-  it('always renders Refresh invite link button in the Action column for every row', async () => {
+  it('renders Refresh invite link button in the Action column only when that link is expired', async () => {
     const settingsStore = useSettingsStore()
     settingsStore.unusedInvites = [...mockInvites]
     settingsStore.isInvitesLoading = false
@@ -209,6 +209,7 @@ describe('InvitesTable Component', () => {
     await wrapper.vm.$nextTick()
 
     const actionRefreshBtns = wrapper.findAll('button[data-test="refresh-invite-btn"]')
-    expect(actionRefreshBtns).toHaveLength(mockInvites.length)
+    // Only the expired invite (id: 1) shows the refresh button in the action column
+    expect(actionRefreshBtns).toHaveLength(1)
   })
 })

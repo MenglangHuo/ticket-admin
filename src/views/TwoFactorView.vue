@@ -30,7 +30,7 @@ const digits = ref<string[]>(['', '', '', '', '', ''])
 const inputRefs = ref<(HTMLInputElement | null)[]>([])
 const isShaking = ref(false)
 
-const sessionTimeRemaining = ref(60) // 10 minutes in seconds
+const sessionTimeRemaining = ref(60) // 1 minutes in seconds
 let sessionTimerInterval: ReturnType<typeof setInterval> | null = null
 
 // WebOTP AbortController
@@ -64,12 +64,18 @@ function updateLockoutCountdown() {
 }
 
 function startTimers() {
-  // Session challenge timer based on expiresAt
+  // Session challenge timer based on expiresAt (1 minute window)
   if (authStore.pendingTwoFactor?.expiresAt) {
+    if (authStore.pendingTwoFactor.expiresAt > Date.now() + 60 * 1000) {
+      authStore.pendingTwoFactor.expiresAt = Date.now() + 60 * 1000
+      try {
+        sessionStorage.setItem('bronx_pending_2fa', JSON.stringify(authStore.pendingTwoFactor))
+      } catch {}
+    }
     const diff = Math.max(0, Math.floor((authStore.pendingTwoFactor.expiresAt - Date.now()) / 1000))
-    sessionTimeRemaining.value = diff
+    sessionTimeRemaining.value = Math.min(diff, 60)
   } else {
-    sessionTimeRemaining.value = 600
+    sessionTimeRemaining.value = 60
   }
 
   if (sessionTimerInterval) clearInterval(sessionTimerInterval)

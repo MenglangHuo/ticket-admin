@@ -155,6 +155,11 @@ export const useAuthStore = defineStore('auth', () => {
           sessionStorage.removeItem(PENDING_2FA_STORAGE_KEY)
           return null
         }
+        // Clamp any legacy session in sessionStorage to max 1 minute (60s) from now
+        if (parsed.expiresAt && parsed.expiresAt > Date.now() + 60 * 1000) {
+          parsed.expiresAt = Date.now() + 60 * 1000
+          sessionStorage.setItem(PENDING_2FA_STORAGE_KEY, JSON.stringify(parsed))
+        }
         return parsed
       } catch {
         return null
@@ -379,7 +384,7 @@ export const useAuthStore = defineStore('auth', () => {
           appToken,
           user: loginUserData,
           role: 'HQ_ADMIN',
-          expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes challenge session
+          expiresAt: Date.now() + 1 * 60 * 1000, // 1 minute challenge session
           maskedEmail: rawEmail ? maskEmail(rawEmail) : undefined,
           maskedPhone: rawPhone ? maskPhone(rawPhone) : undefined,
         })
@@ -537,8 +542,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      // Extend challenge window by 10 minutes
-      pendingTwoFactor.value.expiresAt = Date.now() + 10 * 60 * 1000
+      // Extend challenge window by 1 minute
+      pendingTwoFactor.value.expiresAt = Date.now() + 1 * 60 * 1000
       sessionStorage.setItem(PENDING_2FA_STORAGE_KEY, JSON.stringify(pendingTwoFactor.value))
       return {
         success: true,
