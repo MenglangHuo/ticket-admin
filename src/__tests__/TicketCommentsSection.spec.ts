@@ -844,4 +844,112 @@ describe('TicketCommentsSection Component', () => {
       expect(avatar.text()).toBe('A')
     })
   })
+
+  describe('Author Display Name (first_name + last_name instead of username)', () => {
+    it('displays first_name + last_name near profile avatar instead of username for current user (e.g. hq_admin)', () => {
+      const authStore = useAuthStore()
+      authStore.user = {
+        id: 1,
+        username: 'hq_admin',
+        first_name: 'Menglang',
+        last_name: 'Huo',
+        role: 'HQ ADMIN',
+      } as any
+
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [
+        {
+          id: 501,
+          ticket_id: 101,
+          username: 'hq_admin',
+          body: 'hello',
+          is_internal: false,
+          created_at: '2026-10-28T07:00:00Z',
+          updated_at: '2026-10-28T07:00:00Z',
+        },
+      ]
+      ticketStore.activeDetailTab = 'comments'
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const header = wrapper.find('[data-testid="comment-header"]')
+      expect(header.exists()).toBe(true)
+      // Displays 'first_name + last_name' instead of 'username'
+      expect(header.text()).toContain('Menglang Huo')
+      expect(header.text()).not.toContain('hq_admin')
+
+      // Avatar initial uses first letter of display name
+      const avatar = wrapper.find('[data-testid="comment-avatar"]')
+      expect(avatar.exists()).toBe(true)
+      expect(avatar.text()).toBe('M')
+    })
+
+    it('displays first_name + last_name directly from comment properties', () => {
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [
+        {
+          id: 502,
+          ticket_id: 101,
+          username: 'staff_dara',
+          first_name: 'Dara',
+          last_name: 'Chan',
+          body: 'Checking the server status.',
+          is_internal: false,
+          created_at: '2026-10-28T07:05:00Z',
+          updated_at: '2026-10-28T07:05:00Z',
+        },
+      ]
+      ticketStore.activeDetailTab = 'comments'
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const header = wrapper.find('[data-testid="comment-header"]')
+      expect(header.exists()).toBe(true)
+      expect(header.text()).toContain('Dara Chan')
+      expect(header.text()).not.toContain('staff_dara')
+    })
+
+    it('falls back to username when first_name and last_name are not available', () => {
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [
+        {
+          id: 503,
+          ticket_id: 101,
+          username: 'custom_operator',
+          body: 'General inquiry message.',
+          is_internal: false,
+          created_at: '2026-10-28T07:10:00Z',
+          updated_at: '2026-10-28T07:10:00Z',
+        },
+      ]
+      ticketStore.activeDetailTab = 'comments'
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const header = wrapper.find('[data-testid="comment-header"]')
+      expect(header.exists()).toBe(true)
+      expect(header.text()).toContain('custom_operator')
+    })
+  })
 })

@@ -385,8 +385,11 @@ async function submitComposerComment() {
   const base64Files = composerFiles.value.map((f) => f.dataUrl).filter(Boolean)
   const parentId = replyingToComment.value ? replyingToComment.value.id : null
 
+  const user = authStore.user || getUserFromLocalStorage()
   const success = await ticketStore.addTicketComment(props.ticket.id, {
     username,
+    first_name: user?.first_name,
+    last_name: user?.last_name,
     body: composerBody.value.trim(),
     parent_id: parentId,
     is_internal: false,
@@ -483,8 +486,66 @@ function getCommentAttachments(comment: TicketComment): DisplayAttachmentItem[] 
 
 function getAuthorDisplayName(comment?: TicketComment | null): string {
   if (!comment) return 'User'
+
+  // 1. Direct first_name and last_name on comment or comment.author or comment.user
+  const commentFirst =
+    comment.first_name ||
+    comment.author?.first_name ||
+    (comment as any).user?.first_name
+  const commentLast =
+    comment.last_name ||
+    comment.author?.last_name ||
+    (comment as any).user?.last_name
+
+  if (commentFirst || commentLast) {
+    const fullName = `${commentFirst || ''} ${commentLast || ''}`.trim()
+    if (fullName) return fullName
+  }
+
+  // 2. If comment belongs to the current logged-in user (match username or author ID)
+  const storedUser = getUserFromLocalStorage()
+  const currentUser = authStore.user || storedUser
+  const currentFullName =
+    currentUser?.first_name || currentUser?.last_name
+      ? `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim()
+      : ''
+
+  if (currentFullName) {
+    const authorUsername = (comment.username || '').toLowerCase()
+    const currentUsername = (currentUser?.username || '').toLowerCase()
+
+    // Match exact username (e.g. hq_admin)
+    if (authorUsername && currentUsername && authorUsername === currentUsername) {
+      return currentFullName
+    }
+
+    // Match author id
+    if (
+      comment.author?.id !== undefined &&
+      currentUser?.id !== undefined &&
+      comment.author.id === currentUser.id
+    ) {
+      return currentFullName
+    }
+  }
+
+  // 3. If client-side comment, check if ticket reporter has first_name + last_name
+  if (isCommentClientSide(comment)) {
+    const reporter = props.ticket?.reporter as any
+    const repFirst = reporter?.first_name
+    const repLast = reporter?.last_name
+    if (repFirst || repLast) {
+      const repFull = `${repFirst || ''} ${repLast || ''}`.trim()
+      if (repFull) return repFull
+    }
+  }
+
+  // 4. Return username if present
   if (comment.username) return comment.username
+
+  // 5. Fallback to author name if present
   if (comment.author?.name) return comment.author.name
+
   return comment.is_internal ? 'Staff Admin' : 'Client / Customer'
 }
 
@@ -500,6 +561,14 @@ function isCommentClientSide(comment: TicketComment): boolean {
   const storedUser = getUserFromLocalStorage()
   const currentAdmin = (authStore.user?.username || storedUser?.username || storedUser?.first_name || '').toLowerCase()
   if (authorName && currentAdmin && authorName === currentAdmin) {
+    return false
+  }
+  const currentUser = authStore.user || storedUser
+  const currentFullName = [currentUser?.first_name, currentUser?.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  if (currentFullName && authorName && authorName === currentFullName) {
     return false
   }
   if (

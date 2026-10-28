@@ -178,7 +178,7 @@ onUnmounted(() => {
     <button
       type="button"
       @click="isOpen = !isOpen"
-      class="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-850 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+      class="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
     >
       <Calendar class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
       <span class="truncate font-medium">{{ displayLabel }}</span>

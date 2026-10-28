@@ -86,6 +86,8 @@ export interface Ticket {
 export interface CommentAuthor {
   id: number
   name?: string | null
+  first_name?: string | null
+  last_name?: string | null
   profile_url?: string | null
   profile?: string | null
   reporter_profile?: string | null
@@ -101,6 +103,8 @@ export interface TicketComment {
   replies_count?: number
   replies?: TicketComment[]
   username?: string
+  first_name?: string
+  last_name?: string
   author_type?: string
   body: string
   is_internal: boolean
@@ -116,6 +120,8 @@ export interface TicketComment {
 
 export interface CreateCommentPayload {
   username?: string
+  first_name?: string
+  last_name?: string
   author_type?: 'admin' | 'user'
   body: string
   parent_id?: number | null

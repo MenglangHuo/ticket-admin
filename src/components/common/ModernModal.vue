@@ -6,7 +6,6 @@ import {
   Minimize2,
   Minus,
   Move,
-  PanelRight,
   RotateCcw,
   X,
 } from 'lucide-vue-next'
@@ -434,7 +433,7 @@ const modalContainerStyle = computed(() => {
           </button>
 
           <!-- Switch to Docked Drawer Mode -->
-          <button
+          <!-- <button
             v-if="allowDock"
             type="button"
             @click="emit('toggleDock')"
@@ -447,7 +446,7 @@ const modalContainerStyle = computed(() => {
             :title="isDockedDrawer ? 'Undock to Floating Modal' : 'Dock to Side Drawer'"
           >
             <PanelRight class="w-3.5 h-3.5" />
-          </button>
+          </button> -->
 
           <!-- Minimize button -->
           <button

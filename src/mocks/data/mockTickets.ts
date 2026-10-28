@@ -12,6 +12,7 @@ import type {
   UpdateTicketPayload,
 } from '@/types/ticket'
 import type { TicketFilterParams } from '@/api/ticketApi'
+import { getUserFromLocalStorage } from '@/utils/ticket'
 
 const INITIAL_MOCK_TICKETS: Ticket[] = [
   {
@@ -1106,6 +1107,12 @@ export function createMockTicketComment(
     ? ticket?.comments?.find((c) => c.id === payload.parent_id) || null
     : null
 
+  const storedUser = getUserFromLocalStorage()
+  const firstName = payload.first_name || storedUser?.first_name || 'Menglang'
+  const lastName = payload.last_name || storedUser?.last_name || 'Huo'
+  const fullName =
+    [firstName, lastName].filter(Boolean).join(' ').trim() || payload.username || 'Menglang Huo'
+
   const newComment: TicketComment = {
     id: Math.floor(Math.random() * 10000) + 1000,
     ticket_id: numId,
@@ -1115,6 +1122,8 @@ export function createMockTicketComment(
           id: parentComment.id,
           ticket_id: parentComment.ticket_id,
           username: parentComment.username,
+          first_name: parentComment.first_name,
+          last_name: parentComment.last_name,
           body: parentComment.body,
           is_internal: parentComment.is_internal,
           author: parentComment.author,
@@ -1123,11 +1132,15 @@ export function createMockTicketComment(
         }
       : null,
     username: payload.username,
+    first_name: firstName,
+    last_name: lastName,
     body: payload.body,
     is_internal: Boolean(payload.is_internal),
     author: {
       id: 1,
-      name: payload.username || 'Menglang Huo',
+      name: fullName,
+      first_name: firstName,
+      last_name: lastName,
       email: payload.username ? `${payload.username}@client.portal` : 'menglang@bronx.internal',
     },
     attachments,

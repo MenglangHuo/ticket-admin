@@ -19,7 +19,7 @@ import mockService from '@/mocks/mockService'
 import { useToastStore } from './toastStore'
 import { useAuthStore } from './authStore'
 import { useUploadQueueStore } from './uploadQueueStore'
-import { getUserIdFromLocalStorage } from '@/utils/ticket'
+import { getUserIdFromLocalStorage, getUserFromLocalStorage } from '@/utils/ticket'
 
 /**
  * Universal response extractor supporting both new faceted envelope
@@ -1062,6 +1062,11 @@ export const useTicketStore = defineStore('tickets', () => {
     }
     isPostingComment.value = true
     try {
+      const storedUser = getUserFromLocalStorage()
+      const user = authStore.user || storedUser
+      const firstName = payload.first_name || user?.first_name
+      const lastName = payload.last_name || user?.last_name
+      const fullName = [firstName, lastName].filter(Boolean).join(' ').trim()
       const username =
         payload.username ||
         authStore.user?.username ||
@@ -1070,8 +1075,21 @@ export const useTicketStore = defineStore('tickets', () => {
       const response = await ticketApi.createTicketComment(ticketId, {
         ...payload,
         username,
+        first_name: firstName,
+        last_name: lastName,
       })
       const createdComment = (response as any).data || response
+      if (!createdComment.first_name && firstName) {
+        createdComment.first_name = firstName
+      }
+      if (!createdComment.last_name && lastName) {
+        createdComment.last_name = lastName
+      }
+      if (fullName && createdComment.author) {
+        createdComment.author.name = fullName
+        createdComment.author.first_name = firstName
+        createdComment.author.last_name = lastName
+      }
       if (createdComment.parent_id) {
         const parentInList = comments.value.find((c) => c.id === createdComment.parent_id)
         if (parentInList) {

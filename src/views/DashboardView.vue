@@ -179,7 +179,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
           @click="handleRefresh"
           :disabled="reportStore.isLoading"
           title="Refresh metrics"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-850 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs ring-1 ring-slate-900/[0.03] dark:ring-white/[0.05] transition-all disabled:opacity-50 cursor-pointer"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs ring-1 ring-slate-900/[0.03] dark:ring-white/[0.05] transition-all disabled:opacity-50 cursor-pointer"
         >
           <RefreshCw
             class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 transition-transform"
@@ -630,7 +630,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
 
           <div class="grid grid-cols-3 gap-2.5 my-2">
             <div
-              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800/80"
             >
               <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Active</p>
               <p
@@ -640,7 +640,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
               </p>
             </div>
             <div
-              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800/80"
             >
               <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
                 Resolvers
@@ -650,7 +650,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
               </p>
             </div>
             <div
-              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800/80"
             >
               <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
                 Requesters
@@ -709,7 +709,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
 
           <div class="grid grid-cols-3 gap-2.5 my-2">
             <div
-              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800/80"
             >
               <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Used</p>
               <p
@@ -719,7 +719,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
               </p>
             </div>
             <div
-              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800/80"
             >
               <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
                 Available
@@ -729,7 +729,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
               </p>
             </div>
             <div
-              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800/80"
             >
               <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Expired</p>
               <p class="text-base font-bold text-slate-500 dark:text-slate-400 font-mono mt-0.5">
