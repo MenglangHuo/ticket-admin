@@ -7,9 +7,9 @@ import TelegramBotConfigForm from '@/components/settings/TelegramBotConfigForm.v
 import mockService from '@/mocks/mockService'
 import { Users, Link as LinkIcon, Bot, ExternalLink, Send, ShieldCheck } from 'lucide-vue-next'
 
-type SettingsTab = 'config' | 'subscribers' | 'invite'
+type SettingsTab = 'invite' | 'subscribers' | 'config'
 
-const activeTab = ref<SettingsTab>('config')
+const activeTab = ref<SettingsTab>('invite')
 const settingsStore = useSettingsStore()
 
 onMounted(() => {
@@ -108,7 +108,23 @@ onMounted(() => {
     <div
       class="bg-white dark:bg-slate-900 rounded-3xl p-3 sm:p-4 lg:p-3.5 border border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors"
     >
-      <!-- TAB 1: BOT CONFIGURATION -->
+      <!-- TAB 1: GENERATE INVITE LINK TABLE -->
+      <InvitesTable
+        v-show="activeTab === 'invite'"
+        :active-tab="activeTab"
+        @change-tab="activeTab = $event"
+        @goToSubscribers="activeTab = 'subscribers'"
+      />
+
+      <!-- TAB 2: SUBSCRIBERS TABLE -->
+      <SubscribersTable
+        v-show="activeTab === 'subscribers'"
+        :active-tab="activeTab"
+        @change-tab="activeTab = $event"
+        @goToInviteTab="activeTab = 'invite'"
+      />
+
+      <!-- TAB 3: BOT CONFIGURATION -->
       <div v-show="activeTab === 'config'" class="space-y-4">
         <!-- Top Toolbar with Segmented Switcher -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -118,8 +134,61 @@ onMounted(() => {
           >
             <button
               type="button"
+              @click="activeTab = 'invite'"
+              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer"
+              :class="
+                activeTab === 'invite'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-semibold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              "
+            >
+              <LinkIcon class="w-3.5 h-3.5" />
+              <span>Generate Invite Link</span>
+              <span
+                class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
+                :class="
+                  activeTab === 'invite'
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                "
+              >
+                {{ settingsStore.totalInvitesCount }}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              @click="activeTab = 'subscribers'"
+              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer"
+              :class="
+                activeTab === 'subscribers'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-semibold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              "
+            >
+              <Users class="w-3.5 h-3.5" />
+              <span>Subscribers</span>
+              <span
+                class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
+                :class="
+                  activeTab === 'subscribers'
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                "
+              >
+                {{ settingsStore.totalSubscribersCount || settingsStore.subscribers.length }}
+              </span>
+            </button>
+
+            <button
+              type="button"
               @click="activeTab = 'config'"
-              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-semibold"
+              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer"
+              :class="
+                activeTab === 'config'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-semibold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              "
             >
               <Bot class="w-3.5 h-3.5" />
               <span>Bot Config</span>
@@ -130,34 +199,6 @@ onMounted(() => {
                 "
               ></span>
             </button>
-
-            <button
-              type="button"
-              @click="activeTab = 'subscribers'"
-              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              <Users class="w-3.5 h-3.5" />
-              <span>Subscribers</span>
-              <span
-                class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-              >
-                {{ settingsStore.totalSubscribersCount || settingsStore.subscribers.length }}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              @click="activeTab = 'invite'"
-              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              <LinkIcon class="w-3.5 h-3.5" />
-              <span>Generate Invite Link</span>
-              <span
-                class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-              >
-                {{ settingsStore.totalInvitesCount }}
-              </span>
-            </button>
           </div>
         </div>
 
@@ -167,22 +208,6 @@ onMounted(() => {
           @goToSubscribers="activeTab = 'subscribers'"
         />
       </div>
-
-      <!-- TAB 2: SUBSCRIBERS TABLE -->
-      <SubscribersTable
-        v-show="activeTab === 'subscribers'"
-        :active-tab="activeTab"
-        @change-tab="activeTab = $event"
-        @goToInviteTab="activeTab = 'invite'"
-      />
-
-      <!-- TAB 3: GENERATE INVITED LINK TABLE -->
-      <InvitesTable
-        v-show="activeTab === 'invite'"
-        :active-tab="activeTab"
-        @change-tab="activeTab = $event"
-        @goToSubscribers="activeTab = 'subscribers'"
-      />
     </div>
   </div>
 </template>

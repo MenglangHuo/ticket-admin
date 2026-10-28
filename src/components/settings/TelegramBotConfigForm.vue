@@ -373,39 +373,45 @@ defineExpose({
     </div>
 
     <!-- Main Configuration Form with only the 2 fields -->
-    <form v-else @submit.prevent="handleSave" class="space-y-6">
+    <form v-else @submit.prevent="handleSave">
       <div
-        class="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-6"
+        class="p-5 sm:p-6 rounded-2xl bg-slate-50/50 dark:bg-slate-950/40 border border-slate-200/80 dark:border-slate-800 space-y-6"
       >
-        <div class="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <Key class="w-4 h-4 text-indigo-500" />
-              <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/70 dark:border-slate-800/70">
+          <div class="flex items-center gap-2.5">
+            <div
+              class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/80 dark:border-blue-500/30 shrink-0"
+            >
+              <Key class="w-4 h-4" />
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-white">
                 Bot Information & Authentication
               </h3>
-            </div>
-            <!-- Status badges -->
-            <div class="flex items-center gap-2">
-              <span
-                v-if="settingsStore.botInfo?.is_active"
-                class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60"
-              >
-                <CheckCircle2 class="w-3 h-3" />
-                Bot Active
-              </span>
-              <span
-                v-if="settingsStore.botInfo?.is_configured"
-                class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 border border-sky-200/80 dark:border-sky-800/60"
-              >
-                <ShieldCheck class="w-3 h-3" />
-                Configured
-              </span>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Configure bot username and API authentication token.
+              </p>
             </div>
           </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Specify your Telegram bot username and secret API authentication token.
-          </p>
+
+          <!-- Status badges -->
+          <div class="flex items-center gap-2 shrink-0">
+            <span
+              v-if="settingsStore.botInfo?.is_active"
+              class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60"
+            >
+              <CheckCircle2 class="w-3.5 h-3.5" />
+              Bot Active
+            </span>
+            <span
+              v-if="settingsStore.botInfo?.is_configured"
+              class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 border border-sky-200/80 dark:border-sky-800/60"
+            >
+              <ShieldCheck class="w-3.5 h-3.5 text-sky-500" />
+              Configured
+            </span>
+          </div>
         </div>
 
         <!-- One-time Migration Status & Subscriber Link Card (shown only right after replacing bot) -->
@@ -484,18 +490,16 @@ defineExpose({
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 2 Input Fields Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
           <!-- Field 1: Bot Username -->
           <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <label
-                class="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1"
-              >
-                <span>Bot Username</span>
-                <span class="text-rose-500">*</span>
-              </label>
-              <span class="text-[11px] text-slate-400">Registered with @BotFather</span>
-            </div>
+            <label
+              class="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1"
+            >
+              <span>Bot Username</span>
+              <span class="text-rose-500">*</span>
+            </label>
 
             <div class="relative">
               <div
@@ -508,11 +512,11 @@ defineExpose({
                 type="text"
                 placeholder="menglang6969Bot"
                 autocomplete="off"
-                class="w-full h-10 pl-8 pr-9 rounded-xl text-xs sm:text-[13px] bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white placeholder:text-slate-400 border transition-all focus:outline-none focus:bg-white dark:focus:bg-slate-950"
+                class="w-full h-10 pl-8 pr-9 rounded-xl text-xs sm:text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 border transition-all focus:outline-none focus:bg-white dark:focus:bg-slate-900"
                 :class="
                   validationErrors.bot_username
                     ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
-                    : 'border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                    : 'border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs'
                 "
               />
               <button
@@ -535,9 +539,6 @@ defineExpose({
 
             <p v-if="validationErrors.bot_username" class="text-[11px] text-rose-500 font-medium">
               {{ validationErrors.bot_username }}
-            </p>
-            <p v-else class="text-[11px] text-slate-500 dark:text-slate-400">
-              Unique handle identifying your Telegram bot in notifications and staff invite links.
             </p>
 
             <p
@@ -562,7 +563,7 @@ defineExpose({
               <!-- Masked Indicator if available -->
               <span
                 v-if="settingsStore.botInfo?.bot_token_masked"
-                class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/80 dark:border-slate-700"
+                class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200/80 dark:border-slate-800 shadow-2xs"
                 title="Current token on server"
               >
                 Current: {{ settingsStore.botInfo.bot_token_masked }}
@@ -576,7 +577,7 @@ defineExpose({
                 placeholder="5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4"
                 autocomplete="off"
                 spellcheck="false"
-                class="w-full h-10 pl-3.5 pr-18 font-mono rounded-xl text-xs sm:text-[13px] bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:bg-white dark:focus:bg-slate-950"
+                class="w-full h-10 pl-3.5 pr-18 font-mono rounded-xl text-xs sm:text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-900 shadow-2xs"
               />
               <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <button
@@ -600,62 +601,57 @@ defineExpose({
                 </button>
               </div>
             </div>
-
-            <p class="text-[11px] text-slate-500 dark:text-slate-400">
-              Issued by Telegram's @BotFather. Keep this credential strictly secure and
-              confidential.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sticky Action Bar with Dirty Banner -->
-      <div
-        class="sticky bottom-2 z-10 p-3 sm:p-4 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-      >
-        <div class="flex items-center gap-2">
-          <!-- Dirty indicator -->
-          <div
-            v-if="isDirty"
-            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200/90 dark:border-amber-500/30 animate-pulse"
-          >
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-            Unsaved Changes
-          </div>
-          <div
-            v-else
-            class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium px-2 py-1"
-          >
-            <CheckCircle2 class="w-3.5 h-3.5 text-emerald-500" />
-            Configuration synced with server
           </div>
         </div>
 
-        <div class="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
-          <!-- Discard / Reset Button -->
-          <button
-            type="button"
-            @click="handleReset"
-            :disabled="!isDirty || settingsStore.isSavingBotConfig"
-            class="h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 transition-colors cursor-pointer text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
-          >
-            <RotateCcw class="w-3.5 h-3.5" />
-            <span>Discard Changes</span>
-          </button>
+        <!-- Integrated Action Footer -->
+        <div
+          class="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
+          <div class="flex items-center gap-2">
+            <!-- Dirty indicator -->
+            <div
+              v-if="isDirty"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200/90 dark:border-amber-500/30 animate-pulse"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              Unsaved Changes
+            </div>
+            <div
+              v-else
+              class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium"
+            >
+              <CheckCircle2 class="w-3.5 h-3.5 text-emerald-500" />
+              <span>Configuration synced with server</span>
+            </div>
+          </div>
 
-          <!-- Save Button -->
-          <button
-            type="submit"
-            :disabled="!isDirty || settingsStore.isSavingBotConfig"
-            class="h-9 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-semibold shadow-md shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2"
-          >
-            <span
-              v-if="settingsStore.isSavingBotConfig"
-              class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0"
-            ></span>
-            <Save v-else class="w-3.5 h-3.5 shrink-0" />
-            <span>{{ settingsStore.isSavingBotConfig ? 'Saving...' : 'Save Configuration' }}</span>
-          </button>
+          <div class="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+            <!-- Discard / Reset Button -->
+            <button
+              type="button"
+              @click="handleReset"
+              :disabled="!isDirty || settingsStore.isSavingBotConfig"
+              class="h-9 px-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 transition-colors cursor-pointer text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-2xs"
+            >
+              <RotateCcw class="w-3.5 h-3.5" />
+              <span>Discard Changes</span>
+            </button>
+
+            <!-- Save Button -->
+            <button
+              type="submit"
+              :disabled="!isDirty || settingsStore.isSavingBotConfig"
+              class="h-9 px-4.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2"
+            >
+              <span
+                v-if="settingsStore.isSavingBotConfig"
+                class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0"
+              ></span>
+              <Save v-else class="w-3.5 h-3.5 shrink-0" />
+              <span>{{ settingsStore.isSavingBotConfig ? 'Saving...' : 'Save Configuration' }}</span>
+            </button>
+          </div>
         </div>
       </div>
     </form>

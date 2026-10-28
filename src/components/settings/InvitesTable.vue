@@ -579,26 +579,32 @@ defineExpose({
   <div class="space-y-4">
     <!-- Top Header Toolbar: Segmented Tab Switcher (Left) and Search / Filters / Generate Button (Right) -->
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-      <!-- Left: Segmented Switcher (Bot Config, Subscribers, Generate Invite Link) -->
+      <!-- Left: Segmented Switcher (Generate Invite Link, Subscribers, Bot Config) -->
       <div
         class="inline-flex items-center p-1 bg-slate-100/90 dark:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-700/60 select-none self-start shrink-0"
       >
         <button
           type="button"
-          @click="emit('changeTab', 'config')"
+          @click="emit('changeTab', 'invite')"
           class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer"
           :class="
-            activeTab === 'config'
+            activeTab === 'invite'
               ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-semibold'
               : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
           "
         >
-          <Bot class="w-3.5 h-3.5" />
-          <span>Bot Config</span>
+          <LinkIcon class="w-3.5 h-3.5" />
+          <span>Generate Invite Link</span>
           <span
-            class="w-1.5 h-1.5 rounded-full"
-            :class="(settingsStore.botInfo?.is_active ?? true) ? 'bg-emerald-500' : 'bg-amber-500'"
-          ></span>
+            class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
+            :class="
+              activeTab === 'invite'
+                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+            "
+          >
+            {{ settingsStore.totalInvitesCount || totalCount }}
+          </span>
         </button>
 
         <button
@@ -627,26 +633,20 @@ defineExpose({
 
         <button
           type="button"
-          @click="emit('changeTab', 'invite')"
+          @click="emit('changeTab', 'config')"
           class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer"
           :class="
-            activeTab === 'invite'
+            activeTab === 'config'
               ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-semibold'
               : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
           "
         >
-          <LinkIcon class="w-3.5 h-3.5" />
-          <span>Generate Invite Link</span>
+          <Bot class="w-3.5 h-3.5" />
+          <span>Bot Config</span>
           <span
-            class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
-            :class="
-              activeTab === 'invite'
-                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
-                : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-            "
-          >
-            {{ settingsStore.totalInvitesCount || totalCount }}
-          </span>
+            class="w-1.5 h-1.5 rounded-full"
+            :class="(settingsStore.botInfo?.is_active ?? true) ? 'bg-emerald-500' : 'bg-amber-500'"
+          ></span>
         </button>
       </div>
 
