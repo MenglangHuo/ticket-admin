@@ -30,7 +30,7 @@ const digits = ref<string[]>(['', '', '', '', '', ''])
 const inputRefs = ref<(HTMLInputElement | null)[]>([])
 const isShaking = ref(false)
 
-const sessionTimeRemaining = ref(600) // 10 minutes in seconds
+const sessionTimeRemaining = ref(60) // 10 minutes in seconds
 let sessionTimerInterval: ReturnType<typeof setInterval> | null = null
 
 // WebOTP AbortController
