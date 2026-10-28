@@ -24,6 +24,49 @@ export interface TelegramInviteResponse {
   invite_url: string
 }
 
+export interface TelegramInviteRefreshResponse {
+  success: boolean
+  message?: string
+  data: TelegramUnusedInvite
+}
+
+export interface TelegramUnusedInvite {
+  id: number
+  company_id?: number
+  token: string
+  invite_url: string
+  deeplink?: string
+  is_used: boolean
+  expires_at: string
+  created_by?: number | string | null
+  created_at: string
+}
+
+export interface TelegramUnusedInvitesResponse {
+  success: boolean
+  message?: string
+  data: TelegramUnusedInvite[]
+  bot_username?: string
+  pagination: {
+    page: number
+    per_page: number
+    total: number
+    total_pages: number
+    has_next: boolean
+    has_previous: boolean
+  }
+  timestamp?: string
+}
+
+export interface TelegramInviteFilterParams {
+  page?: number
+  per_page?: number
+  search?: string
+  status?: 'all' | 'active' | 'expired' | string
+  sort_by?: string
+  sort_dir?: 'asc' | 'desc'
+}
+
 export interface TelegramBotConfig {
   botUsername: string
   tokenConfigured: boolean
@@ -67,6 +110,9 @@ export interface TelegramBotInfo {
   rejoin_link?: string | null
   invite_url?: string | null
   migration_url?: string | null
+  bot_username_changed?: boolean
+  purged_subscribers_count?: number
+  purged_invites_count?: number
   created_at?: string
   updated_at?: string
 }

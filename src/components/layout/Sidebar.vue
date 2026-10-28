@@ -282,7 +282,7 @@ function handleLogout() {
 
     <!-- Sidebar Bottom: Clean, Beautiful Sign Out Button -->
     <div
-      class="border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/40"
+      class="border-slate-200/80 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/40"
       :class="isCollapsed ? 'p-2.5 flex justify-center' : 'p-3'"
     >
       <!-- Collapsed: Icon-Only Sign Out Button -->

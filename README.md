@@ -90,10 +90,6 @@ Engineered with **Vue 3 (Composition API)**, **TypeScript**, and **Tailwind CSS 
 - **Integration Overview**: Inspect registered external consumer applications, authorized endpoints, and active security tokens.
 - **Rate Limit & Scope Auditing**: Monitor assigned requests-per-minute quotas and allowed ticket categories per client.
 
-### 🌐 Public Client Ingestion Portal (`/client-ticket`)
-- Standalone self-service ticket intake portal for authenticated external clients using `X-Client-ID` and `X-Client-Secret` verification.
-- Client-side drag-and-drop file upload with live previews and error handling.
-
 ### 🌓 Adaptive Theming
 - Native Dark / Light / System auto-detection with smooth transitions and persistent state.
 
@@ -153,7 +149,7 @@ ticket-admin/
 │   │   └── toastStore.ts   # Toast notifications
 │   ├── types/              # TypeScript interfaces and domain schemas
 │   ├── utils/              # Helper utilities (HTML sanitizer, security helpers)
-│   ├── views/              # Page views (Tickets, Dashboard, Clients, Settings, Login, ClientTicket)
+│   ├── views/              # Page views (Tickets, Dashboard, Clients, Settings, Login)
 │   ├── App.vue             # Root component
 │   ├── env.d.ts            # TypeScript definitions for Vite environment variables
 │   └── main.ts             # Application bootstrapping entrypoint
@@ -264,7 +260,6 @@ TicketAdmin features a comprehensive client-side mock data provider enabling zer
 | **Executive Dashboard** | `/dashboard` | Complete KPI summary cards, status donuts, priority breakdowns, top clients volume ranking, and interactive daily trend points. |
 | **Telegram Settings** | `/settings` | Telegram Bot status, 8 team subscribers with active/inactive notification toggles, test dispatch pings, and dynamic cryptographically formatted bot invite links. |
 | **Connected Clients** | `/clients` | 5 external API clients (POS Terminal, Mobile App, Payment Gateway, Webhook Dispatcher) with rate limit badges and authorized category tags. |
-| **Client Portal** | `/client-ticket` | Public ticket intake simulation with form validation, drag-and-drop file upload, and simulated confirmation receipts. |
 | **Authentication & 2FA** | `/login`, `/two-factor` | Primary credential auth, automatic RBAC role routing, dedicated **HQ Admin 2-Factor Authentication Checkpoint** with 6-digit OTP input, rate limiting, challenge expiration, and demo helpers. |
 
 ### Vitest Test Suite Isolation
@@ -282,8 +277,6 @@ When running automated unit tests (`pnpm test:unit`), the mock provider automati
 | `VITE_API_BASE_URL` | `string` | `/api` | Base REST API endpoint for ticket, report, and subscriber endpoints. |
 | `VITE_AUTH_BASE_URL` | `string` | `""` | Host URL for root auth endpoints (`/token`, `/login`, `/two-factor`). |
 | `VITE_API_SECRET` | `string` | `""` | Shared application secret used to retrieve initial access tokens via `POST /token`. |
-| `VITE_CLIENT_ID` | `string` | `""` | Client identifier sent in `X-Client-ID` for public ticket submissions. |
-| `VITE_CLIENT_SECRET` | `string` | `""` | Client secret sent in `X-Client-Secret` for public ticket submissions. |
 | `VITE_ENABLE_MOCK_DATA` | `boolean` | `false` | Enables client-side mock data provider across all pages without requiring a backend. |
 | `VITE_USE_MOCK_DATA` | `boolean` | `false` | Backward-compatible fallback alias for `VITE_ENABLE_MOCK_DATA`. |
 

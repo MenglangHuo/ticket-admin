@@ -40,6 +40,9 @@ export interface TicketReporter {
   phone?: string | null
   personal_phone?: string | null
   role?: string | null
+  profile?: string | null
+  reporter_profile?: string | null
+  profile_url?: string | null
   [key: string]: any
 }
 
@@ -65,6 +68,7 @@ export interface Ticket {
   reporter_name?: string | null
   reporter_email?: string | null
   reporter_user_id?: number | null
+  reporter_profile?: string | null
   reporter?: TicketReporter | null
   assignee?: TicketAssignee | null
   due_at?: string | null
@@ -83,7 +87,10 @@ export interface CommentAuthor {
   id: number
   name?: string | null
   profile_url?: string | null
+  profile?: string | null
+  reporter_profile?: string | null
   email?: string | null
+  [key: string]: any
 }
 
 export interface TicketComment {
@@ -98,6 +105,8 @@ export interface TicketComment {
   body: string
   is_internal: boolean
   author?: CommentAuthor | null
+  profile?: string | null
+  reporter_profile?: string | null
   attachments?: Attachment[]
   files?: (string | Attachment)[]
   metadata?: Record<string, any>
@@ -107,6 +116,7 @@ export interface TicketComment {
 
 export interface CreateCommentPayload {
   username?: string
+  author_type?: 'admin' | 'user'
   body: string
   parent_id?: number | null
   is_internal?: boolean
@@ -116,6 +126,7 @@ export interface CreateCommentPayload {
 
 export interface UpdateCommentPayload {
   body?: string
+  author_type?: 'admin' | 'user'
   is_internal?: boolean
   metadata?: Record<string, any>
 }
@@ -278,11 +289,11 @@ export interface ReportSummary {
   resolved_tickets: number
   closed_tickets: number
   critical_tickets: number
-  high_tickets: number
-  medium_tickets: number
-  low_tickets: number
-  resolution_rate: number
-  avg_resolution_hours: number
+  high_tickets?: number
+  medium_tickets?: number
+  low_tickets?: number
+  resolution_rate?: number
+  avg_resolution_hours?: number
 }
 
 export interface TopClient {
@@ -295,14 +306,31 @@ export interface TrendPoint {
   count: number
 }
 
+export interface TelegramSubscribersReport {
+  total: number
+  active: number
+  resolvers: number
+  requesters: number
+}
+
+export interface TelegramInvitedReport {
+  total: number
+  used: number
+  available: number
+  expired: number
+  conversion_rate: number
+}
+
 export interface DashboardReportsResponse {
   summary: ReportSummary
   by_status: Record<TicketStatus, number>
   by_priority: Record<TicketPriority, number>
-  by_source: Record<string, number>
   by_type: Record<TicketType, number>
-  top_clients: TopClient[]
-  trends: TrendPoint[]
+  telegram_subscribers?: TelegramSubscribersReport
+  telegram_invited?: TelegramInvitedReport
+  by_source?: Record<string, number>
+  top_clients?: TopClient[]
+  trends?: TrendPoint[]
   success: boolean
 }
 

@@ -124,21 +124,6 @@ describe('Mock Data Configuration & Service Suite', () => {
       const commentsRes = await ticketApi.getTicketComments(1)
       expect(commentsRes.data.some((c) => c.body === 'Unit test comment note')).toBe(true)
     })
-
-    it('handles client ticket submission in mock mode', async () => {
-      const res = await ticketApi.submitClientTicket({
-        title: 'Client Public Portal Issue',
-        description: 'Unable to reach payment webhook',
-        type: 'bug',
-        reporter_name: 'External Client',
-        reporter_email: 'client@domain.com',
-        reporter_user_id: 104,
-      })
-      expect(res.success).toBe(true)
-      expect(res.data.title).toBe('Client Public Portal Issue')
-      expect(res.data.ticket_key).toMatch(/^TCK-\d+$/)
-      expect(res.data.reporter_user_id).toBe(104)
-    })
   })
 
   describe('Dashboard Page Mock Data', () => {
@@ -154,8 +139,8 @@ describe('Mock Data Configuration & Service Suite', () => {
       expect(reports.by_status.open).toBeDefined()
       expect(reports.by_priority.critical).toBeDefined()
       expect(reports.by_type.bug).toBeDefined()
-      expect(reports.top_clients.length).toBeGreaterThan(0)
-      expect(reports.trends.length).toBe(14)
+      expect(reports.top_clients?.length).toBeGreaterThan(0)
+      expect(reports.trends?.length).toBe(14)
     })
   })
 
@@ -176,7 +161,7 @@ describe('Mock Data Configuration & Service Suite', () => {
 
     it('generates mock telegram invite link', async () => {
       const link = await telegramApi.generateInviteLink()
-      expect(link).toMatch(/^https:\/\/t\.me\/.+\?start=inv_/)
+      expect(link).toMatch(/^https:\/\/t\.me\/.+\?start=.+/)
     })
 
     it('returns aggregated telegram subscriber and invite counts', async () => {

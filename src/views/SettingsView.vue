@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import SubscribersTable from '@/components/settings/SubscribersTable.vue'
-import GenerateInviteForm from '@/components/settings/GenerateInviteForm.vue'
+import InvitesTable from '@/components/settings/InvitesTable.vue'
 import TelegramBotConfigForm from '@/components/settings/TelegramBotConfigForm.vue'
 import mockService from '@/mocks/mockService'
 import { Users, Link as LinkIcon, Bot, ExternalLink, Send, ShieldCheck } from 'lucide-vue-next'
@@ -17,6 +17,9 @@ onMounted(() => {
   settingsStore.fetchBotInfo()
   if (!settingsStore.subscribers.length) {
     settingsStore.fetchSubscribers()
+  }
+  if (!settingsStore.unusedInvites.length) {
+    settingsStore.fetchUnusedInvites()
   }
 })
 </script>
@@ -173,62 +176,13 @@ onMounted(() => {
         @goToInviteTab="activeTab = 'invite'"
       />
 
-      <!-- TAB 3: GENERATE INVITE LINK FORM -->
-      <div v-show="activeTab === 'invite'" class="space-y-4">
-        <!-- Top Header Toolbar matching SubscribersTable -->
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <!-- Left: Segmented Switcher -->
-          <div
-            class="inline-flex items-center p-1 bg-slate-100/90 dark:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-700/60 select-none self-start shrink-0"
-          >
-            <button
-              type="button"
-              @click="activeTab = 'config'"
-              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              <Bot class="w-3.5 h-3.5" />
-              <span>Bot Config</span>
-              <span
-                class="w-1.5 h-1.5 rounded-full"
-                :class="
-                  (settingsStore.botInfo?.is_active ?? true) ? 'bg-emerald-500' : 'bg-amber-500'
-                "
-              ></span>
-            </button>
-
-            <button
-              type="button"
-              @click="activeTab = 'subscribers'"
-              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              <Users class="w-3.5 h-3.5" />
-              <span>Subscribers</span>
-              <span
-                class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-              >
-                {{ settingsStore.totalSubscribersCount || settingsStore.subscribers.length }}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              @click="activeTab = 'invite'"
-              class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all cursor-pointer bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-semibold"
-            >
-              <LinkIcon class="w-3.5 h-3.5" />
-              <span>Generate Invite Link</span>
-              <span
-                class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400"
-              >
-                {{ settingsStore.totalInvitesCount }}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Generate Invite Form Component -->
-        <GenerateInviteForm @done="activeTab = 'subscribers'" />
-      </div>
+      <!-- TAB 3: GENERATE INVITED LINK TABLE -->
+      <InvitesTable
+        v-show="activeTab === 'invite'"
+        :active-tab="activeTab"
+        @change-tab="activeTab = $event"
+        @goToSubscribers="activeTab = 'subscribers'"
+      />
     </div>
   </div>
 </template>

@@ -5,6 +5,8 @@ import type {
   TelegramBotConfig,
   TelegramBotInfo,
   TelegramBotConfigPayload,
+  TelegramUnusedInvite,
+  TelegramInviteFilterParams,
 } from '@/types/settings'
 import {
   telegramApi,
@@ -48,6 +50,19 @@ export const useSettingsStore = defineStore('settings', () => {
   const isGeneratingInvite = ref(false)
   const latestInviteUrl = ref<string | null>(null)
   const error = ref<string | null>(null)
+
+  // Unused Telegram Bot Invites from /ticket/telegram/invites/unused
+  const unusedInvites = ref<TelegramUnusedInvite[]>([])
+  const invitesPagination = ref<TelegramSubscriberPagination>({
+    page: 1,
+    per_page: 20,
+    total: 0,
+    total_pages: 1,
+    has_next: false,
+    has_previous: false,
+  })
+  const isInvitesLoading = ref(false)
+  const invitesError = ref<string | null>(null)
 
   // Computed metrics
   const activeSubscribersCount = computed(() => {
@@ -133,6 +148,50 @@ export const useSettingsStore = defineStore('settings', () => {
     return subscribersPromise
   }
 
+  let unusedInvitesPromise: Promise<void> | null = null
+
+  /**
+   * Fetch unused Telegram invite links from backend GET /ticket/telegram/invites/unused
+   */
+  async function fetchUnusedInvites(
+    params?: TelegramInviteFilterParams,
+    force = false,
+  ): Promise<void> {
+    if (!force && !params && unusedInvites.value.length > 0) {
+      return
+    }
+    if (!force && unusedInvitesPromise) return unusedInvitesPromise
+
+    isInvitesLoading.value = true
+    invitesError.value = null
+
+    unusedInvitesPromise = (async () => {
+      try {
+        const res = await telegramApi.getUnusedInvites(params)
+        unusedInvites.value = Array.isArray(res.data) ? res.data : []
+        if (res.pagination) {
+          invitesPagination.value = res.pagination
+          if (!params?.search && (!params?.status || params.status === 'all') && res.pagination.total !== undefined) {
+            totalInvitesCount.value = res.pagination.total
+          }
+        }
+        if (res.bot_username && !botConfig.value.botUsername) {
+          botConfig.value.botUsername = res.bot_username
+        }
+      } catch (err: any) {
+        const message =
+          err.response?.data?.message || err.message || 'Failed to load unused Telegram invite links'
+        invitesError.value = message
+        toastStore.error('Invite Links Load Error', message)
+      } finally {
+        isInvitesLoading.value = false
+        unusedInvitesPromise = null
+      }
+    })()
+
+    return unusedInvitesPromise
+  }
+
   /**
    * Request backend to generate a new Telegram invite link (POST /tickets/telegram/invite-link)
    */
@@ -146,6 +205,8 @@ export const useSettingsStore = defineStore('settings', () => {
       latestInviteUrl.value = inviteUrl
       totalInvitesCount.value++
       toastStore.success('Invite Link Created', 'Share this Telegram link with staff to subscribe')
+      // Refresh unused invites list so newly generated invite is immediately available in the table
+      fetchUnusedInvites(undefined, true).catch(() => {})
       return inviteUrl
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || 'Failed to generate invite link'
@@ -153,6 +214,32 @@ export const useSettingsStore = defineStore('settings', () => {
       throw err
     } finally {
       isGeneratingInvite.value = false
+    }
+  }
+
+  /**
+   * Refresh an expired (or existing) Telegram invite link via POST /ticket/telegram/invites/{id}/refresh
+   */
+  async function refreshInvite(id: number | string): Promise<TelegramUnusedInvite> {
+    try {
+      const res = await telegramApi.refreshInvite(id)
+      const updated = res.data
+
+      // Update item in local unusedInvites list
+      const index = unusedInvites.value.findIndex((inv) => String(inv.id) === String(id))
+      if (index !== -1 && updated) {
+        unusedInvites.value[index] = { ...unusedInvites.value[index], ...updated }
+      }
+
+      toastStore.success(
+        'Invite Refreshed',
+        res.message || 'Telegram invite link has been renewed successfully',
+      )
+      return updated
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || 'Failed to refresh invite link'
+      toastStore.error('Refresh Failed', message)
+      throw err
     }
   }
 
@@ -364,12 +451,18 @@ export const useSettingsStore = defineStore('settings', () => {
     activeSubscribersCount,
     totalInvitesCount,
     totalSubscribersCount,
+    unusedInvites,
+    invitesPagination,
+    isInvitesLoading,
+    invitesError,
     fetchMetrics,
     fetchSubscribers,
+    fetchUnusedInvites,
     fetchBotInfo,
     updateBotConfig,
     broadcastMigration,
     generateInviteLink,
+    refreshInvite,
     deleteSubscriber,
     removeSubscriber,
     toggleSubscriberNotification,

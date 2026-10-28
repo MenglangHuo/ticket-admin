@@ -726,8 +726,8 @@ export function createMockTicket(
 
     if (payload.files && Array.isArray(payload.files)) {
       const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
-      payload.files.forEach((file: File) => {
-        if (file instanceof File) {
+      payload.files.forEach((file: any, index: number) => {
+        if (typeof File !== 'undefined' && file instanceof File) {
           mockAttachments.push({
             id: Math.floor(Math.random() * 10000) + 100,
             ticket_id: 0,
@@ -737,9 +737,36 @@ export function createMockTicket(
             mime_type: file.type || 'application/octet-stream',
             created_at: now,
           })
+        } else if (typeof file === 'string') {
+          const isDataUri = file.startsWith('data:')
+          const mime = isDataUri ? (file.split(';base64,')[0]?.replace('data:', '') || 'image/png') : 'image/png'
+          const ext = mime.includes('png') ? 'png' : mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'bin'
+          mockAttachments.push({
+            id: Math.floor(Math.random() * 10000) + 100,
+            ticket_id: 0,
+            file_name: `attachment_${index + 1}.${ext}`,
+            file_url: isDataUri ? file : `data:image/png;base64,${file}`,
+            file_size: file.length,
+            mime_type: mime,
+            created_at: now,
+          })
         }
       })
     }
+  }
+
+  if (reporter_user_id === null && typeof localStorage !== 'undefined') {
+    try {
+      const rawUser = localStorage.getItem('bronx_user') || localStorage.getItem('bronx-user')
+      if (rawUser) {
+        const parsedUser = JSON.parse(rawUser)
+        const rawId = parsedUser?.id ?? parsedUser?.user_id ?? parsedUser?.userId
+        if (rawId !== undefined && rawId !== null && rawId !== '') {
+          const num = Number(rawId)
+          if (!isNaN(num)) reporter_user_id = num
+        }
+      }
+    } catch {}
   }
 
   const nextId =
@@ -1139,57 +1166,4 @@ export function deleteMockTicketComment(
     success: true,
     message: 'Comment deleted successfully (Mock Mode)',
   }
-}
-
-export function submitMockClientTicket(
-  payload: FormData | Record<string, any>,
-): TicketSingleResponse {
-  let title = 'Client Ingestion Ticket'
-  let description = ''
-  let type = 'bug'
-  let reporter_name = 'Client Ingestion User'
-  let reporter_email = 'client@partner.com'
-  let reporter_phone = '012 999 888'
-  let reporter_user_id: number | null = null
-
-  if (payload instanceof FormData) {
-    title = (payload.get('title') as string) || title
-    description = (payload.get('description') as string) || ''
-    type = (payload.get('type') as string) || type
-    reporter_name = (payload.get('reporter_name') as string) || reporter_name
-    reporter_email = (payload.get('reporter_email') as string) || reporter_email
-    reporter_phone = (payload.get('reporter_phone') as string) || reporter_phone
-    const rawUserId = payload.get('reporter_user_id')
-    if (rawUserId !== null && rawUserId !== '') {
-      const parsed = Number(rawUserId)
-      reporter_user_id = isNaN(parsed) ? null : parsed
-    }
-  } else if (typeof payload === 'object') {
-    title = payload.title || title
-    description = payload.description || ''
-    type = payload.type || type
-    reporter_name = payload.reporter_name || reporter_name
-    reporter_email = payload.reporter_email || reporter_email
-    reporter_phone = payload.reporter_phone || reporter_phone
-    if (payload.reporter_user_id !== undefined && payload.reporter_user_id !== null && (payload.reporter_user_id as any) !== '') {
-      const parsed = Number(payload.reporter_user_id)
-      reporter_user_id = isNaN(parsed) ? null : parsed
-    }
-  }
-
-  return createMockTicket({
-    title,
-    description,
-    type,
-    priority: 'high',
-    source: 'api',
-    reporter_name,
-    reporter_email,
-    reporter_phone,
-    reporter_user_id,
-    metadata: {
-      api_client_name: 'Client Ingestion Portal',
-      client_submitted: true,
-    },
-  })
 }

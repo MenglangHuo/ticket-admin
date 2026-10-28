@@ -3,6 +3,10 @@ import type {
   TelegramBotInfo,
   TelegramBotConfigPayload,
   TelegramBotInfoResponse,
+  TelegramUnusedInvite,
+  TelegramUnusedInvitesResponse,
+  TelegramInviteFilterParams,
+  TelegramInviteRefreshResponse,
 } from '@/types/settings'
 import type {
   TelegramSubscriberFilterParams,
@@ -188,12 +192,181 @@ export function getMockSubscribers(
   }
 }
 
+export const INITIAL_MOCK_UNUSED_INVITES: TelegramUnusedInvite[] = [
+  {
+    id: 4,
+    company_id: 1,
+    token: 'Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+    invite_url: 'https://t.me/MenglangKara_bot?start=Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+    deeplink: 'https://t.me/MenglangKara_bot?start=Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+    is_used: false,
+    expires_at: '2026-10-28 17:10:20',
+    created_by: 367,
+    created_at: '2026-10-21 17:10:20',
+  },
+  {
+    id: 3,
+    company_id: 1,
+    token: 'Zk9BvdqB6iH98pZdQEiQzqnp16kHpZwp',
+    invite_url: 'https://t.me/MenglangKara_bot?start=Zk9BvdqB6iH98pZdQEiQzqnp16kHpZwp',
+    deeplink: 'https://t.me/MenglangKara_bot?start=Zk9BvdqB6iH98pZdQEiQzqnp16kHpZwp',
+    is_used: false,
+    expires_at: '2026-10-29 14:30:00',
+    created_by: 367,
+    created_at: '2026-10-22 14:30:00',
+  },
+  {
+    id: 2,
+    company_id: 1,
+    token: 'Am1CwerC7jJ09qAeRFjRaror27lIqAxq',
+    invite_url: 'https://t.me/MenglangKara_bot?start=Am1CwerC7jJ09qAeRFjRaror27lIqAxq',
+    deeplink: 'https://t.me/MenglangKara_bot?start=Am1CwerC7jJ09qAeRFjRaror27lIqAxq',
+    is_used: false,
+    expires_at: '2026-10-30 09:15:10',
+    created_by: 102,
+    created_at: '2026-10-23 09:15:10',
+  },
+  {
+    id: 1,
+    company_id: 1,
+    token: 'Bn2DxfsD8kK10rBfSGkSbsps38mJrByr',
+    invite_url: 'https://t.me/MenglangKara_bot?start=Bn2DxfsD8kK10rBfSGkSbsps38mJrByr',
+    deeplink: 'https://t.me/MenglangKara_bot?start=Bn2DxfsD8kK10rBfSGkSbsps38mJrByr',
+    is_used: false,
+    expires_at: '2024-01-01 11:00:00',
+    created_by: 102,
+    created_at: '2023-12-25 11:00:00',
+  },
+]
+
+let mockUnusedInvitesState: TelegramUnusedInvite[] = JSON.parse(
+  JSON.stringify(INITIAL_MOCK_UNUSED_INVITES),
+)
+
+export function resetMockUnusedInvites(): void {
+  mockUnusedInvitesState = JSON.parse(JSON.stringify(INITIAL_MOCK_UNUSED_INVITES))
+}
+
+export function refreshMockUnusedInvite(
+  id: number | string,
+): TelegramInviteRefreshResponse {
+  const numId = Number(id)
+  const itemIndex = mockUnusedInvitesState.findIndex((item) => item.id === numId)
+  if (itemIndex === -1) {
+    throw new Error(`Invite with ID ${id} not found`)
+  }
+
+  const existing = mockUnusedInvitesState[itemIndex]!
+  const newToken =
+    'Refreshed_' +
+    Math.random().toString(36).substring(2, 10) +
+    Math.random().toString(36).substring(2, 10)
+  const botUsername = mockBotInfoState?.bot_username || 'MenglangKara_bot'
+  const newInviteUrl = `https://t.me/${botUsername}?start=${newToken}`
+  const now = new Date()
+  const newExpires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const formattedExpires = `${newExpires.getFullYear()}-${pad(newExpires.getMonth() + 1)}-${pad(newExpires.getDate())} ${pad(newExpires.getHours())}:${pad(newExpires.getMinutes())}:${pad(newExpires.getSeconds())}`
+
+  const updated: TelegramUnusedInvite = {
+    ...existing,
+    token: newToken,
+    invite_url: newInviteUrl,
+    deeplink: newInviteUrl,
+    expires_at: formattedExpires,
+  }
+
+  mockUnusedInvitesState[itemIndex] = updated
+
+  return {
+    success: true,
+    message: 'Invite link refreshed successfully (Mock Mode)',
+    data: updated,
+  }
+}
+
+export function getMockUnusedInvites(
+  params?: TelegramInviteFilterParams,
+): TelegramUnusedInvitesResponse {
+  let list = [...mockUnusedInvitesState]
+
+  if (params?.search && params.search.trim()) {
+    const q = params.search.toLowerCase().trim()
+    list = list.filter(
+      (item) =>
+        item.token.toLowerCase().includes(q) ||
+        item.invite_url.toLowerCase().includes(q) ||
+        String(item.id).includes(q) ||
+        (item.created_by && String(item.created_by).includes(q)),
+    )
+  }
+
+  if (params?.status && params.status !== 'all') {
+    const now = Date.now()
+    if (params.status === 'active') {
+      list = list.filter((item) => {
+        const d = new Date(item.expires_at.replace(' ', 'T')).getTime()
+        return !isNaN(d) ? d > now : true
+      })
+    } else if (params.status === 'expired') {
+      list = list.filter((item) => {
+        const d = new Date(item.expires_at.replace(' ', 'T')).getTime()
+        return !isNaN(d) ? d <= now : false
+      })
+    }
+  }
+
+  const page = Number(params?.page || 1)
+  const perPage = Number(params?.per_page || 20)
+  const total = list.length
+  const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const startIndex = (page - 1) * perPage
+  const pageItems = list.slice(startIndex, startIndex + perPage)
+
+  return {
+    success: true,
+    message: 'ទាញយកបានជោគជ័យ',
+    data: pageItems,
+    bot_username: mockBotInfoState.bot_username || 'MenglangKara_bot',
+    pagination: {
+      page,
+      per_page: perPage,
+      total,
+      total_pages: totalPages,
+      has_next: page < totalPages,
+      has_previous: page > 1,
+    },
+    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+  }
+}
+
 export function generateMockInviteLink(): string {
   mockInvitesCounter++
-  const botUser = mockBotInfoState.bot_username || 'BronxTicketAlertBot'
+  const botUser = mockBotInfoState.bot_username || 'MenglangKara_bot'
   const cleanBot = botUser.replace(/^@/, '')
-  const randToken = Math.random().toString(36).substring(2, 10)
-  return `https://t.me/${cleanBot}?start=inv_${randToken}`
+  const randToken = Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12)
+  const url = `https://t.me/${cleanBot}?start=${randToken}`
+  const now = new Date()
+  const nowStr = now.toISOString().replace('T', ' ').substring(0, 19)
+  const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .replace('T', ' ')
+    .substring(0, 19)
+
+  const newInvite: TelegramUnusedInvite = {
+    id: mockUnusedInvitesState.length + 1,
+    company_id: 1,
+    token: randToken,
+    invite_url: url,
+    deeplink: url,
+    is_used: false,
+    expires_at: expiresAt,
+    created_by: 367,
+    created_at: nowStr,
+  }
+  mockUnusedInvitesState.unshift(newInvite)
+
+  return url
 }
 
 export function removeMockSubscriber(identifier: string | number): void {

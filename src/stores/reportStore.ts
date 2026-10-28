@@ -36,11 +36,6 @@ export const useReportStore = defineStore('reports', () => {
       resolved_tickets: 0,
       closed_tickets: 0,
       critical_tickets: 0,
-      high_tickets: 0,
-      medium_tickets: 0,
-      low_tickets: 0,
-      resolution_rate: 0,
-      avg_resolution_hours: 0,
     },
     by_status: {
       open: 0,
@@ -63,6 +58,19 @@ export const useReportStore = defineStore('reports', () => {
     },
     top_clients: [],
     trends: [],
+    telegram_subscribers: {
+      total: 0,
+      active: 0,
+      resolvers: 0,
+      requesters: 0,
+    },
+    telegram_invited: {
+      total: 0,
+      used: 0,
+      available: 0,
+      expired: 0,
+      conversion_rate: 0,
+    },
     success: true,
   })
 

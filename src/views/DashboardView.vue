@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useReportStore } from '@/stores/reportStore'
 import MetricCard from '@/components/dashboard/MetricCard.vue'
 import StatusDonut from '@/components/dashboard/StatusDonut.vue'
@@ -17,9 +17,13 @@ import {
   BarChart2,
   RefreshCw,
   AlertCircle,
+  Send,
+  Ticket,
+  Flame,
 } from 'lucide-vue-next'
 
 const reportStore = useReportStore()
+const activeDistributionTab = ref<'type' | 'priority'>('type')
 
 onMounted(() => {
   // Automatically uses default this_month date_from & date_to
@@ -43,6 +47,80 @@ const totalTypeCount = computed(() => {
   return (bt.bug || 0) + (bt.enhancement || 0) + (bt.question || 0) + (bt.task || 0) || 1
 })
 
+const totalPriorityCount = computed(() => {
+  const bp = reportStore.reportData.by_priority || {}
+  return (bp.critical || 0) + (bp.high || 0) + (bp.medium || 0) + (bp.low || 0) || 1
+})
+
+const resolutionRate = computed(() => {
+  const s = reportStore.reportData.summary
+  const total = s.total_tickets || 0
+  if (total === 0) return 0
+  const resolved = (s.resolved_tickets || 0) + (s.closed_tickets || 0)
+  return Math.round((resolved / total) * 100)
+})
+
+const openPercent = computed(() => {
+  const total = reportStore.reportData.summary.total_tickets || 1
+  return Math.round(((reportStore.reportData.by_status.open || 0) / total) * 100)
+})
+
+const inProgressPercent = computed(() => {
+  const total = reportStore.reportData.summary.total_tickets || 1
+  return Math.round(((reportStore.reportData.by_status.in_progress || 0) / total) * 100)
+})
+
+const highPriorityCount = computed(() => {
+  return reportStore.reportData.by_priority?.high || 0
+})
+
+const prioritiesList = computed(() => {
+  const bp = reportStore.reportData.by_priority || {}
+  const total = totalPriorityCount.value
+  return [
+    {
+      key: 'critical',
+      label: 'Critical',
+      count: bp.critical || 0,
+      percent: Math.round(((bp.critical || 0) / total) * 100),
+      color: 'bg-rose-500',
+      textColor: 'text-rose-600 dark:text-rose-400',
+      bgLight: 'bg-rose-50 dark:bg-rose-500/10',
+      icon: AlertTriangle,
+    },
+    {
+      key: 'high',
+      label: 'High',
+      count: bp.high || 0,
+      percent: Math.round(((bp.high || 0) / total) * 100),
+      color: 'bg-amber-500',
+      textColor: 'text-amber-600 dark:text-amber-400',
+      bgLight: 'bg-amber-50 dark:bg-amber-500/10',
+      icon: Flame,
+    },
+    {
+      key: 'medium',
+      label: 'Medium',
+      count: bp.medium || 0,
+      percent: Math.round(((bp.medium || 0) / total) * 100),
+      color: 'bg-sky-500',
+      textColor: 'text-sky-600 dark:text-sky-400',
+      bgLight: 'bg-sky-50 dark:bg-sky-500/10',
+      icon: Clock,
+    },
+    {
+      key: 'low',
+      label: 'Low',
+      count: bp.low || 0,
+      percent: Math.round(((bp.low || 0) / total) * 100),
+      color: 'bg-slate-400',
+      textColor: 'text-slate-500 dark:text-slate-400',
+      bgLight: 'bg-slate-100 dark:bg-slate-800',
+      icon: CheckSquare,
+    },
+  ]
+})
+
 const lastUpdatedLabel = computed(() => {
   if (!reportStore.lastUpdated) return 'Just now'
   const diffSec = Math.floor((Date.now() - reportStore.lastUpdated.getTime()) / 1000)
@@ -50,11 +128,12 @@ const lastUpdatedLabel = computed(() => {
   if (diffSec < 60) return `${diffSec}s ago`
   return `${Math.floor(diffSec / 60)}m ago`
 })
+
 const isMockEnabled = computed(() => mockService.isMockDataEnabled())
 </script>
 
 <template>
-  <div class="space-y-3 sm:space-y-3.5">
+  <div class="space-y-4 pb-8">
     <!-- Header with Live Status, View Controls, Refresh, and Date Range Picker -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-0.5">
       <div>
@@ -67,7 +146,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
           <div>
             <div class="flex items-center gap-2">
               <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                Overview & Performance
+                Ticket Dashboard
               </h1>
               <!-- Live or Mock Indicator Pill -->
               <span
@@ -86,7 +165,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
               </span>
             </div>
             <p class="text-[11px] text-slate-500 dark:text-slate-400">
-              Live ticket metrics, lifecycle distribution, and issue type breakdown
+              Live ticket metrics, lifecycle distribution, and issue breakdown
             </p>
           </div>
         </div>
@@ -134,16 +213,16 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
       </button>
     </div>
 
-    <!-- 4 Clean KPI Summary Cards (Full Row Balanced) -->
+    <!-- 4 Clean Executive KPI Summary Cards (No duplicated labels) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
       <!-- Total Tickets -->
       <MetricCard
         title="Total Tickets"
         :value="reportStore.reportData.summary.total_tickets"
-        subtitle="All incoming tickets"
-        :progressPercent="reportStore.reportData.summary.resolution_rate || 40"
+        subtitle="All incoming volume"
+        :progressPercent="resolutionRate"
         :trend="{
-          value: `${reportStore.reportData.summary.resolution_rate || 0}% resolved`,
+          value: `${resolutionRate}% resolved`,
           isPositive: true,
         }"
         :icon="Layers"
@@ -155,16 +234,10 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
       <MetricCard
         title="Open Tickets"
         :value="reportStore.reportData.by_status.open || 0"
-        subtitle="Awaiting triage"
-        :progressPercent="
-          Math.round(
-            ((reportStore.reportData.by_status.open || 0) /
-              (reportStore.reportData.summary.total_tickets || 1)) *
-              100,
-          )
-        "
+        subtitle="Awaiting initial triage"
+        :progressPercent="openPercent"
         :trend="{
-          value: `${reportStore.reportData.by_status.open || 0} open`,
+          value: `${openPercent}% of volume`,
           isPositive: true,
         }"
         :icon="Inbox"
@@ -176,16 +249,10 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
       <MetricCard
         title="In Progress"
         :value="reportStore.reportData.by_status.in_progress || 0"
-        subtitle="Actively worked on"
-        :progressPercent="
-          Math.round(
-            ((reportStore.reportData.by_status.in_progress || 0) /
-              (reportStore.reportData.summary.total_tickets || 1)) *
-              100,
-          )
-        "
+        subtitle="Under active resolution"
+        :progressPercent="inProgressPercent"
         :trend="{
-          value: `${reportStore.reportData.by_status.in_progress || 0} active`,
+          value: `${inProgressPercent}% in flight`,
           isPositive: true,
         }"
         :icon="Clock"
@@ -193,7 +260,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
         :loading="reportStore.isLoading"
       />
 
-      <!-- Critical Escalations -->
+      <!-- Critical Priority -->
       <MetricCard
         title="Critical Priority"
         :value="reportStore.reportData.summary.critical_tickets"
@@ -206,7 +273,7 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
           )
         "
         :trend="{
-          value: `${reportStore.reportData.summary.critical_tickets || 0} urgent`,
+          value: `${highPriorityCount} high priority`,
           isPositive: false,
         }"
         :icon="AlertTriangle"
@@ -215,41 +282,61 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
       />
     </div>
 
-    <!-- Side-by-Side Breakdown Cards (Status Donut & Tickets by Type) -->
+    <!-- Side-by-Side Breakdown Cards (Status Donut & Type/Priority Multi-View) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4 items-stretch">
-      <!-- Left: Status Donut Chart (Matching Popular Categories from Reference) -->
+      <!-- Left: Status Donut Chart -->
       <StatusDonut
         :byStatus="reportStore.reportData.by_status"
         :loading="reportStore.isLoading"
         class="h-full"
       />
 
-      <!-- Right: Tickets by Type Card (Matching Products List from Reference) -->
+      <!-- Right: Distribution Card with Type & Priority Switcher -->
       <div
         class="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-100/90 dark:border-slate-800/60 shadow-[0_4px_25px_-4px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full"
       >
         <div>
-          <!-- Header with Title on Left, Total Volume on Right -->
+          <!-- Header with Switcher Tabs -->
           <div
-            class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/60 mb-2"
+            class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/60 mb-2.5"
           >
-            <h3
-              class="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight"
-            >
-              Tickets by Type
-            </h3>
+            <div class="flex items-center gap-2">
+              <h3
+                class="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight"
+              >
+                {{ activeDistributionTab === 'type' ? 'Tickets by Type' : 'Tickets by Priority' }}
+              </h3>
+            </div>
 
+            <!-- Segmented Switcher Pill -->
             <div
-              v-if="reportStore.isLoading"
-              class="animate-pulse h-4 w-14 bg-slate-100 dark:bg-slate-800 rounded"
-            ></div>
-            <span
-              v-else
-              class="text-xs font-semibold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              class="inline-flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold"
             >
-              {{ totalTypeCount === 1 && !reportStore.reportData.by_type.bug ? 0 : totalTypeCount }}
-              total
-            </span>
+              <button
+                type="button"
+                @click="activeDistributionTab = 'type'"
+                class="px-2.5 py-1 rounded-md transition-all cursor-pointer"
+                :class="
+                  activeDistributionTab === 'type'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                "
+              >
+                By Type
+              </button>
+              <button
+                type="button"
+                @click="activeDistributionTab = 'priority'"
+                class="px-2.5 py-1 rounded-md transition-all cursor-pointer"
+                :class="
+                  activeDistributionTab === 'priority'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                "
+              >
+                By Priority
+              </button>
+            </div>
           </div>
 
           <!-- Skeleton State when loading -->
@@ -261,8 +348,8 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
             ></div>
           </div>
 
-          <!-- Type List Items (Matching Products Rows from Screenshot) -->
-          <div v-else class="space-y-1 mb-2">
+          <!-- TAB 1: By Type List Items -->
+          <div v-else-if="activeDistributionTab === 'type'" class="space-y-1 mb-2">
             <!-- Bug -->
             <div
               class="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
@@ -369,15 +456,46 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
               </span>
             </div>
           </div>
+
+          <!-- TAB 2: By Priority List Items -->
+          <div v-else class="space-y-1 mb-2">
+            <div
+              v-for="item in prioritiesList"
+              :key="item.key"
+              class="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div
+                  class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  :class="[item.bgLight, item.textColor]"
+                >
+                  <component :is="item.icon" class="w-4 h-4" />
+                </div>
+                <div class="truncate">
+                  <p class="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {{ item.label }}
+                  </p>
+                  <p class="text-[10px] text-slate-400 font-medium">
+                    {{ item.percent }}% of total tickets
+                  </p>
+                </div>
+              </div>
+              <span class="font-mono text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                {{ item.count }}
+              </span>
+            </div>
+          </div>
         </div>
 
-        <!-- Proportional Progress Distribution Bar with Mini Legend -->
+        <!-- Proportional Progress Distribution Bar with Dynamic Legend -->
         <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60">
           <div
             class="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1 font-medium"
           >
             <span>Volume Share</span>
-            <div class="flex items-center gap-2 text-[10px]">
+
+            <!-- Type Legend -->
+            <div v-if="activeDistributionTab === 'type'" class="flex items-center gap-2 text-[10px]">
               <span class="inline-flex items-center gap-1">
                 <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Bug
               </span>
@@ -391,8 +509,27 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
                 <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Q&A
               </span>
             </div>
+
+            <!-- Priority Legend -->
+            <div v-else class="flex items-center gap-2 text-[10px]">
+              <span class="inline-flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Critical
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> High
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Medium
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Low
+              </span>
+            </div>
           </div>
+
+          <!-- Type Distribution Bar -->
           <div
+            v-if="activeDistributionTab === 'type'"
             class="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex gap-0.5 p-0.5"
           >
             <div
@@ -424,6 +561,190 @@ const isMockEnabled = computed(() => mockService.isMockDataEnabled())
               title="Question"
             ></div>
           </div>
+
+          <!-- Priority Distribution Bar -->
+          <div
+            v-else
+            class="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex gap-0.5 p-0.5"
+          >
+            <div
+              :style="{
+                width: `${((reportStore.reportData.by_priority?.critical || 0) / totalPriorityCount) * 100}%`,
+              }"
+              class="h-full rounded-xs bg-rose-500 transition-all duration-300"
+              title="Critical"
+            ></div>
+            <div
+              :style="{
+                width: `${((reportStore.reportData.by_priority?.high || 0) / totalPriorityCount) * 100}%`,
+              }"
+              class="h-full rounded-xs bg-amber-500 transition-all duration-300"
+              title="High"
+            ></div>
+            <div
+              :style="{
+                width: `${((reportStore.reportData.by_priority?.medium || 0) / totalPriorityCount) * 100}%`,
+              }"
+              class="h-full rounded-xs bg-sky-500 transition-all duration-300"
+              title="Medium"
+            ></div>
+            <div
+              :style="{
+                width: `${((reportStore.reportData.by_priority?.low || 0) / totalPriorityCount) * 100}%`,
+              }"
+              class="h-full rounded-xs bg-slate-400 transition-all duration-300"
+              title="Low"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telegram Integration Metrics (Subscribers & Invites) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4 items-stretch">
+      <!-- Telegram Subscribers Card -->
+      <div
+        class="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-100/90 dark:border-slate-800/60 shadow-[0_4px_25px_-4px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+      >
+        <div>
+          <div
+            class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/60 mb-3"
+          >
+            <div class="flex items-center gap-2">
+              <div
+                class="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0"
+              >
+                <Send class="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                  Telegram Subscribers
+                </h3>
+                <p class="text-[10px] text-slate-400">Bot notification audience</p>
+              </div>
+            </div>
+            <span class="font-mono text-xs sm:text-sm font-bold text-sky-600 dark:text-sky-400">
+              {{ reportStore.reportData.telegram_subscribers?.total || 0 }} total
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2.5 my-2">
+            <div
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+            >
+              <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Active</p>
+              <p
+                class="text-base font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5"
+              >
+                {{ reportStore.reportData.telegram_subscribers?.active || 0 }}
+              </p>
+            </div>
+            <div
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+            >
+              <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                Resolvers
+              </p>
+              <p class="text-base font-bold text-indigo-600 dark:text-indigo-400 font-mono mt-0.5">
+                {{ reportStore.reportData.telegram_subscribers?.resolvers || 0 }}
+              </p>
+            </div>
+            <div
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+            >
+              <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                Requesters
+              </p>
+              <p class="text-base font-bold text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+                {{ reportStore.reportData.telegram_subscribers?.requesters || 0 }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div
+          class="text-[11px] text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between"
+        >
+          <span>Active subscription rate</span>
+          <span class="font-semibold text-slate-700 dark:text-slate-200">
+            {{
+              reportStore.reportData.telegram_subscribers?.total
+                ? Math.round(
+                    ((reportStore.reportData.telegram_subscribers?.active || 0) /
+                      reportStore.reportData.telegram_subscribers.total) *
+                      100,
+                  )
+                : 0
+            }}%
+          </span>
+        </div>
+      </div>
+
+      <!-- Telegram Invites Card -->
+      <div
+        class="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-100/90 dark:border-slate-800/60 shadow-[0_4px_25px_-4px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+      >
+        <div>
+          <div
+            class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/60 mb-3"
+          >
+            <div class="flex items-center gap-2">
+              <div
+                class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0"
+              >
+                <Ticket class="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                  Telegram Invites
+                </h3>
+                <p class="text-[10px] text-slate-400">Tokens & onboarding conversion</p>
+              </div>
+            </div>
+            <span
+              class="font-mono text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400"
+            >
+              {{ reportStore.reportData.telegram_invited?.conversion_rate || 0 }}% joined
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2.5 my-2">
+            <div
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+            >
+              <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Used</p>
+              <p
+                class="text-base font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5"
+              >
+                {{ reportStore.reportData.telegram_invited?.used || 0 }}
+              </p>
+            </div>
+            <div
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+            >
+              <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                Available
+              </p>
+              <p class="text-base font-bold text-sky-600 dark:text-sky-400 font-mono mt-0.5">
+                {{ reportStore.reportData.telegram_invited?.available || 0 }}
+              </p>
+            </div>
+            <div
+              class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-100 dark:border-slate-800"
+            >
+              <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Expired</p>
+              <p class="text-base font-bold text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                {{ reportStore.reportData.telegram_invited?.expired || 0 }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div
+          class="text-[11px] text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between"
+        >
+          <span>Total generated tokens</span>
+          <span class="font-semibold text-slate-700 dark:text-slate-200">
+            {{ reportStore.reportData.telegram_invited?.total || 0 }} invites
+          </span>
         </div>
       </div>
     </div>

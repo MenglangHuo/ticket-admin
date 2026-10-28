@@ -17,16 +17,95 @@ export function getTicketCompany(ticket?: Partial<Ticket> | null): string {
 }
 
 /**
- * Safely extracts user role from localStorage key 'bronx_user'.
+ * Safely extracts user object from localStorage key 'bronx_user' or 'bronx-user'.
+ */
+export function getUserFromLocalStorage(): any {
+  try {
+    if (typeof localStorage === 'undefined') return null
+    const rawUser = localStorage.getItem('bronx_user') || localStorage.getItem('bronx-user')
+    if (!rawUser) return null
+    const parsed = JSON.parse(rawUser)
+    if (!parsed || typeof parsed !== 'object') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Safely extracts user profile image URL from localStorage key 'bronx_user' or 'bronx-user'.
+ */
+export function getUserProfileFromLocalStorage(): string | null {
+  try {
+    const user = getUserFromLocalStorage()
+    if (!user) return null
+
+    const profileVal =
+      user.profile ||
+      user.profile_url ||
+      user.avatar ||
+      user.avatar_url ||
+      user.image ||
+      user.photo_url ||
+      null
+
+    if (profileVal && typeof profileVal === 'string' && profileVal.trim()) {
+      return profileVal.trim()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Safely extracts ticket requester profile image URL from ticket object (e.g. ticket.reporter_profile).
+ */
+export function getTicketReporterProfile(ticket?: Partial<Ticket> | null): string | null {
+  if (!ticket) return null
+  const t = ticket as any
+  const profileVal =
+    t.reporter_profile ||
+    t.reporter?.reporter_profile ||
+    t.reporter?.profile ||
+    t.reporter?.profile_url ||
+    t.reporter_profile_url ||
+    t.profile ||
+    null
+
+  if (profileVal && typeof profileVal === 'string' && profileVal.trim()) {
+    return profileVal.trim()
+  }
+  return null
+}
+
+/**
+ * Safely extracts user ID from localStorage key 'bronx_user' or 'bronx-user'.
+ */
+export function getUserIdFromLocalStorage(): number | null {
+  try {
+    const user = getUserFromLocalStorage()
+    if (!user) return null
+
+    const rawId = user.id ?? user.user_id ?? user.userId
+    if (rawId !== undefined && rawId !== null && rawId !== '') {
+      const parsed = Number(rawId)
+      return !isNaN(parsed) ? parsed : null
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+
+/**
+ * Safely extracts user role from localStorage key 'bronx_user' or 'bronx-user'.
  */
 export function getUserRoleFromLocalStorage(): string | null {
   try {
-    if (typeof localStorage === 'undefined') return null
-    const rawUser = localStorage.getItem('bronx_user')
-    if (!rawUser) return null
-
-    const parsed = JSON.parse(rawUser)
-    if (!parsed || typeof parsed !== 'object') return null
+    const parsed = getUserFromLocalStorage()
+    if (!parsed) return null
 
     const roleVal =
       (typeof parsed.role === 'string' ? parsed.role : null) ||

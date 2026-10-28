@@ -383,5 +383,38 @@ describe('TicketDetailModal & TicketDetailDrawer Enhancements', () => {
       // Non-image file attachment should still display its filename
       expect(wrapper.text()).toContain('server_specification.pdf')
     })
+
+    it('renders profile image in submitter card from localStorage bronx_user and does not have delete ticket action', async () => {
+      localStorage.setItem(
+        'bronx_user',
+        JSON.stringify({
+          id: 1,
+          username: 'admin',
+          profile: 'https://example.com/reporter-avatar.jpg',
+        }),
+      )
+
+      const store = useTicketStore()
+      store.selectedTicket = { ...mockTicket }
+      store.isDrawerOpen = true
+
+      const wrapper = mount(TicketDetailModal, {
+        global: {
+          stubs: {
+            teleport: true,
+            HtmlDescriptionViewer: true,
+            StatusDropdown: true,
+          },
+        },
+      })
+
+      // Submitter avatar should render the profile image
+      const profileImg = wrapper.find('img[alt="Profile"]')
+      expect(profileImg.exists()).toBe(true)
+      expect(profileImg.attributes('src')).toBe('https://example.com/reporter-avatar.jpg')
+
+      // Delete ticket action should be removed
+      expect(wrapper.find('button[title="Delete Ticket"]').exists()).toBe(false)
+    })
   })
 })

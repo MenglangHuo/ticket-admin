@@ -93,7 +93,7 @@ describe('Frontend Security Suite', () => {
       expect(isSafeUrl('http://localhost:8000/tickets')).toBe(true)
       expect(isSafeUrl('mailto:support@bronx.internal')).toBe(true)
       expect(isSafeUrl('tel:+1234567890')).toBe(true)
-      expect(isSafeUrl('/client-ticket')).toBe(true)
+      expect(isSafeUrl('/tickets')).toBe(true)
       expect(isSafeUrl('./relative/path')).toBe(true)
       expect(isSafeUrl('#section')).toBe(true)
       expect(isSafeUrl('blob:http://localhost:5173/uuid-123')).toBe(true)

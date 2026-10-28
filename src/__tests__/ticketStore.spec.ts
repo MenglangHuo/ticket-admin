@@ -705,4 +705,144 @@ describe('useTicketStore State Machine & Core Logic', () => {
 
     updateSpy.mockRestore()
   })
+
+  it('includes reporter_user_id from localStorage bronx_user when creating a ticket with JSON', async () => {
+    localStorage.setItem(
+      'bronx_user',
+      JSON.stringify({ id: 987, name: 'Admin User', role: 'HQ ADMIN' }),
+    )
+
+    const { ticketApi } = await import('@/api/ticketApi')
+    let capturedPayload: any = null
+    const createSpy = vi.spyOn(ticketApi, 'createTicket').mockImplementation(async (payload: any) => {
+      capturedPayload = payload
+      return {
+        success: true,
+        data: {
+          id: 99,
+          ticket_key: 'TCK-1099',
+          title: payload.title,
+          status: 'open',
+          priority: 'high',
+          type: 'bug',
+          reporter_user_id: payload.reporter_user_id,
+        } as any,
+      }
+    })
+
+    const store = useTicketStore()
+    const result = await store.createTicket({
+      title: 'JSON Submit Ticket',
+      description: 'Test details',
+      type: 'bug',
+      priority: 'high',
+      reporter_name: 'Admin User',
+      reporter_email: 'admin@bronx.test',
+    })
+
+    expect(result).toBe(true)
+    expect(capturedPayload).not.toBeNull()
+    expect(capturedPayload.reporter_user_id).toBe(987)
+
+    createSpy.mockRestore()
+  })
+
+  it('includes reporter_user_id from localStorage bronx_user and converts files to base64 when creating a ticket', async () => {
+    localStorage.setItem(
+      'bronx_user',
+      JSON.stringify({ id: 654, name: 'Admin Staff', role: 'HQ ADMIN' }),
+    )
+
+    const { ticketApi } = await import('@/api/ticketApi')
+    let capturedPayload: any = null
+    const createSpy = vi.spyOn(ticketApi, 'createTicket').mockImplementation(async (payload: any) => {
+      capturedPayload = payload
+      return {
+        success: true,
+        data: {
+          id: 100,
+          ticket_key: 'TCK-1100',
+          title: payload.title,
+          status: 'open',
+          priority: 'high',
+          type: 'bug',
+          reporter_user_id: payload.reporter_user_id,
+          attachments: [{ id: 1, file_name: 'report.pdf' }] as any,
+        } as any,
+      }
+    })
+
+    const fakeFile = new File(['dummy content'], 'report.pdf', { type: 'application/pdf' })
+    const store = useTicketStore()
+    const result = await store.createTicket({
+      title: 'JSON Ticket with File',
+      description: 'Attachment test',
+      type: 'bug',
+      priority: 'high',
+      reporter_name: 'Admin User',
+      reporter_email: 'admin@bronx.test',
+      files: [fakeFile],
+    })
+
+    expect(result).toBe(true)
+    expect(capturedPayload).not.toBeNull()
+    expect(capturedPayload.reporter_user_id).toBe(654)
+    expect(Array.isArray(capturedPayload.files)).toBe(true)
+    expect(capturedPayload.files.length).toBe(1)
+    expect(capturedPayload.files[0]).toContain('data:')
+
+    createSpy.mockRestore()
+  })
+
+  it('successfully creates ticket with base64 data URLs in JSON payload matching user specification', async () => {
+    const { ticketApi } = await import('@/api/ticketApi')
+    let capturedPayload: any = null
+    const createSpy = vi.spyOn(ticketApi, 'createTicket').mockImplementation(async (payload: any) => {
+      capturedPayload = payload
+      return {
+        success: true,
+        data: {
+          id: 101,
+          ticket_key: 'TCK-1101',
+          title: payload.title,
+          status: 'open',
+          priority: 'critical',
+          type: 'bug',
+          reporter_user_id: payload.reporter_user_id,
+        } as any,
+      }
+    })
+
+    const store = useTicketStore()
+    const result = await store.createTicket({
+      title: 'Mobile checkout failure on network switch',
+      description: 'User encounters error when app switches from WiFi to 4G during payment confirmation.',
+      type: 'bug',
+      priority: 'critical',
+      reporter_name: 'Leakhena Pich',
+      reporter_phone: '012888999',
+      reporter_email: 'leakhena@partner.com',
+      reporter_user_id: 1,
+      metadata: {
+        device: 'iPhone 15 Pro',
+        os: 'iOS 18.0',
+        app_version: '2.4.1',
+      },
+      files: [
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      ],
+    })
+
+    expect(result).toBe(true)
+    expect(capturedPayload).not.toBeNull()
+    expect(capturedPayload.title).toBe('Mobile checkout failure on network switch')
+    expect(capturedPayload.reporter_user_id).toBe(1)
+    expect(capturedPayload.metadata.device).toBe('iPhone 15 Pro')
+    expect(capturedPayload.files[0]).toBe(
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    )
+
+    createSpy.mockRestore()
+  })
 })
+

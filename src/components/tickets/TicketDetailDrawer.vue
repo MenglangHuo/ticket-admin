@@ -6,7 +6,13 @@ import { useTicketStore } from '@/stores/ticketStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { TicketStatus } from '@/types/ticket'
 import { safeUrl } from '@/utils/security'
-import { getSourceCategory, getTicketCompany, getTicketSource } from '@/utils/ticket'
+import {
+  getSourceCategory,
+  getTicketCompany,
+  getTicketReporterProfile,
+  getTicketSource,
+  getUserProfileFromLocalStorage,
+} from '@/utils/ticket'
 import {
   Building,
   Building2,
@@ -105,10 +111,26 @@ async function saveEditTicket() {
 
 const ticket = computed(() => ticketStore.selectedTicket)
 
+const avatarImgError = ref(false)
+
+const userProfileImage = computed(() => {
+  return (
+    getTicketReporterProfile(ticket.value) ||
+    ticket.value?.reporter_profile ||
+    getUserProfileFromLocalStorage() ||
+    ticket.value?.reporter?.profile ||
+    ticket.value?.reporter?.profile_url ||
+    (ticket.value as any)?.profile ||
+    authStore.user?.profile ||
+    null
+  )
+})
+
 watch(
   () => ticket.value?.id,
   () => {
     cancelEditTicket()
+    avatarImgError.value = false
   },
 )
 
@@ -410,17 +432,6 @@ onUnmounted(() => {
               <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': ticketStore.isDrawerLoading }" />
             </button>
 
-            <!-- Delete Button (HQ Admin Only) -->
-            <button
-              v-if="authStore.canDeleteTicket"
-              type="button"
-              @click="ticketStore.deleteTicket(ticket.id)"
-              title="Delete Ticket"
-              class="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
-            >
-              <Trash2 class="w-4 h-4" />
-            </button>
-
             <!-- Close Drawer button -->
             <button
               type="button"
@@ -632,9 +643,18 @@ onUnmounted(() => {
               <!-- Submitter Identity -->
               <div class="flex items-center gap-3">
                 <div
-                  class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-slate-600 dark:text-indigo-400 font-bold text-sm flex items-center justify-center border border-indigo-200 dark:border-indigo-800/60 shrink-0"
+                  class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-slate-600 dark:text-indigo-400 font-bold text-sm flex items-center justify-center border border-indigo-200 dark:border-indigo-800/60 shrink-0 overflow-hidden"
                 >
-                  {{ (ticket.reporter_name || 'U').charAt(0).toUpperCase() }}
+                  <img
+                    v-if="userProfileImage && !avatarImgError"
+                    :src="userProfileImage"
+                    alt="Profile"
+                    class="w-full h-full object-cover"
+                    @error="avatarImgError = true"
+                  />
+                  <span v-else>
+                    {{ (ticket.reporter_name || 'U').charAt(0).toUpperCase() }}
+                  </span>
                 </div>
                 <div>
                   <h5 class="text-sm font-bold text-slate-900 dark:text-white">

@@ -4,7 +4,18 @@ import type {
   TelegramSubscriber,
   TelegramBotConfigPayload,
   TelegramBotInfoResponse,
+  TelegramUnusedInvite,
+  TelegramUnusedInvitesResponse,
+  TelegramInviteFilterParams,
+  TelegramInviteRefreshResponse,
 } from '@/types/settings'
+
+export type {
+  TelegramUnusedInvite,
+  TelegramUnusedInvitesResponse,
+  TelegramInviteFilterParams,
+  TelegramInviteRefreshResponse,
+}
 
 export interface TelegramSubscriberFilterParams {
   page?: number
@@ -200,6 +211,101 @@ export const telegramApi = {
       return resData.data
     }
     return ''
+  },
+
+  /**
+   * Fetch list of unused Telegram bot invite links for the tenant company.
+   * Endpoint: GET /ticket/telegram/invites/unused (Full URL: /api/ticket/telegram/invites/unused)
+   * Supports pagination, search, and sorting.
+   */
+  async getUnusedInvites(
+    params?: TelegramInviteFilterParams,
+  ): Promise<TelegramUnusedInvitesResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.getUnusedInvites(params)
+    }
+    const cleanParams: Record<string, any> = {}
+    if (params) {
+      if (params.page !== undefined) cleanParams.page = params.page
+      if (params.per_page !== undefined) cleanParams.per_page = params.per_page
+      if (params.search !== undefined && params.search.trim() !== '') {
+        cleanParams.search = params.search.trim()
+      }
+      if (params.status && params.status !== 'all') cleanParams.status = params.status
+      if (params.sort_by) cleanParams.sort_by = params.sort_by
+      if (params.sort_dir) cleanParams.sort_dir = params.sort_dir
+    }
+
+    const response = await apiClient.get<any>('/ticket/telegram/invites/unused', {
+      params: cleanParams,
+    })
+    const resData = response.data
+
+    let items: TelegramUnusedInvite[] = []
+    if (Array.isArray(resData?.data)) {
+      items = resData.data
+    } else if (Array.isArray(resData)) {
+      items = resData
+    } else if (resData && typeof resData === 'object') {
+      const numericItems = Object.keys(resData)
+        .filter((k) => !isNaN(Number(k)))
+        .map((k) => resData[k])
+      if (numericItems.length > 0) items = numericItems
+    }
+
+    const rawPagination = resData?.pagination || {}
+    const page = Number(rawPagination.page ?? params?.page ?? 1)
+    const perPage = Number(rawPagination.per_page ?? params?.per_page ?? 20)
+    const total = Number(rawPagination.total ?? items.length)
+    const totalPages = Number(
+      rawPagination.total_pages ?? Math.max(1, Math.ceil(total / (perPage || 20))),
+    )
+    const hasNext = Boolean(rawPagination.has_next ?? page < totalPages)
+    const hasPrevious = Boolean(rawPagination.has_previous ?? page > 1)
+
+    return {
+      success: resData?.success ?? true,
+      message: resData?.message,
+      data: items,
+      bot_username: resData?.bot_username,
+      pagination: {
+        page,
+        per_page: perPage,
+        total,
+        total_pages: totalPages,
+        has_next: hasNext,
+        has_previous: hasPrevious,
+      },
+      timestamp: resData?.timestamp,
+    }
+  },
+
+  /**
+   * Refresh an expired (or existing) Telegram bot invite link.
+   * Endpoint: POST /ticket/telegram/invites/{id}/refresh (Full URL: /api/ticket/telegram/invites/{id}/refresh)
+   */
+  async refreshInvite(id: number | string): Promise<TelegramInviteRefreshResponse> {
+    if (mockService.isMockDataEnabled()) {
+      return mockService.refreshInvite(id)
+    }
+
+    const response = await apiClient.post<any>(`/ticket/telegram/invites/${id}/refresh`)
+    const resData = response.data
+
+    let updatedItem: TelegramUnusedInvite | null = null
+    if (resData?.data && typeof resData.data === 'object' && resData.data.id) {
+      updatedItem = resData.data
+    } else if (resData?.id) {
+      updatedItem = resData
+    } else if (resData?.data) {
+      updatedItem = resData.data
+    }
+
+    return {
+      success: resData?.success ?? true,
+      message: resData?.message || 'Invite link refreshed successfully',
+      data: updatedItem as TelegramUnusedInvite,
+    }
   },
 
   /**

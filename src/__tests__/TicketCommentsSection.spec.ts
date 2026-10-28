@@ -658,4 +658,190 @@ describe('TicketCommentsSection Component', () => {
       expect(auditTab.classes()).toContain('min-h-0')
     })
   })
+
+  describe('Comment Profile Avatars (Admin vs Requester)', () => {
+    it('renders admin comment profile from localStorage bronx_user profile', () => {
+      localStorage.setItem(
+        'bronx_user',
+        JSON.stringify({
+          id: 1,
+          username: 'admin',
+          profile: 'https://cdn.example.com/admin-avatar.jpg',
+        }),
+      )
+
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [
+        {
+          id: 101,
+          ticket_id: 101,
+          username: 'admin',
+          body: 'Admin response message.',
+          is_internal: false,
+          created_at: '2026-03-15T08:00:00Z',
+          updated_at: '2026-03-15T08:00:00Z',
+        },
+      ]
+      ticketStore.activeDetailTab = 'comments'
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const avatar = wrapper.find('[data-testid="comment-avatar"]')
+      expect(avatar.exists()).toBe(true)
+      const img = avatar.find('img')
+      expect(img.exists()).toBe(true)
+      expect(img.attributes('src')).toBe('https://cdn.example.com/admin-avatar.jpg')
+    })
+
+    it('renders requester comment profile from ticket.reporter_profile', () => {
+      const ticketWithReporterProfile: Ticket = {
+        ...mockTicket,
+        reporter_name: 'customer_alex',
+        reporter_profile: 'https://cdn.example.com/requester-avatar.jpg',
+      }
+
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [
+        {
+          id: 102,
+          ticket_id: 101,
+          username: 'customer_alex',
+          body: 'Requester client message.',
+          is_internal: false,
+          created_at: '2026-03-15T08:05:00Z',
+          updated_at: '2026-03-15T08:05:00Z',
+        },
+      ]
+      ticketStore.activeDetailTab = 'comments'
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: ticketWithReporterProfile },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const avatar = wrapper.find('[data-testid="comment-avatar"]')
+      expect(avatar.exists()).toBe(true)
+      const img = avatar.find('img')
+      expect(img.exists()).toBe(true)
+      expect(img.attributes('src')).toBe('https://cdn.example.com/requester-avatar.jpg')
+    })
+
+    it('renders both admin and requester profiles simultaneously in the thread', () => {
+      localStorage.setItem(
+        'bronx_user',
+        JSON.stringify({
+          id: 1,
+          username: 'admin_sarah',
+          profile: 'https://cdn.example.com/admin-sarah.png',
+        }),
+      )
+
+      const ticketWithReporterProfile: Ticket = {
+        ...mockTicket,
+        reporter_name: 'customer_alex',
+        reporter_profile: 'https://cdn.example.com/alex-reporter.png',
+      }
+
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [
+        {
+          id: 201,
+          ticket_id: 101,
+          username: 'admin_sarah',
+          body: 'Hello, looking into this.',
+          is_internal: true,
+          created_at: '2026-03-15T08:00:00Z',
+          updated_at: '2026-03-15T08:00:00Z',
+        },
+        {
+          id: 202,
+          ticket_id: 101,
+          username: 'customer_alex',
+          body: 'Thank you for following up!',
+          is_internal: false,
+          created_at: '2026-03-15T08:02:00Z',
+          updated_at: '2026-03-15T08:02:00Z',
+        },
+      ]
+      ticketStore.activeDetailTab = 'comments'
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: ticketWithReporterProfile },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const avatars = wrapper.findAll('[data-testid="comment-avatar"]')
+      expect(avatars.length).toBe(2)
+
+      // Admin comment avatar (comment 201)
+      const adminImg = avatars[0]!.find('img')
+      expect(adminImg.exists()).toBe(true)
+      expect(adminImg.attributes('src')).toBe('https://cdn.example.com/admin-sarah.png')
+
+      // Requester comment avatar (comment 202)
+      const requesterImg = avatars[1]!.find('img')
+      expect(requesterImg.exists()).toBe(true)
+      expect(requesterImg.attributes('src')).toBe('https://cdn.example.com/alex-reporter.png')
+    })
+
+    it('falls back to letter initial when avatar image error occurs', async () => {
+      localStorage.setItem(
+        'bronx_user',
+        JSON.stringify({
+          id: 1,
+          username: 'admin_sarah',
+          profile: 'https://cdn.example.com/broken-image.png',
+        }),
+      )
+
+      const ticketStore = useTicketStore()
+      ticketStore.comments = [
+        {
+          id: 301,
+          ticket_id: 101,
+          username: 'admin_sarah',
+          body: 'Testing image error fallback.',
+          is_internal: false,
+          created_at: '2026-03-15T08:00:00Z',
+          updated_at: '2026-03-15T08:00:00Z',
+        },
+      ]
+      ticketStore.activeDetailTab = 'comments'
+
+      const wrapper = mount(TicketCommentsSection, {
+        props: { ticket: mockTicket },
+        global: {
+          stubs: {
+            TicketAuditTimeline: true,
+          },
+        },
+      })
+
+      const avatar = wrapper.find('[data-testid="comment-avatar"]')
+      const img = avatar.find('img')
+      expect(img.exists()).toBe(true)
+
+      // Trigger error event on image
+      await img.trigger('error')
+
+      // Image should be removed and fallback letter initial shown
+      expect(avatar.find('img').exists()).toBe(false)
+      expect(avatar.text()).toBe('A')
+    })
+  })
 })

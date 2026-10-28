@@ -25,7 +25,7 @@ const router = createRouter({
       path: '/ticket',
       name: 'ticket',
       component: () => import('@/views/TicketsView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, hideFooter: true },
       alias: ['/tickets'],
     },
     {
@@ -45,12 +45,6 @@ const router = createRouter({
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),
       meta: { requiresAuth: true },
-    },
-    {
-      path: '/client-ticket',
-      name: 'client-ticket',
-      component: () => import('@/views/ClientTicketView.vue'),
-      meta: { public: true, standalone: true },
     },
     {
       path: '/:pathMatch(.*)*',

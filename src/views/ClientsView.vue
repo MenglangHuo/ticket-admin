@@ -7,48 +7,13 @@ import mockService from '@/mocks/mockService'
 const toastStore = useToastStore()
 const copiedIndex = ref<number | null>(null)
 
-const configuredClientId = (import.meta.env.VITE_CLIENT_ID as string) || ''
-const configuredClientSecret = (import.meta.env.VITE_CLIENT_SECRET as string) || ''
-
 const isMockEnabled = computed(() => mockService.isMockDataEnabled())
 
 const clients = computed(() => {
   if (mockService.isMockDataEnabled()) {
-    const list = mockService.getClients()
-    if (configuredClientId && !list.some((c) => c.client_id === configuredClientId)) {
-      return [
-        {
-          name: 'Primary API Client (Configured in .env)',
-          client_id: configuredClientId,
-          secret: configuredClientSecret
-            ? `${configuredClientSecret.slice(0, 6)}••••••••`
-            : '••••••••',
-          rate_limit: 'Unlimited / Standard',
-          allowed_types: ['bug', 'enhancement', 'question', 'task'],
-          status: 'active' as const,
-          last_ping: 'Connected',
-        },
-        ...list,
-      ]
-    }
-    return list
+    return mockService.getClients()
   }
-
-  return configuredClientId
-    ? [
-        {
-          name: 'Primary API Client (Configured)',
-          client_id: configuredClientId,
-          secret: configuredClientSecret
-            ? `${configuredClientSecret.slice(0, 6)}••••••••`
-            : '••••••••',
-          rate_limit: 'Unlimited / Standard',
-          allowed_types: ['bug', 'enhancement', 'question', 'task'],
-          status: 'active' as const,
-          last_ping: 'Connected',
-        },
-      ]
-    : []
+  return []
 })
 
 function copyClientId(id: string, index: number) {
@@ -108,9 +73,7 @@ function copyClientId(id: string, index: number) {
         No API Clients Configured
       </h3>
       <p class="text-xs text-slate-500 max-w-sm mx-auto">
-        Set <code class="font-mono text-indigo-500">VITE_CLIENT_ID</code> and
-        <code class="font-mono text-indigo-500">VITE_CLIENT_SECRET</code> in your environment
-        variables to link your client application.
+        No external API client integrations are currently connected.
       </p>
     </div>
 

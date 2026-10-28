@@ -27,15 +27,16 @@ const total = computed(() => {
 })
 
 // Visual sequence and palette directly matching media_1791360377810.png:
+// Visual sequence matching lifecycle:
 // 1. Vibrant Purple (#6c49e4) -> Open
 // 2. Vibrant Warm Orange (#fe9f2c) -> In Progress
-// 3. Vibrant Royal Blue (#5976e4) -> Closed
-// 4. Vibrant Aqua/Cyan (#10e2f6) -> Resolved
+// 3. Vibrant Aqua/Cyan (#10e2f6) -> Resolved
+// 4. Vibrant Royal Blue (#5976e4) -> Closed
 const statusMeta = [
   { key: 'open' as TicketStatus, label: 'Open', color: '#6c49e4' },
   { key: 'in_progress' as TicketStatus, label: 'In Progress', color: '#fe9f2c' },
-  { key: 'closed' as TicketStatus, label: 'Closed', color: '#5976e4' },
   { key: 'resolved' as TicketStatus, label: 'Resolved', color: '#10e2f6' },
+  { key: 'closed' as TicketStatus, label: 'Closed', color: '#5976e4' },
 ]
 
 const segments = computed(() => {
@@ -269,14 +270,14 @@ function handleCenterClick() {
         </button>
       </div>
 
-      <!-- Bottom Multi-Column Legend with Colored Dots -->
+      <!-- Bottom Multi-Column Legend with Colored Dots & Counts -->
       <div
-        class="grid grid-cols-2 gap-x-4 gap-y-1.5 w-full mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/60"
+        class="grid grid-cols-2 gap-x-4 gap-y-2 w-full mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/60"
       >
         <div
           v-for="seg in segments"
           :key="seg.key"
-          class="flex items-center gap-2 cursor-pointer transition-opacity select-none"
+          class="flex items-center justify-between gap-1.5 p-1 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-all select-none"
           :class="{
             'opacity-30': activeKey && activeKey !== seg.key,
             'opacity-100': !activeKey || activeKey === seg.key,
@@ -285,16 +286,21 @@ function handleCenterClick() {
           @mouseleave="activeHoverKey = null"
           @click="handleSegmentClick(seg.key)"
         >
-          <span
-            class="w-2.5 h-2.5 rounded-full shrink-0 transition-transform duration-200"
-            :class="{ 'scale-125 ring-2 ring-offset-1 ring-slate-400': activeKey === seg.key }"
-            :style="{ backgroundColor: seg.color }"
-          ></span>
-          <span class="text-[11px] font-bold text-slate-900 dark:text-white font-mono">
-            {{ seg.percent }}%
-          </span>
-          <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
-            {{ seg.label }}
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span
+              class="w-2.5 h-2.5 rounded-full shrink-0 transition-transform duration-200"
+              :class="{ 'scale-125 ring-2 ring-offset-1 ring-slate-400': activeKey === seg.key }"
+              :style="{ backgroundColor: seg.color }"
+            ></span>
+            <span class="text-[11px] font-bold text-slate-900 dark:text-white font-mono">
+              {{ seg.percent }}%
+            </span>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+              {{ seg.label }}
+            </span>
+          </div>
+          <span class="text-[11px] font-mono font-semibold text-slate-700 dark:text-slate-300 shrink-0">
+            {{ seg.count }}
           </span>
         </div>
       </div>

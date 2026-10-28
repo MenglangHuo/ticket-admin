@@ -108,7 +108,36 @@ describe('TelegramBotConfigForm.vue', () => {
     expect(wrapper.text()).toContain('Configuration synced with server')
   })
 
-  it('submits updateBotConfig with updated payload and omits static server-managed fields (chat_id, webhook_secret, invite_expiry_days)', async () => {
+  it('submits updateBotConfig directly when only bot_token is changed without changing username', async () => {
+    const store = useSettingsStore()
+    store.botInfo = { ...mockBotInfo }
+
+    const updateSpy = vi.spyOn(store, 'updateBotConfig').mockResolvedValueOnce({
+      ...mockBotInfo,
+      bot_token: 'newToken123',
+    })
+
+    const wrapper = mount(TelegramBotConfigForm)
+
+    const tokenInput = wrapper.find(
+      'input[placeholder="5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4"]',
+    )
+    await tokenInput.setValue('newToken123')
+
+    const formEl = wrapper.find('form')
+    await formEl.trigger('submit.prevent')
+
+    expect(updateSpy).toHaveBeenCalledWith({
+      bot_token: 'newToken123',
+      bot_username: 'menglang6969Bot',
+      is_active: true,
+    })
+
+    expect(wrapper.find('[data-testid="confirm-username-input"]').exists()).toBe(false)
+    expect(wrapper.emitted('saved')).toBeTruthy()
+  })
+
+  it('pops up confirmation modal when updating bot username and requires typing confirm to save', async () => {
     const store = useSettingsStore()
     store.botInfo = { ...mockBotInfo }
 
@@ -122,8 +151,34 @@ describe('TelegramBotConfigForm.vue', () => {
     const usernameInput = wrapper.find('input[placeholder="menglang6969Bot"]')
     await usernameInput.setValue('updated69Bot')
 
+    // Submit form triggers modal
     const formEl = wrapper.find('form')
     await formEl.trigger('submit.prevent')
+
+    // Modal is now open
+    expect(wrapper.text()).toContain('Update Telegram Bot Username')
+    expect(wrapper.text()).toContain('all current subscribers will be lost or deleted')
+
+    const confirmInput = wrapper.find('[data-testid="confirm-username-input"]')
+    expect(confirmInput.exists()).toBe(true)
+
+    const confirmBtn = wrapper.find('[data-testid="confirm-update-button"]')
+    expect(confirmBtn.exists()).toBe(true)
+    // Initially disabled
+    expect(confirmBtn.attributes('disabled')).toBeDefined()
+    expect(updateSpy).not.toHaveBeenCalled()
+
+    // Enter wrong text
+    await confirmInput.setValue('cancel')
+    expect(confirmBtn.attributes('disabled')).toBeDefined()
+    expect(updateSpy).not.toHaveBeenCalled()
+
+    // Enter 'confirm'
+    await confirmInput.setValue('confirm')
+    expect(confirmBtn.attributes('disabled')).toBeUndefined()
+
+    // Click confirm button to proceed with update
+    await confirmBtn.trigger('click')
 
     expect(updateSpy).toHaveBeenCalledWith({
       bot_token: '5453551747:AAHwNAd3BjrbqE5gLrK9kbAPQOp22Zmcfs4',
@@ -131,7 +186,37 @@ describe('TelegramBotConfigForm.vue', () => {
       is_active: true,
     })
 
+    // Modal is closed after save
+    expect(wrapper.find('[data-testid="confirm-username-input"]').exists()).toBe(false)
     expect(wrapper.emitted('saved')).toBeTruthy()
+  })
+
+  it('cancels username update when Cancel button is clicked in modal', async () => {
+    const store = useSettingsStore()
+    store.botInfo = { ...mockBotInfo }
+
+    const updateSpy = vi.spyOn(store, 'updateBotConfig')
+
+    const wrapper = mount(TelegramBotConfigForm)
+
+    const usernameInput = wrapper.find('input[placeholder="menglang6969Bot"]')
+    await usernameInput.setValue('anotherTestBot')
+
+    // Trigger save
+    const formEl = wrapper.find('form')
+    await formEl.trigger('submit.prevent')
+
+    // Modal is open
+    expect(wrapper.find('[data-testid="confirm-username-input"]').exists()).toBe(true)
+
+    // Click Cancel
+    const cancelBtn = wrapper.find('[data-testid="cancel-confirm-button"]')
+    expect(cancelBtn.exists()).toBe(true)
+    await cancelBtn.trigger('click')
+
+    // Modal is closed and no update called
+    expect(wrapper.find('[data-testid="confirm-username-input"]').exists()).toBe(false)
+    expect(updateSpy).not.toHaveBeenCalled()
   })
 
   it('toggles password visibility for bot token', async () => {

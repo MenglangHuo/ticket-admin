@@ -118,4 +118,35 @@ describe('TicketCard Component', () => {
     expect(descParagraph.text().endsWith('...')).toBe(true)
     expect(descParagraph.text().length).toBeLessThanOrEqual(115)
   })
+
+  it('renders profile image from localStorage key bronx_user profile field', () => {
+    localStorage.setItem(
+      'bronx_user',
+      JSON.stringify({
+        id: 1,
+        username: 'admin',
+        profile: 'https://example.com/avatar.png',
+      }),
+    )
+
+    const wrapper = mount(TicketCard, {
+      props: { ticket: baseTicket },
+    })
+
+    const img = wrapper.find('img[alt="Profile"]')
+    expect(img.exists()).toBe(true)
+    expect(img.attributes('src')).toBe('https://example.com/avatar.png')
+  })
+
+  it('falls back to initial when profile image is not available', () => {
+    localStorage.removeItem('bronx_user')
+
+    const wrapper = mount(TicketCard, {
+      props: { ticket: { ...baseTicket, reporter_name: 'Menglang Huo' } },
+    })
+
+    const img = wrapper.find('img[alt="Profile"]')
+    expect(img.exists()).toBe(false)
+    expect(wrapper.text()).toContain('M')
+  })
 })

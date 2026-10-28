@@ -28,6 +28,11 @@ import {
   Ticket as TicketIcon,
 } from 'lucide-vue-next'
 
+import {
+  getUserFromLocalStorage,
+  getUserIdFromLocalStorage,
+} from '@/utils/ticket'
+
 const ticketStore = useTicketStore()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
@@ -46,23 +51,29 @@ const form = reactive({
 })
 
 function initDefaultReporter() {
-  if (authStore.user) {
-    if (authStore.user.id) {
-      form.reporter_user_id = authStore.user.id
-    }
-    const fullName = [authStore.user.first_name, authStore.user.last_name]
+  // Extract reporter_user_id in background from localStorage -> bronx_user -> id
+  const localUserId = getUserIdFromLocalStorage()
+  if (localUserId !== null) {
+    form.reporter_user_id = localUserId
+  } else if (authStore.user?.id) {
+    form.reporter_user_id = authStore.user.id
+  }
+
+  const user = authStore.user || getUserFromLocalStorage()
+  if (user) {
+    const fullName = [user.first_name, user.last_name]
       .filter(Boolean)
       .join(' ')
       .trim()
     if (fullName) {
       form.reporter_name = fullName
-    } else if (authStore.user.username) {
-      form.reporter_name = authStore.user.username
+    } else if (user.username) {
+      form.reporter_name = user.username
     }
-    if (authStore.user.email) {
-      form.reporter_email = authStore.user.email
+    if (user.email) {
+      form.reporter_email = user.email
     }
-    const phone = authStore.user.phone || authStore.user.personal_phone
+    const phone = user.phone || user.personal_phone
     if (phone) {
       form.reporter_phone = phone
     }
@@ -220,7 +231,11 @@ async function handleSubmit() {
   isSubmitting.value = true
   const rawFiles = attachedFiles.value.map((f) => f.file)
 
-  const success = await ticketStore.createTicket({
+  // In background: ensure reporter_user_id is extracted from localStorage -> bronx_user -> id
+  const localUserId = getUserIdFromLocalStorage()
+  const reporterUserId = localUserId ?? form.reporter_user_id ?? authStore.user?.id ?? null
+
+  const success = await ticketStore.createTicketFast({
     title: form.title,
     description: form.description,
     type: form.type,
@@ -230,7 +245,7 @@ async function handleSubmit() {
     reporter_name: form.reporter_name,
     reporter_email: form.reporter_email,
     reporter_phone: form.reporter_phone,
-    reporter_user_id: form.reporter_user_id,
+    reporter_user_id: reporterUserId,
     files: rawFiles,
   })
 
@@ -242,6 +257,7 @@ async function handleSubmit() {
     form.type = 'bug'
     form.priority = 'high'
     form.source = 'portal'
+    initDefaultReporter()
   }
 }
 
@@ -252,6 +268,7 @@ function handleEscape(e: KeyboardEvent) {
 }
 
 onMounted(() => {
+  initDefaultReporter()
   window.addEventListener('keydown', handleEscape)
 })
 
@@ -299,6 +316,7 @@ onUnmounted(() => {
 
       <!-- Modal Body (Form) -->
       <form @submit.prevent="handleSubmit" class="flex flex-col flex-1 overflow-hidden">
+        <input type="hidden" name="reporter_user_id" :value="form.reporter_user_id ?? ''" />
         <div class="p-6 space-y-5 overflow-y-auto flex-1">
           <!-- Ticket Title -->
           <BaseInput

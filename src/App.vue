@@ -3,7 +3,9 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import Sidebar from '@/components/layout/Sidebar.vue'
 import Topbar from '@/components/layout/Topbar.vue'
+import AppFooter from '@/components/layout/AppFooter.vue'
 import ToastContainer from '@/components/layout/ToastContainer.vue'
+import BackgroundUploadProgress from '@/components/common/BackgroundUploadProgress.vue'
 
 const route = useRoute()
 const isMobileSidebarOpen = ref<boolean>(false)
@@ -22,12 +24,31 @@ const isStandaloneRoute = computed(() => {
   return (
     currentName === 'login' ||
     currentName === 'two-factor' ||
-    currentName === 'client-ticket' ||
     currentPath === '/login' ||
     currentPath === '/two-factor' ||
-    currentPath === '/two_factor' ||
-    currentPath === '/client-ticket'
+    currentPath === '/two_factor'
   )
+})
+
+const showFooter = computed(() => {
+  if (isStandaloneRoute.value) return false
+  if (route.meta?.hideFooter) return false
+
+  const currentPath = route.path || ''
+  const currentName = route.name as string | undefined
+
+  if (
+    currentName === 'ticket' ||
+    currentName === 'tickets' ||
+    currentPath === '/ticket' ||
+    currentPath === '/tickets' ||
+    currentPath.startsWith('/ticket/') ||
+    currentPath.startsWith('/tickets/')
+  ) {
+    return false
+  }
+
+  return true
 })
 
 function toggleMobileSidebar() {
@@ -49,7 +70,10 @@ function closeMobileSidebar() {
     <!-- Toast notifications container -->
     <ToastContainer />
 
-    <!-- If on Standalone page (Login or Client Ticket Portal), render directly -->
+    <!-- Floating Background File Uploads Progress -->
+    <BackgroundUploadProgress />
+
+    <!-- If on Standalone page (Login or Two-Factor), render directly -->
     <template v-if="isStandaloneRoute">
       <router-view />
     </template>
@@ -71,10 +95,13 @@ function closeMobileSidebar() {
         <!-- Top Navigation Bar -->
         <Topbar :isMobileOpen="isMobileSidebarOpen" @toggleMobile="toggleMobileSidebar" />
 
-        <!-- Main View Container -->
-        <main class="flex-1 overflow-y-auto p-4">
+        <!-- Main View Container: Scrolls all page data smoothly -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 min-h-0">
           <router-view />
         </main>
+
+        <!-- App Footer Layout (Docked at bottom with white background, hidden on /tickets) -->
+        <AppFooter v-if="showFooter" />
       </div>
     </template>
   </div>

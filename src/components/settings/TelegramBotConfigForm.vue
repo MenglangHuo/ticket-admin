@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { TelegramBotConfigPayload } from '@/types/settings'
@@ -12,6 +12,8 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
+  AlertTriangle,
+  Loader2,
   Save,
   CheckCircle2,
   ShieldCheck,
@@ -69,11 +71,22 @@ watch(
   { immediate: true },
 )
 
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && isConfirmModalOpen.value) {
+    closeConfirmModal()
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown)
   if (!settingsStore.botInfo) {
     await settingsStore.fetchBotInfo()
   }
   populateFromStore()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
 })
 
 // Dirty state tracking (only tracks bot_username and bot_token)
@@ -82,12 +95,57 @@ const isDirty = computed(() => {
   return JSON.stringify(form.value) !== initialSnapshot.value
 })
 
+function getOriginalUsername(): string {
+  if (settingsStore.botInfo?.bot_username) {
+    return settingsStore.botInfo.bot_username.trim().replace(/^@/, '')
+  }
+  if (initialSnapshot.value) {
+    try {
+      const snap = JSON.parse(initialSnapshot.value)
+      return (snap.bot_username || '').trim().replace(/^@/, '')
+    } catch {
+      // ignore
+    }
+  }
+  return ''
+}
+
+const originalBotUsername = computed(() => getOriginalUsername())
+
 // Check if a new bot username is being configured
 const isNewBotDetected = computed(() => {
-  const current = (settingsStore.botInfo?.bot_username || '').trim().replace(/^@/, '').toLowerCase()
+  const current = originalBotUsername.value.toLowerCase()
   const entered = form.value.bot_username.trim().replace(/^@/, '').toLowerCase()
   return Boolean(current && entered && current !== entered)
 })
+
+const isUpdatingBotUsername = isNewBotDetected
+
+// GitHub-style confirmation modal state for bot username changes
+const isConfirmModalOpen = ref(false)
+const confirmInput = ref('')
+const confirmInputRef = ref<HTMLInputElement | null>(null)
+
+const isConfirmValid = computed(() => {
+  return confirmInput.value.trim().toLowerCase() === 'confirm'
+})
+
+const subscribersCount = computed(() => {
+  return settingsStore.totalSubscribersCount || settingsStore.subscribers.length || 0
+})
+
+function openConfirmModal() {
+  confirmInput.value = ''
+  isConfirmModalOpen.value = true
+  nextTick(() => {
+    confirmInputRef.value?.focus()
+  })
+}
+
+function closeConfirmModal() {
+  isConfirmModalOpen.value = false
+  confirmInput.value = ''
+}
 
 interface MigrationNotice {
   message: string
@@ -125,6 +183,27 @@ async function handleSave() {
     return
   }
 
+  // If user is updating an existing bot username, prompt with GitHub-style destructive modal
+  if (isUpdatingBotUsername.value) {
+    openConfirmModal()
+    return
+  }
+
+  await performSave()
+}
+
+// Confirm action from modal
+async function handleConfirmUpdate() {
+  if (!isConfirmValid.value || settingsStore.isSavingBotConfig) return
+
+  const success = await performSave()
+  if (success) {
+    closeConfirmModal()
+  }
+}
+
+// Performs the actual update request to backend
+async function performSave(): Promise<boolean> {
   try {
     const currentInfo = settingsStore.botInfo
 
@@ -171,15 +250,19 @@ async function handleSave() {
       }
 
       emit('saved')
+      return true
     }
+    return false
   } catch (err: any) {
     console.error('Error saving bot config:', err)
+    return false
   }
 }
 
 // Reset form back to loaded snapshot
 function handleReset() {
   populateFromStore()
+  closeConfirmModal()
   toastStore.info('Changes Discarded', 'Reverted form values back to current bot configuration.')
 }
 
@@ -236,6 +319,20 @@ async function copyValue(val: string, key: string, label: string) {
     toastStore.error('Copy Failed', 'Unable to copy automatically.')
   }
 }
+
+defineExpose({
+  form,
+  isDirty,
+  isUpdatingBotUsername,
+  isConfirmModalOpen,
+  confirmInput,
+  isConfirmValid,
+  openConfirmModal,
+  closeConfirmModal,
+  handleSave,
+  handleConfirmUpdate,
+  handleReset,
+})
 </script>
 
 <template>
@@ -444,11 +541,11 @@ async function copyValue(val: string, key: string, label: string) {
             </p>
 
             <p
-              v-if="isNewBotDetected"
-              class="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium mt-1"
+              v-if="isUpdatingBotUsername"
+              class="text-[11px] text-rose-600 dark:text-rose-400 flex items-start gap-1 font-medium mt-1"
             >
               <AlertCircle class="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              <span>Switching bots will automatically send a 1-click migration invite to active subscribers via your current bot.</span>
+              <span>Updating bot username will cause all current subscribers to be lost or deleted. Confirmation will be required when saving.</span>
             </p>
           </div>
 
@@ -562,5 +659,158 @@ async function copyValue(val: string, key: string, label: string) {
         </div>
       </div>
     </form>
+
+    <!-- GitHub-Style Confirmation Modal for Updating Bot Username -->
+    <div
+      v-if="isConfirmModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto animate-fade-in"
+      @click.self="closeConfirmModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-modal-title"
+    >
+      <div
+        class="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[92vh] flex flex-col my-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden transition-all text-slate-900 dark:text-slate-100"
+      >
+        <!-- Modal Header -->
+        <div
+          class="shrink-0 flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/50"
+        >
+          <div class="flex items-center gap-3">
+            <div
+              class="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 shadow-xs"
+            >
+              <AlertTriangle class="w-4.5 h-4.5" />
+            </div>
+            <div>
+              <h3 id="confirm-modal-title" class="text-sm font-bold text-slate-900 dark:text-white">
+                Update Telegram Bot Username
+              </h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                Destructive action &bull; All subscribers will be lost
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            @click="closeConfirmModal"
+            class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Close"
+          >
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4 text-xs">
+          <!-- Critical Warning Alert -->
+          <div
+            class="p-4 rounded-2xl bg-rose-50/90 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/70 text-rose-950 dark:text-rose-200 space-y-2 shadow-xs"
+          >
+            <div class="flex items-center gap-2 font-bold text-xs text-rose-700 dark:text-rose-300">
+              <AlertCircle class="w-4 h-4 shrink-0" />
+              <span>Warning: All subscribers will be lost or deleted</span>
+            </div>
+            <p class="text-[11px] text-rose-800/90 dark:text-rose-300/90 leading-relaxed pl-6">
+              If you update the Telegram bot username, <strong>all current subscribers will be lost or deleted</strong>. Under Telegram platform architecture, user subscriptions cannot be transferred between bots. Existing subscribers will stop receiving ticket notifications until they manually start a chat and re-subscribe with the new bot.
+            </p>
+          </div>
+
+          <!-- Bot Change Summary Card -->
+          <div
+            class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-2.5"
+          >
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                Bot Username Change
+              </span>
+              <span
+                v-if="subscribersCount > 0"
+                class="px-2 py-0.5 rounded-full bg-rose-100/80 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-semibold text-[10px]"
+              >
+                {{ subscribersCount }} subscriber{{ subscribersCount === 1 ? '' : 's' }} affected
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2 font-mono text-xs">
+              <span
+                class="px-2.5 py-1 rounded-lg bg-rose-100/70 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 line-through"
+                title="Current Bot Username"
+              >
+                @{{ originalBotUsername }}
+              </span>
+              <span class="text-slate-400 font-bold">&rarr;</span>
+              <span
+                class="px-2.5 py-1 rounded-lg bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold"
+                title="New Bot Username"
+              >
+                @{{ form.bot_username.trim().replace(/^@/, '') }}
+              </span>
+            </div>
+          </div>
+
+          <!-- GitHub-style Type 'confirm' input -->
+          <div class="space-y-2 pt-1">
+            <label
+              for="confirm-bot-username-input"
+              class="block text-xs text-slate-700 dark:text-slate-300 leading-normal"
+            >
+              To verify and proceed with this destructive change, please type
+              <span
+                class="font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800 select-all"
+              >
+                confirm
+              </span>
+              below:
+            </label>
+            <input
+              id="confirm-bot-username-input"
+              ref="confirmInputRef"
+              v-model="confirmInput"
+              type="text"
+              placeholder="Type 'confirm' to proceed"
+              autocomplete="off"
+              spellcheck="false"
+              data-testid="confirm-username-input"
+              @keydown.enter.prevent="isConfirmValid && !settingsStore.isSavingBotConfig && handleConfirmUpdate()"
+              class="w-full h-10 px-3.5 rounded-xl font-mono text-xs sm:text-[13px] bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white placeholder:text-slate-400 border transition-all focus:outline-none focus:bg-white dark:focus:bg-slate-950"
+              :class="
+                isConfirmValid
+                  ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                  : 'border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+              "
+            />
+          </div>
+
+          <!-- Modal Action Buttons -->
+          <div
+            class="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800/80"
+          >
+            <button
+              type="button"
+              @click="closeConfirmModal"
+              :disabled="settingsStore.isSavingBotConfig"
+              data-testid="cancel-confirm-button"
+              class="h-9 px-4 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              @click="handleConfirmUpdate"
+              :disabled="!isConfirmValid || settingsStore.isSavingBotConfig"
+              data-testid="confirm-update-button"
+              class="h-9 px-4.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white shadow-sm shadow-rose-600/30 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+            >
+              <Loader2 v-if="settingsStore.isSavingBotConfig" class="w-3.5 h-3.5 animate-spin" />
+              <Save v-else class="w-3.5 h-3.5" />
+              <span>{{ settingsStore.isSavingBotConfig ? 'Updating...' : 'I understand, update bot' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

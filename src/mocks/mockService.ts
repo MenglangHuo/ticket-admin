@@ -13,7 +13,6 @@ import {
   createMockTicketComment,
   deleteMockTicketComment,
   getMockTicketAudits,
-  submitMockClientTicket,
   resetMockTickets,
 } from './data/mockTickets'
 import { getMockReports } from './data/mockReports'
@@ -28,6 +27,9 @@ import {
   getMockTelegramBotInfo,
   updateMockTelegramBotConfig,
   resetMockBotInfo,
+  getMockUnusedInvites,
+  resetMockUnusedInvites,
+  refreshMockUnusedInvite,
 } from './data/mockSettings'
 
 import { MOCK_API_CLIENTS } from './data/mockClients'
@@ -64,7 +66,6 @@ export const mockService = {
   createTicketComment: createMockTicketComment,
   deleteTicketComment: deleteMockTicketComment,
   getTicketAudits: getMockTicketAudits,
-  submitClientTicket: submitMockClientTicket,
   resetTickets: resetMockTickets,
 
   // Reports
@@ -81,6 +82,9 @@ export const mockService = {
   getTelegramBotInfo: getMockTelegramBotInfo,
   updateTelegramBotConfig: updateMockTelegramBotConfig,
   resetBotInfo: resetMockBotInfo,
+  getUnusedInvites: getMockUnusedInvites,
+  resetUnusedInvites: resetMockUnusedInvites,
+  refreshInvite: refreshMockUnusedInvite,
 
   // API Clients
   getClients: () => [...MOCK_API_CLIENTS],

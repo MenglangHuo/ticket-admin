@@ -7,7 +7,7 @@ import { useTicketStore } from '@/stores/ticketStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { TicketStatus } from '@/types/ticket'
 import { safeUrl } from '@/utils/security'
-import { getTicketCompany, getTicketSource } from '@/utils/ticket'
+import { getTicketCompany, getTicketReporterProfile, getTicketSource, getUserProfileFromLocalStorage } from '@/utils/ticket'
 import {
   Bug,
   Building2,
@@ -26,7 +26,6 @@ import {
   RefreshCw,
   SlidersHorizontal,
   Sparkles,
-  Trash2,
   User,
   X,
   ZoomIn,
@@ -104,11 +103,14 @@ async function saveEditTicket() {
 
 const ticket = computed(() => ticketStore.selectedTicket)
 
+const avatarImgError = ref(false)
+
 watch(
   () => ticket.value?.id,
   () => {
     cancelEditTicket()
     isCommentsMaximized.value = false
+    avatarImgError.value = false
   },
 )
 
@@ -141,6 +143,19 @@ onUnmounted(() => {
 })
 
 const notes = computed(() => ticketStore.comments || [])
+
+const userProfileImage = computed(() => {
+  return (
+    getTicketReporterProfile(ticket.value) ||
+    ticket.value?.reporter_profile ||
+    getUserProfileFromLocalStorage() ||
+    ticket.value?.reporter?.profile ||
+    ticket.value?.reporter?.profile_url ||
+    (ticket.value as any)?.profile ||
+    authStore.user?.profile ||
+    null
+  )
+})
 
 const ticketCompany = computed(() => getTicketCompany(ticket.value))
 const ticketSource = computed(() => getTicketSource(ticket.value))
@@ -278,16 +293,6 @@ function formatDate(dateStr?: string | null): string {
           class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
         >
           <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': ticketStore.isDrawerLoading }" />
-        </button>
-
-        <button
-          v-if="ticket && authStore.canDeleteTicket"
-          type="button"
-          @click="ticketStore.deleteTicket(ticket.id)"
-          title="Delete Ticket"
-          class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
-        >
-          <Trash2 class="w-3.5 h-3.5" />
         </button>
       </template>
 
@@ -625,9 +630,18 @@ function formatDate(dateStr?: string | null): string {
 
             <div class="flex items-center gap-3 mb-3">
               <div
-                class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-slate-600 dark:text-slate-400 font-bold text-sm flex items-center justify-center border border-indigo-200 dark:border-indigo-800/60 shrink-0"
+                class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-slate-600 dark:text-slate-400 font-bold text-sm flex items-center justify-center border border-indigo-200 dark:border-indigo-800/60 shrink-0 overflow-hidden"
               >
-                {{ (ticket.reporter_name || 'U').charAt(0).toUpperCase() }}
+                <img
+                  v-if="userProfileImage && !avatarImgError"
+                  :src="userProfileImage"
+                  alt="Profile"
+                  class="w-full h-full object-cover"
+                  @error="avatarImgError = true"
+                />
+                <span v-else>
+                  {{ (ticket.reporter_name || 'U').charAt(0).toUpperCase() }}
+                </span>
               </div>
               <div class="min-w-0">
                 <h5 class="text-sm font-bold text-slate-900 dark:text-white truncate">

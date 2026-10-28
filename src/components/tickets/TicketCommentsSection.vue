@@ -21,6 +21,11 @@ import {
 } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import TicketAuditTimeline from './TicketAuditTimeline.vue'
+import {
+  getTicketReporterProfile,
+  getUserFromLocalStorage,
+  getUserProfileFromLocalStorage,
+} from '@/utils/ticket'
 
 const props = withDefaults(
   defineProps<{
@@ -119,6 +124,53 @@ const notes = computed(() => {
 const currentAdminUsername = computed(() => {
   return authStore.user?.username || authStore.user?.first_name || 'admin'
 })
+
+// -------------------------------------------------------------
+// Comment Profiles: Admin (bronx_user->profile) vs Requester (ticket->reporter_profile)
+// -------------------------------------------------------------
+const avatarErrorMap = ref<Record<string | number, boolean>>({})
+
+const adminProfileUrl = computed(() => {
+  return (
+    getUserProfileFromLocalStorage() ||
+    authStore.user?.profile ||
+    null
+  )
+})
+
+const requesterProfileUrl = computed(() => {
+  return (
+    getTicketReporterProfile(props.ticket) ||
+    props.ticket?.reporter_profile ||
+    props.ticket?.reporter?.profile ||
+    props.ticket?.reporter?.profile_url ||
+    (props.ticket as any)?.profile ||
+    null
+  )
+})
+
+function getCommentProfileUrl(comment: TicketComment): string | null {
+  if (isCommentClientSide(comment)) {
+    // Requester profile: prioritize ticket->reporter_profile, with fallbacks to comment author profile
+    return (
+      requesterProfileUrl.value ||
+      comment.reporter_profile ||
+      comment.author?.profile_url ||
+      comment.author?.profile ||
+      (comment as any)?.profile ||
+      null
+    )
+  }
+
+  // Admin profile: prioritize localStorage->bronx_user->profile, with fallbacks to store/comment
+  return (
+    adminProfileUrl.value ||
+    comment.author?.profile_url ||
+    comment.author?.profile ||
+    (comment as any)?.profile ||
+    null
+  )
+}
 
 // -------------------------------------------------------------
 // Auto-Scroll & Floating Action Button (Telegram / Messenger UX)
@@ -438,12 +490,15 @@ function getAuthorDisplayName(comment?: TicketComment | null): string {
 
 function isCommentClientSide(comment: TicketComment): boolean {
   if (comment.is_internal) return false
+  if (comment.author_type === 'admin') return false
+  if (comment.author_type === 'user' || comment.author_type === 'client') return true
   const authorRole = (comment.author as any)?.role?.toLowerCase()
   if (authorRole === 'admin' || authorRole === 'staff' || authorRole === 'agent') {
     return false
   }
   const authorName = (comment.username || comment.author?.name || '').toLowerCase()
-  const currentAdmin = (authStore.user?.username || '').toLowerCase()
+  const storedUser = getUserFromLocalStorage()
+  const currentAdmin = (authStore.user?.username || storedUser?.username || storedUser?.first_name || '').toLowerCase()
   if (authorName && currentAdmin && authorName === currentAdmin) {
     return false
   }
@@ -573,6 +628,7 @@ watch(
     replyingToComment.value = null
     composerBody.value = ''
     composerFiles.value = []
+    avatarErrorMap.value = {}
     if (ticketStore.activeDetailTab === 'comments') {
       isStreamReady.value = false
       scrollToBottom(false)
@@ -580,6 +636,10 @@ watch(
   },
   { flush: 'post' },
 )
+
+watch([adminProfileUrl, requesterProfileUrl], () => {
+  avatarErrorMap.value = {}
+})
 
 onMounted(() => {
   if (ticketStore.activeDetailTab === 'discussion') {
@@ -717,14 +777,24 @@ defineExpose({
           <!-- Modern Avatar (Only shown on FIRST comment in consecutive group) -->
           <div
             v-if="isFirstInGroup(index)"
-            class="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0 select-none shadow-2xs mt-0.5"
+            data-testid="comment-avatar"
+            class="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0 select-none shadow-2xs mt-0.5 overflow-hidden"
             :class="
               isCommentClientSide(comment)
                 ? 'bg-gradient-to-br from-emerald-500 to-teal-600 ring-2 ring-emerald-500/20'
                 : 'bg-gradient-to-br from-indigo-500 to-violet-600 ring-2 ring-indigo-500/20'
             "
           >
-            {{ (getAuthorDisplayName(comment) || 'U').charAt(0).toUpperCase() }}
+            <img
+              v-if="getCommentProfileUrl(comment) && !avatarErrorMap[comment.id ?? index]"
+              :src="getCommentProfileUrl(comment)!"
+              :alt="getAuthorDisplayName(comment)"
+              class="w-full h-full object-cover rounded-full"
+              @error="avatarErrorMap[comment.id ?? index] = true"
+            />
+            <span v-else>
+              {{ (getAuthorDisplayName(comment) || 'U').charAt(0).toUpperCase() }}
+            </span>
           </div>
           <!-- Spacer placeholder for consecutive messages in group so bubbles stay aligned -->
           <div

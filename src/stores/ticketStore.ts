@@ -14,10 +14,12 @@ import type {
   TicketAudit,
   UpdateTicketPayload,
 } from '@/types/ticket'
-import { ticketApi, type TicketFilterParams } from '@/api/ticketApi'
+import { ticketApi, fileToBase64, type TicketFilterParams } from '@/api/ticketApi'
 import mockService from '@/mocks/mockService'
 import { useToastStore } from './toastStore'
 import { useAuthStore } from './authStore'
+import { useUploadQueueStore } from './uploadQueueStore'
+import { getUserIdFromLocalStorage } from '@/utils/ticket'
 
 /**
  * Universal response extractor supporting both new faceted envelope
@@ -114,6 +116,7 @@ export type DrawerPosition = 'right' | 'left' | 'top' | 'bottom'
 export const useTicketStore = defineStore('tickets', () => {
   const toastStore = useToastStore()
   const authStore = useAuthStore()
+  const uploadQueueStore = useUploadQueueStore()
 
   // Mode: Direct to live API only (mock data removed)
   const isMockMode = ref<boolean>(false)
@@ -1158,7 +1161,8 @@ export const useTicketStore = defineStore('tickets', () => {
     reporter_user_id?: number | null
     source?: string
     client_name?: string
-    files?: File[]
+    metadata?: Record<string, any>
+    files?: (File | string)[]
   }): Promise<boolean> {
     if (!authStore.canSubmitTicket) {
       toastStore.error(
@@ -1170,65 +1174,65 @@ export const useTicketStore = defineStore('tickets', () => {
 
     isUpdating.value = true
     try {
-      const hasFiles = payload.files && payload.files.length > 0
-      let response: any
+      // Resolve reporter_user_id in background: prioritize payload, then localStorage -> bronx_user -> id, then authStore
+      const resolvedUserId =
+        payload.reporter_user_id !== undefined &&
+        payload.reporter_user_id !== null &&
+        (payload.reporter_user_id as any) !== ''
+          ? Number(payload.reporter_user_id)
+          : (getUserIdFromLocalStorage() ?? (authStore.user?.id ? Number(authStore.user.id) : null))
+      const validUserId = resolvedUserId !== null && !isNaN(resolvedUserId) ? resolvedUserId : null
 
-      if (hasFiles) {
-        const formData = new FormData()
-        formData.append('title', payload.title)
-        if (payload.description) formData.append('description', payload.description)
-        formData.append('type', payload.type)
-        formData.append('priority', payload.priority)
-        formData.append('source', payload.source || 'portal')
-        if (payload.reporter_name) formData.append('reporter_name', payload.reporter_name)
-        if (payload.reporter_email) formData.append('reporter_email', payload.reporter_email)
-        if (payload.reporter_phone) {
-          formData.append('reporter_phone', payload.reporter_phone)
-          formData.append('phone', payload.reporter_phone)
+      // Convert any attached File objects to base64 data URLs
+      const base64Files: string[] = []
+      if (payload.files && payload.files.length > 0) {
+        for (const item of payload.files) {
+          if (typeof item === 'string') {
+            base64Files.push(item)
+          } else if (typeof File !== 'undefined' && item instanceof File) {
+            const b64 = await fileToBase64(item)
+            base64Files.push(b64)
+          }
         }
-        if (payload.reporter_user_id !== undefined && payload.reporter_user_id !== null && (payload.reporter_user_id as any) !== '') {
-          formData.append('reporter_user_id', String(payload.reporter_user_id))
-        }
-        formData.append('metadata[reporter_phone]', payload.reporter_phone || '')
-        formData.append('metadata[api_client_name]', payload.client_name || '')
-        formData.append('metadata[role]', authStore.user?.role || 'HQ ADMIN')
-        formData.append('metadata[rolename]', authStore.user?.role || 'HQ ADMIN')
-        formData.append('metadata[company]', 'UYFC')
-        formData.append('metadata[company_name]', 'UYFC')
-
-        payload.files!.forEach((file) => {
-          formData.append('files[]', file)
-        })
-
-        response = await ticketApi.createTicket(formData)
-      } else {
-        response = await ticketApi.createTicket({
-          title: payload.title,
-          description: payload.description,
-          type: payload.type,
-          priority: payload.priority,
-          source: payload.source || 'portal',
-          reporter_name: payload.reporter_name,
-          reporter_email: payload.reporter_email,
-          reporter_phone: payload.reporter_phone,
-          reporter_user_id: payload.reporter_user_id,
-          phone: payload.reporter_phone,
-          metadata: {
-            reporter_phone: payload.reporter_phone,
-            api_client_name: payload.client_name,
-            role: authStore.user?.role || 'HQ ADMIN',
-            rolename: authStore.user?.role || 'HQ ADMIN',
-            company: 'UYFC',
-            company_name: 'UYFC',
-          },
-        })
       }
 
+      // Always request as JSON with base64 data URLs in files
+      const jsonPayload = {
+        title: payload.title,
+        description: payload.description || '',
+        type: payload.type,
+        priority: payload.priority,
+        source: payload.source || 'portal',
+        reporter_name: payload.reporter_name,
+        reporter_email: payload.reporter_email,
+        reporter_phone: payload.reporter_phone,
+        reporter_user_id: validUserId,
+        phone: payload.reporter_phone,
+        metadata: {
+          reporter_phone: payload.reporter_phone,
+          api_client_name: payload.client_name,
+          role: authStore.user?.role || 'HQ ADMIN',
+          rolename: authStore.user?.role || 'HQ ADMIN',
+          company: 'UYFC',
+          company_name: 'UYFC',
+          ...payload.metadata,
+        },
+        files: base64Files,
+      }
+
+      const response = await ticketApi.createTicket(jsonPayload)
       const createdTicket = (response as any).data || response
 
-      if (hasFiles && (!createdTicket.attachments || createdTicket.attachments.length === 0)) {
+      const rawFileObjects = payload.files
+        ? payload.files.filter((f): f is File => typeof File !== 'undefined' && f instanceof File)
+        : []
+      if (
+        rawFileObjects.length > 0 &&
+        createdTicket?.id &&
+        (!createdTicket.attachments || createdTicket.attachments.length === 0)
+      ) {
         try {
-          const uploadRes = await ticketApi.uploadAttachments(createdTicket.id, payload.files!)
+          const uploadRes = await ticketApi.uploadAttachments(createdTicket.id, rawFileObjects)
           if (uploadRes && uploadRes.data) {
             createdTicket.attachments = uploadRes.data
           }
@@ -1263,6 +1267,126 @@ export const useTicketStore = defineStore('tickets', () => {
           : ''
       toastStore.success('Ticket Created', `Created ticket ${createdTicket.ticket_key}${attachMsg}`)
       isCreateModalOpen.value = false
+      return true
+    } catch (err: any) {
+      toastStore.error('Create Ticket Failed', err.response?.data?.message || err.message)
+      return false
+    } finally {
+      isUpdating.value = false
+    }
+  }
+
+  /**
+   * Fast, non-blocking ticket creation flow (Option 1).
+   * Follows SOLID principles:
+   * 1. Submits metadata immediately (< 200ms) without waiting for heavy file encoding/upload.
+   * 2. Closes modal and reflects ticket on board instantly.
+   * 3. Delegates file attachments to Background Upload Queue (SRP) with live progress.
+   */
+  async function createTicketFast(payload: {
+    title: string
+    description: string
+    type: TicketType
+    priority: TicketPriority
+    reporter_name: string
+    reporter_email: string
+    reporter_phone?: string
+    reporter_user_id?: number | null
+    source?: string
+    client_name?: string
+    metadata?: Record<string, any>
+    files?: (File | string)[]
+  }): Promise<boolean> {
+    if (!authStore.canSubmitTicket) {
+      toastStore.error(
+        'Permission Denied',
+        'Your role (Preview) has read-only access and cannot submit tickets.',
+      )
+      return false
+    }
+
+    isUpdating.value = true
+    try {
+      const resolvedUserId =
+        payload.reporter_user_id !== undefined &&
+        payload.reporter_user_id !== null &&
+        (payload.reporter_user_id as any) !== ''
+          ? Number(payload.reporter_user_id)
+          : (getUserIdFromLocalStorage() ?? (authStore.user?.id ? Number(authStore.user.id) : null))
+      const validUserId = resolvedUserId !== null && !isNaN(resolvedUserId) ? resolvedUserId : null
+
+      // Separate raw File objects (to be uploaded in background) from string/base64 files
+      const rawFileObjects = payload.files
+        ? payload.files.filter((f): f is File => typeof File !== 'undefined' && f instanceof File)
+        : []
+      const preEncodedStrings = payload.files
+        ? payload.files.filter((f): f is string => typeof f === 'string')
+        : []
+
+      // Submit only metadata immediately (< 200ms)
+      const jsonPayload = {
+        title: payload.title,
+        description: payload.description || '',
+        type: payload.type,
+        priority: payload.priority,
+        source: payload.source || 'portal',
+        reporter_name: payload.reporter_name,
+        reporter_email: payload.reporter_email,
+        reporter_phone: payload.reporter_phone,
+        reporter_user_id: validUserId,
+        phone: payload.reporter_phone,
+        metadata: {
+          reporter_phone: payload.reporter_phone,
+          api_client_name: payload.client_name,
+          role: authStore.user?.role || 'HQ ADMIN',
+          rolename: authStore.user?.role || 'HQ ADMIN',
+          company: 'UYFC',
+          company_name: 'UYFC',
+          ...payload.metadata,
+        },
+        files: preEncodedStrings,
+      }
+
+      const response = await ticketApi.createTicket(jsonPayload)
+      const createdTicket: Ticket = (response as any).data || response
+
+      // Add to ticket list immediately
+      tickets.value.unshift(createdTicket)
+      const cStatus = createdTicket.status as TicketStatus | undefined
+      const cPriority = createdTicket.priority as TicketPriority | undefined
+      if (facets.value?.status && cStatus && typeof facets.value.status[cStatus] === 'number') {
+        facets.value.status[cStatus]++
+      }
+      if (
+        facets.value?.priority &&
+        cPriority &&
+        typeof facets.value.priority[cPriority] === 'number'
+      ) {
+        facets.value.priority[cPriority]++
+      }
+      if (typeof facets.value?.total === 'number') {
+        facets.value.total++
+      }
+
+      toastStore.success('Ticket Created', `Created ticket ${createdTicket.ticket_key}`)
+      isCreateModalOpen.value = false
+
+      // Hand off raw files to background upload queue with live progress tracking
+      if (rawFileObjects.length > 0 && createdTicket.id) {
+        uploadQueueStore.enqueueUpload(
+          createdTicket.id,
+          createdTicket.ticket_key,
+          rawFileObjects,
+          (uploadedAttachments) => {
+            // Update ticket in local store once background upload finishes
+            createdTicket.attachments = uploadedAttachments
+            if (selectedTicket.value && selectedTicket.value.id === createdTicket.id) {
+              selectedTicket.value.attachments = uploadedAttachments
+            }
+          },
+        )
+      }
+
       return true
     } catch (err: any) {
       toastStore.error('Create Ticket Failed', err.response?.data?.message || err.message)
@@ -1406,6 +1530,7 @@ export const useTicketStore = defineStore('tickets', () => {
     closeTicketDrawer,
     refreshSelectedTicket,
     createTicket,
+    createTicketFast,
     deleteTicket,
     columnVisibility,
     toggleColumnVisibility,

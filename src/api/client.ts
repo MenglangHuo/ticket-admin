@@ -156,9 +156,6 @@ apiClient.interceptors.response.use(
 
     const status = error.response?.status
     if (status === 401 || status === 403) {
-      if (window.location.pathname === '/client-ticket') {
-        return Promise.reject(error)
-      }
       localStorage.removeItem('bronx_access_token')
       localStorage.removeItem('bronx_user')
       // If not already on login page, redirect

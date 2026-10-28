@@ -3,9 +3,9 @@ import { useAuthStore } from '@/stores/authStore'
 import { useTicketStore } from '@/stores/ticketStore'
 import type { Ticket } from '@/types/ticket'
 import { Bug, CheckSquare, HelpCircle, Paperclip, Sparkles } from 'lucide-vue-next'
-import { computed } from 'vue'
-
 import { formatHtmlPreview } from '@/utils/html'
+import { getTicketReporterProfile, getUserProfileFromLocalStorage } from '@/utils/ticket'
+import { computed, ref } from 'vue'
 
 const props = defineProps<{
   ticket: Ticket
@@ -48,6 +48,21 @@ const descriptionPreview = computed(() => {
 
 const reporterName = computed(() => {
   return props.ticket.reporter_name || props.ticket.reporter?.name || 'Anonymous'
+})
+
+const avatarImgError = ref(false)
+
+const userProfileImage = computed(() => {
+  return (
+    getTicketReporterProfile(props.ticket) ||
+    props.ticket.reporter_profile ||
+    getUserProfileFromLocalStorage() ||
+    props.ticket.reporter?.profile ||
+    props.ticket.reporter?.profile_url ||
+    (props.ticket as any).profile ||
+    authStore.user?.profile ||
+    null
+  )
 })
 
 // Dynamic colors based on status header color
@@ -192,20 +207,35 @@ const statusTheme = computed(() => {
       {{ descriptionPreview }}
     </p>
 
-    <!-- Bottom Meta Row: Reporter Name (Left) & Date Time (Right) - (Profile, phone, company, 'created date' removed) -->
+    <!-- Bottom Meta Row: Reporter Profile Image & Name (Left) & Date Time (Right) -->
     <div
       class="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400"
     >
-      <!-- Left: Reporter Name & Attachments -->
+      <!-- Left: Reporter Profile Image, Name & Attachments -->
       <div class="flex items-center gap-1.5 min-w-0" :title="`Reporter: ${reporterName}`">
-        <span class="truncate font-semibold text-slate-700 dark:text-slate-300 max-w-[130px]">
+        <div
+          class="w-5 h-5 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center text-[9px] font-bold text-slate-600 dark:text-slate-300"
+        >
+          <img
+            v-if="userProfileImage && !avatarImgError"
+            :src="userProfileImage"
+            alt="Profile"
+            class="w-full h-full object-cover"
+            @error="avatarImgError = true"
+          />
+          <span v-else>
+            {{ (reporterName || 'U').charAt(0).toUpperCase() }}
+          </span>
+        </div>
+
+        <span class="truncate font-semibold text-slate-700 dark:text-slate-300 max-w-[120px]">
           {{ reporterName }}
         </span>
 
         <!-- Attachments Count Badge -->
         <span
           v-if="ticket.attachments && ticket.attachments.length > 0"
-          class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 shrink-0 ml-1"
+          class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 shrink-0 ml-0.5"
         >
           <Paperclip class="w-3 h-3 text-slate-500 dark:text-slate-400" />
           <span>{{ ticket.attachments.length }}</span>

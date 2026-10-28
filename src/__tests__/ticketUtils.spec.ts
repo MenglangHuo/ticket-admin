@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   getTicketCompany,
+  getTicketReporterProfile,
   getTicketSource,
   getUserRoleFromLocalStorage,
+  getUserIdFromLocalStorage,
   getTicketPhone,
   getSourceCategory,
 } from '@/utils/ticket'
@@ -180,6 +182,50 @@ describe('Ticket Utility Functions', () => {
     })
   })
 
+  describe('getUserIdFromLocalStorage', () => {
+    beforeEach(() => {
+      localStorage.clear()
+    })
+
+    it('returns null if bronx_user key does not exist', () => {
+      expect(getUserIdFromLocalStorage()).toBeNull()
+    })
+
+    it('returns user ID number from valid bronx_user object', () => {
+      localStorage.setItem('bronx_user', JSON.stringify({ id: 108, name: 'Admin Staff' }))
+      expect(getUserIdFromLocalStorage()).toBe(108)
+    })
+
+    it('parses string id to numeric value', () => {
+      localStorage.setItem('bronx_user', JSON.stringify({ id: '254' }))
+      expect(getUserIdFromLocalStorage()).toBe(254)
+    })
+
+    it('supports alternative keys such as user_id or userId', () => {
+      localStorage.setItem('bronx_user', JSON.stringify({ user_id: 301 }))
+      expect(getUserIdFromLocalStorage()).toBe(301)
+
+      localStorage.setItem('bronx_user', JSON.stringify({ userId: 402 }))
+      expect(getUserIdFromLocalStorage()).toBe(402)
+    })
+
+    it('supports bronx-user hyphenated key fallback', () => {
+      localStorage.setItem('bronx-user', JSON.stringify({ id: 505 }))
+      expect(getUserIdFromLocalStorage()).toBe(505)
+    })
+
+    it('returns null if bronx_user is malformed JSON or has no valid numeric ID', () => {
+      localStorage.setItem('bronx_user', 'invalid-json')
+      expect(getUserIdFromLocalStorage()).toBeNull()
+
+      localStorage.setItem('bronx_user', JSON.stringify({ id: 'not-a-number' }))
+      expect(getUserIdFromLocalStorage()).toBeNull()
+
+      localStorage.setItem('bronx_user', JSON.stringify({ name: 'No ID' }))
+      expect(getUserIdFromLocalStorage()).toBeNull()
+    })
+  })
+
   describe('getTicketPhone', () => {
     it('returns direct phone if present', () => {
       expect(getTicketPhone({ reporter_phone: '012345678' })).toBe('012345678')
@@ -198,6 +244,40 @@ describe('Ticket Utility Functions', () => {
       expect(getSourceCategory('BRANCH ADMIN')).toBe('branch')
       expect(getSourceCategory('CLIENT API')).toBe('other')
       expect(getSourceCategory('TELEGRAM')).toBe('other')
+    })
+  })
+
+  describe('getTicketReporterProfile', () => {
+    it('returns direct reporter_profile if present', () => {
+      const ticket: Partial<Ticket> = {
+        reporter_profile: 'https://cdn.example.com/reporter.jpg',
+      }
+      expect(getTicketReporterProfile(ticket)).toBe('https://cdn.example.com/reporter.jpg')
+    })
+
+    it('returns reporter.reporter_profile or reporter.profile if direct is missing', () => {
+      const ticketA: Partial<Ticket> = {
+        reporter: {
+          id: 10,
+          reporter_profile: 'https://cdn.example.com/rep1.png',
+        },
+      }
+      expect(getTicketReporterProfile(ticketA)).toBe('https://cdn.example.com/rep1.png')
+
+      const ticketB: Partial<Ticket> = {
+        reporter: {
+          id: 11,
+          profile: 'https://cdn.example.com/rep2.png',
+        },
+      }
+      expect(getTicketReporterProfile(ticketB)).toBe('https://cdn.example.com/rep2.png')
+    })
+
+    it('returns null when ticket is null, undefined, or has no profile URL', () => {
+      expect(getTicketReporterProfile(null)).toBeNull()
+      expect(getTicketReporterProfile(undefined)).toBeNull()
+      expect(getTicketReporterProfile({})).toBeNull()
+      expect(getTicketReporterProfile({ reporter_profile: '   ' })).toBeNull()
     })
   })
 })

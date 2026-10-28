@@ -496,3 +496,161 @@ describe('telegramApi deleteSubscriber endpoint', () => {
   })
 })
 
+describe('telegramApi getUnusedInvites', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    setActivePinia(createPinia())
+  })
+
+  it('correctly calls /ticket/telegram/invites/unused and returns mapped data and pagination', async () => {
+    const mockResponse = {
+      success: true,
+      message: 'ទាញយកបានជោគជ័យ',
+      data: [
+        {
+          id: 4,
+          company_id: 1,
+          token: 'Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+          invite_url: 'https://t.me/MenglangKara_bot?start=Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+          deeplink: 'https://t.me/MenglangKara_bot?start=Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+          is_used: false,
+          expires_at: '2026-10-28 17:10:20',
+          created_by: 367,
+          created_at: '2026-10-21 17:10:20',
+        },
+      ],
+      bot_username: 'MenglangKara_bot',
+      pagination: {
+        page: 1,
+        per_page: 20,
+        total: 1,
+        total_pages: 1,
+        has_next: false,
+        has_previous: false,
+      },
+      timestamp: '2026-10-27 13:51:55',
+    }
+
+    const getSpy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
+      data: mockResponse,
+    })
+
+    const res = await telegramApi.getUnusedInvites({ page: 1, per_page: 20 })
+
+    expect(getSpy).toHaveBeenCalledWith('/ticket/telegram/invites/unused', {
+      params: { page: 1, per_page: 20 },
+    })
+    expect(res.success).toBe(true)
+    expect(res.data).toHaveLength(1)
+    expect(res.data[0]!.token).toBe('Px8AtcqA5hG87oYcPDhPypmo05jGoYvo')
+    expect(res.bot_username).toBe('MenglangKara_bot')
+    expect(res.pagination.total).toBe(1)
+  })
+
+  it('fetchUnusedInvites populates store unusedInvites and pagination', async () => {
+    const store = useSettingsStore()
+    vi.spyOn(telegramApi, 'getUnusedInvites').mockResolvedValueOnce({
+      success: true,
+      data: [
+        {
+          id: 4,
+          company_id: 1,
+          token: 'Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+          invite_url: 'https://t.me/MenglangKara_bot?start=Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+          deeplink: 'https://t.me/MenglangKara_bot?start=Px8AtcqA5hG87oYcPDhPypmo05jGoYvo',
+          is_used: false,
+          expires_at: '2026-10-28 17:10:20',
+          created_by: 367,
+          created_at: '2026-10-21 17:10:20',
+        },
+      ],
+      bot_username: 'MenglangKara_bot',
+      pagination: {
+        page: 1,
+        per_page: 20,
+        total: 1,
+        total_pages: 1,
+        has_next: false,
+        has_previous: false,
+      },
+      timestamp: '2026-10-27 13:51:55',
+    })
+
+    await store.fetchUnusedInvites({ page: 1, per_page: 20 })
+
+    expect(store.unusedInvites).toHaveLength(1)
+    expect(store.unusedInvites[0]!.id).toBe(4)
+    expect(store.invitesPagination.total).toBe(1)
+    expect(store.totalInvitesCount).toBe(1)
+  })
+
+  it('calls POST /ticket/telegram/invites/:id/refresh to refresh an expired invite link', async () => {
+    const mockRefreshed = {
+      success: true,
+      message: 'Invite link refreshed successfully',
+      data: {
+        id: 1,
+        company_id: 1,
+        token: 'Refreshed_tok_abc123',
+        invite_url: 'https://t.me/MenglangKara_bot?start=Refreshed_tok_abc123',
+        deeplink: 'https://t.me/MenglangKara_bot?start=Refreshed_tok_abc123',
+        is_used: false,
+        expires_at: '2026-11-03 15:00:00',
+        created_by: 102,
+        created_at: '2026-10-18 11:00:00',
+      },
+    }
+
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      data: mockRefreshed,
+    })
+
+    const res = await telegramApi.refreshInvite(1)
+
+    expect(postSpy).toHaveBeenCalledWith('/ticket/telegram/invites/1/refresh')
+    expect(res.success).toBe(true)
+    expect(res.data.id).toBe(1)
+    expect(res.data.token).toBe('Refreshed_tok_abc123')
+    expect(res.data.expires_at).toBe('2026-11-03 15:00:00')
+  })
+
+  it('settingsStore.refreshInvite updates the invite item in store', async () => {
+    const store = useSettingsStore()
+    store.unusedInvites = [
+      {
+        id: 1,
+        company_id: 1,
+        token: 'OldToken123',
+        invite_url: 'https://t.me/MenglangKara_bot?start=OldToken123',
+        deeplink: 'https://t.me/MenglangKara_bot?start=OldToken123',
+        is_used: false,
+        expires_at: '2026-10-20 11:00:00',
+        created_by: 102,
+        created_at: '2026-10-13 11:00:00',
+      },
+    ]
+
+    vi.spyOn(telegramApi, 'refreshInvite').mockResolvedValueOnce({
+      success: true,
+      message: 'Renewed',
+      data: {
+        id: 1,
+        company_id: 1,
+        token: 'NewToken456',
+        invite_url: 'https://t.me/MenglangKara_bot?start=NewToken456',
+        deeplink: 'https://t.me/MenglangKara_bot?start=NewToken456',
+        is_used: false,
+        expires_at: '2026-11-05 11:00:00',
+        created_by: 102,
+        created_at: '2026-10-13 11:00:00',
+      },
+    })
+
+    const updated = await store.refreshInvite(1)
+
+    expect(updated.token).toBe('NewToken456')
+    expect(store.unusedInvites[0]!.token).toBe('NewToken456')
+    expect(store.unusedInvites[0]!.expires_at).toBe('2026-11-05 11:00:00')
+  })
+})
+

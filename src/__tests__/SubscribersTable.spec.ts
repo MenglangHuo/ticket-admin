@@ -334,7 +334,7 @@ describe('SubscribersTable Component', () => {
     expect(wrapper.findAll('tbody tr').length).toBe(2)
   })
 
-  it('calls deleteSubscriber when clicking on action delete button', async () => {
+  it('opens confirmation modal and calls deleteSubscriber when confirming', async () => {
     const settingsStore = useSettingsStore()
     settingsStore.subscribers = [...mockSubscribers]
     settingsStore.isLoading = false
@@ -344,7 +344,6 @@ describe('SubscribersTable Component', () => {
       success: true,
       message: 'Subscriber removed successfully from database.',
     })
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     const wrapper = mount(SubscribersTable)
     await wrapper.vm.$nextTick()
@@ -354,8 +353,21 @@ describe('SubscribersTable Component', () => {
 
     // Click delete on first sorted row (subscriber id: 3, most recent subscribed_at)
     await deleteButtons[0]!.trigger('click')
+    await wrapper.vm.$nextTick()
 
-    expect(confirmSpy).toHaveBeenCalled()
+    // Confirmation modal should be visible
+    expect(wrapper.text()).toContain('Delete Subscriber')
+    expect(wrapper.text()).toContain('Are you sure you want to delete this subscriber?')
+
+    // Click confirm delete button in modal
+    const confirmBtn = wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('Delete Subscriber'))
+    expect(confirmBtn?.exists()).toBe(true)
+
+    await confirmBtn!.trigger('click')
+    await wrapper.vm.$nextTick()
+
     expect(deleteSpy).toHaveBeenCalledWith(3, 'RESOLVER')
   })
 })
