@@ -5,7 +5,6 @@ import Sidebar from '@/components/layout/Sidebar.vue'
 import TicketCardSkeleton from '@/components/tickets/TicketCardSkeleton.vue'
 import TicketKanban from '@/components/tickets/TicketKanban.vue'
 import { useTicketStore } from '@/stores/ticketStore'
-import { useAuthStore } from '@/stores/authStore'
 
 // Mock vue-router
 const pushMock = vi.fn()
@@ -31,7 +30,7 @@ describe('Sidebar Component Layout Enhancements', () => {
     pushMock.mockClear()
   })
 
-  it('renders expanded mode by default with labels and Sign Out button', () => {
+  it('renders expanded mode by default with navigation labels', () => {
     const wrapper = mount(Sidebar, {
       global: {
         stubs: {
@@ -50,10 +49,6 @@ describe('Sidebar Component Layout Enhancements', () => {
     expect(wrapper.text()).toContain('Dashboard')
     expect(wrapper.text()).toContain('Tickets')
     expect(wrapper.text()).toContain('Settings')
-
-    // Check Sign Out button with icon and clean text
-    expect(wrapper.text()).toContain('Sign Out')
-    expect(wrapper.text()).toContain('Log out of account')
 
     // Verify it has desktop w-64 class
     const aside = wrapper.find('aside')
@@ -82,40 +77,13 @@ describe('Sidebar Component Layout Enhancements', () => {
 
     // Text labels should be hidden in collapsed mode
     expect(wrapper.text()).not.toContain('Ticket Management')
-    expect(wrapper.text()).not.toContain('Log out of account')
 
     // Expand button should now be available
     const expandBtn = wrapper.find('button[title="Expand sidebar"]')
     expect(expandBtn.exists()).toBe(true)
 
-    // Sign Out button should exist with title="Sign Out"
-    const signoutBtn = wrapper.find('button[title="Sign Out"]')
-    expect(signoutBtn.exists()).toBe(true)
-
     // State should be saved in localStorage
     expect(localStorage.getItem('bronx_sidebar_collapsed')).toBe('true')
-  })
-
-  it('calls authStore.logout and redirects to /login when Sign Out is clicked', async () => {
-    const wrapper = mount(Sidebar, {
-      global: {
-        stubs: {
-          routerLink: {
-            template: '<a><slot /></a>',
-          },
-        },
-      },
-    })
-
-    const authStore = useAuthStore()
-    const logoutSpy = vi.spyOn(authStore, 'logout')
-
-    const signoutBtn = wrapper.find('button[title="Sign Out"]')
-    expect(signoutBtn.exists()).toBe(true)
-    await signoutBtn.trigger('click')
-
-    expect(logoutSpy).toHaveBeenCalled()
-    expect(pushMock).toHaveBeenCalledWith('/login')
   })
 })
 

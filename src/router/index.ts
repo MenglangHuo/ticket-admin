@@ -1,5 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAllowedRole, extractUserRole } from '@/stores/authStore'
+import { getActivePinia } from 'pinia'
+import { useSplashStore } from '@/stores/splashStore'
+
+let navLoadingTimer: ReturnType<typeof setTimeout> | null = null
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -107,6 +111,43 @@ router.beforeEach((to) => {
   // If page requires pending two-factor verification
   if (to.meta.requiresPendingTwoFactor && !hasPendingTwoFactor) {
     return { name: 'login' }
+  }
+})
+
+router.beforeResolve((to, from) => {
+  // If navigating between different route names and not initial load
+  if (from.name && to.name !== from.name) {
+    if (navLoadingTimer) clearTimeout(navLoadingTimer)
+    navLoadingTimer = setTimeout(() => {
+      if (getActivePinia()) {
+        const splashStore = useSplashStore()
+        splashStore.show('Loading view...')
+      }
+    }, 200)
+  }
+})
+
+router.afterEach(() => {
+  if (navLoadingTimer) {
+    clearTimeout(navLoadingTimer)
+    navLoadingTimer = null
+  }
+  if (getActivePinia()) {
+    const splashStore = useSplashStore()
+    if (splashStore.isVisible && !splashStore.isInitialLoading) {
+      splashStore.hide(100)
+    }
+  }
+})
+
+router.onError(() => {
+  if (navLoadingTimer) {
+    clearTimeout(navLoadingTimer)
+    navLoadingTimer = null
+  }
+  if (getActivePinia()) {
+    const splashStore = useSplashStore()
+    splashStore.hide(0)
   }
 })
 

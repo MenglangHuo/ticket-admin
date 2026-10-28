@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Sidebar from '@/components/layout/Sidebar.vue'
 import Topbar from '@/components/layout/Topbar.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import ToastContainer from '@/components/layout/ToastContainer.vue'
 import BackgroundUploadProgress from '@/components/common/BackgroundUploadProgress.vue'
+import SplashScreen from '@/components/common/SplashScreen.vue'
+import { useSplashStore } from '@/stores/splashStore'
 
 const route = useRoute()
+const splashStore = useSplashStore()
 const isMobileSidebarOpen = ref<boolean>(false)
+
+onMounted(() => {
+  splashStore.finishInitialLoad()
+})
 
 const isStandaloneRoute = computed(() => {
   if (route.meta?.standalone) return true
@@ -67,6 +74,9 @@ function closeMobileSidebar() {
       isStandaloneRoute ? 'w-full block min-h-screen' : 'flex overflow-hidden',
     ]"
   >
+    <!-- Global Splash & Loading Screen -->
+    <SplashScreen />
+
     <!-- Toast notifications container -->
     <ToastContainer />
 

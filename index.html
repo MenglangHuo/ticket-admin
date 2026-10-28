@@ -7,6 +7,21 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <title>Ticket Admin Portal</title>
+    <!-- Early theme initialization to prevent flash of wrong theme on initial splash screen -->
+    <script>
+      (function() {
+        try {
+          const stored = localStorage.getItem('bronx_theme');
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (stored === 'dark' || ((!stored || stored === 'system') && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (_) {}
+      })();
+    </script>
+    <!-- Daily Companion App neutralizing script -->
     <script>
       (function() {
         if (typeof document !== 'undefined' && !document.querySelector('daily-companion-app')) {
@@ -18,10 +33,192 @@
         }
       })();
     </script>
+    <style id="app-splash-styles">
+      :root {
+        --splash-bg: #f8fafc;
+        --splash-title: #0f172a;
+        --splash-sub: #64748b;
+        --splash-track: rgba(226, 232, 240, 0.9);
+        --splash-aura: rgba(99, 102, 241, 0.12);
+      }
+      html.dark {
+        --splash-bg: #0b0f19;
+        --splash-title: #f8fafc;
+        --splash-sub: #94a3b8;
+        --splash-track: rgba(30, 41, 59, 0.9);
+        --splash-aura: rgba(99, 102, 241, 0.22);
+      }
+      #app-splash-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--splash-bg);
+        color: var(--splash-title);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        transition: opacity 0.35s ease, transform 0.35s ease;
+        overflow: hidden;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #app-splash-screen.splash-fade-out {
+        opacity: 0;
+        transform: scale(1.02);
+        pointer-events: none;
+      }
+      .splash-bg-dots {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image: radial-gradient(rgba(99, 102, 241, 0.75) 1px, transparent 1px);
+        background-size: 24px 24px;
+        opacity: 0.04;
+      }
+      html.dark .splash-bg-dots {
+        opacity: 0.07;
+      }
+      .splash-glow-aura {
+        position: absolute;
+        width: 280px;
+        height: 280px;
+        border-radius: 9999px;
+        background: radial-gradient(circle, var(--splash-aura) 0%, transparent 70%);
+        filter: blur(32px);
+        pointer-events: none;
+        transform: translateY(-24px);
+        animation: splash-aura-pulse 2.5s ease-in-out infinite;
+      }
+      .splash-card {
+        position: relative;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 0 24px;
+        max-width: 380px;
+        width: 100%;
+      }
+      .splash-logo-container {
+        width: 72px;
+        height: 72px;
+        border-radius: 22px;
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #38bdf8 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 16px 32px -6px rgba(79, 70, 229, 0.35);
+        outline: 4px solid rgba(99, 102, 241, 0.15);
+        margin-bottom: 16px;
+        animation: splash-logo-float 2.5s ease-in-out infinite;
+      }
+      .splash-logo-container svg {
+        width: 36px;
+        height: 36px;
+        color: #ffffff;
+        transform: rotate(-6deg);
+        stroke-width: 2.2;
+      }
+      .splash-title-text {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        color: var(--splash-title);
+        line-height: 1.2;
+      }
+      .splash-sub-text {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--splash-sub);
+        margin-top: 4px;
+      }
+      .splash-track {
+        width: 200px;
+        height: 5px;
+        background-color: var(--splash-track);
+        border-radius: 9999px;
+        overflow: hidden;
+        position: relative;
+        margin-top: 24px;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+      .splash-bar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 50%;
+        border-radius: 9999px;
+        background: linear-gradient(90deg, #4f46e5, #6366f1, #38bdf8);
+        animation: splash-shimmer-run 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+      .splash-status-message {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--splash-sub);
+        margin-top: 12px;
+      }
+      .splash-spinner-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        background-color: #6366f1;
+        animation: splash-pulse-dot 1.2s ease-in-out infinite;
+      }
+      @keyframes splash-shimmer-run {
+        0% { transform: translateX(-150%); }
+        50% { transform: translateX(100%); }
+        100% { transform: translateX(250%); }
+      }
+      @keyframes splash-aura-pulse {
+        0%, 100% { opacity: 0.8; transform: translateY(-24px) scale(1); }
+        50% { opacity: 1; transform: translateY(-24px) scale(1.08); }
+      }
+      @keyframes splash-logo-float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-4px); }
+      }
+      @keyframes splash-pulse-dot {
+        0%, 100% { opacity: 0.35; transform: scale(0.85); }
+        50% { opacity: 1; transform: scale(1.2); }
+      }
+    </style>
   </head>
   <body>
     <!-- Neutralizes third-party browser extension (e.g. daily.dev companion) react-modal selector query -->
     <daily-companion-app id="daily-companion-app" class="daily-companion-app" style="display: none;"></daily-companion-app>
+
+    <!-- Instant Pre-mount Splash Screen (First Load) -->
+    <div id="app-splash-screen" role="status" aria-label="Loading Ticket Admin">
+      <div class="splash-bg-dots"></div>
+      <div class="splash-glow-aura"></div>
+      <div class="splash-card">
+        <div class="splash-logo-container">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
+            <path d="M13 5v2"></path>
+            <path d="M13 17v2"></path>
+            <path d="M13 11v2"></path>
+          </svg>
+        </div>
+        <div class="splash-title-text">Ticket Admin</div>
+        <div class="splash-sub-text">Ticket Management System</div>
+        <div class="splash-track">
+          <div class="splash-bar"></div>
+        </div>
+        <div class="splash-status-message">
+          <span class="splash-spinner-dot"></span>
+          <span>Loading workspace...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Vue App Mount Point -->
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

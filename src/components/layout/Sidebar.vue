@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import { useAuthStore } from '@/stores/authStore'
 import {
   ChevronRight,
   KanbanSquare,
   LayoutDashboard,
-  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
   Ticket,
 } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 defineProps<{
   isMobileOpen?: boolean
@@ -22,8 +20,6 @@ const emit = defineEmits<{
 }>()
 
 const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
 
 const isCollapsed = ref<boolean>(false)
 
@@ -64,11 +60,6 @@ const navItems = computed(() => [
     badge: null,
   },
 ])
-
-function handleLogout() {
-  authStore.logout()
-  router.push('/login')
-}
 </script>
 
 <template>

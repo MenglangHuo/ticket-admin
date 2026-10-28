@@ -334,7 +334,7 @@ describe('SubscribersTable Component', () => {
     expect(wrapper.findAll('tbody tr').length).toBe(2)
   })
 
-  it('opens confirmation modal and calls deleteSubscriber when confirming', async () => {
+  it('opens confirmation modal and calls deleteSubscriber and closes modal when confirming', async () => {
     const settingsStore = useSettingsStore()
     settingsStore.subscribers = [...mockSubscribers]
     settingsStore.isLoading = false
@@ -358,6 +358,8 @@ describe('SubscribersTable Component', () => {
     // Confirmation modal should be visible
     expect(wrapper.text()).toContain('Delete Subscriber')
     expect(wrapper.text()).toContain('Are you sure you want to delete this subscriber?')
+    expect((wrapper.vm as any).isDeleteModalOpen).toBe(true)
+    expect((wrapper.vm as any).subscriberToDelete).not.toBeNull()
 
     // Click confirm delete button in modal
     const confirmBtn = wrapper
@@ -369,6 +371,59 @@ describe('SubscribersTable Component', () => {
     await wrapper.vm.$nextTick()
 
     expect(deleteSpy).toHaveBeenCalledWith(3, 'RESOLVER')
+    // Modal must be closed and state reset after deletion
+    expect((wrapper.vm as any).isDeleteModalOpen).toBe(false)
+    expect((wrapper.vm as any).subscriberToDelete).toBeNull()
+    expect(wrapper.text()).not.toContain('Are you sure you want to delete this subscriber?')
+  })
+
+  it('closes delete modal when closeDeleteModal is called or cancel button is clicked', async () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.subscribers = [...mockSubscribers]
+    settingsStore.isLoading = false
+
+    const wrapper = mount(SubscribersTable)
+    await wrapper.vm.$nextTick()
+
+    // Open modal via handleDelete
+    ;(wrapper.vm as any).handleDelete(mockSubscribers[0])
+    await wrapper.vm.$nextTick()
+
+    expect((wrapper.vm as any).isDeleteModalOpen).toBe(true)
+    expect(wrapper.text()).toContain('Delete Subscriber')
+
+    // Click Cancel button
+    const cancelBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Cancel')
+    expect(cancelBtn?.exists()).toBe(true)
+    await cancelBtn!.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect((wrapper.vm as any).isDeleteModalOpen).toBe(false)
+    expect((wrapper.vm as any).subscriberToDelete).toBeNull()
+    expect(wrapper.text()).not.toContain('Are you sure you want to delete this subscriber?')
+  })
+
+  it('closes delete modal when Escape key is pressed', async () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.subscribers = [...mockSubscribers]
+    settingsStore.isLoading = false
+
+    const wrapper = mount(SubscribersTable, { attachTo: document.body })
+    await wrapper.vm.$nextTick()
+
+    // Open modal
+    ;(wrapper.vm as any).handleDelete(mockSubscribers[0])
+    await wrapper.vm.$nextTick()
+    expect((wrapper.vm as any).isDeleteModalOpen).toBe(true)
+
+    // Press Escape
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+
+    expect((wrapper.vm as any).isDeleteModalOpen).toBe(false)
+    expect((wrapper.vm as any).subscriberToDelete).toBeNull()
+
+    wrapper.unmount()
   })
 })
 

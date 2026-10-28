@@ -135,7 +135,7 @@ onUnmounted(() => {
 
 <template>
   <header
-    class="h-16 px-2 md:px-6 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between sticky top-0 z-20 transition-colors"
+    class="h-16 px-2 md:px-6 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between sticky top-0 z-30 transition-colors"
   >
     <!-- Left Area: Dashboard Title OR Ticket Management Header OR Contextual Titles -->
     <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -238,7 +238,10 @@ onUnmounted(() => {
           <button
             type="button"
             class="flex items-center gap-2 pl-1 pr-1.5 py-1 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all cursor-pointer select-none group text-left"
-            :class="{ 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-2xs': isOpen }"
+            :class="{
+              'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-2xs':
+                isOpen,
+            }"
             title="View user details & profile menu"
           >
             <!-- User Avatar with Status Indicator -->
@@ -327,7 +330,10 @@ onUnmounted(() => {
                     {{ userDisplayName }}
                   </h4>
 
-                  <p v-if="storedUser?.username" class="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate">
+                  <p
+                    v-if="storedUser?.username"
+                    class="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate"
+                  >
                     @{{ storedUser.username }}
                   </p>
 
@@ -372,7 +378,10 @@ onUnmounted(() => {
                     <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
                       Email
                     </div>
-                    <div class="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate max-w-[170px]" :title="storedUser.email">
+                    <div
+                      class="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate max-w-[170px]"
+                      :title="storedUser.email"
+                    >
                       {{ storedUser.email }}
                     </div>
                   </div>
@@ -403,7 +412,9 @@ onUnmounted(() => {
                     <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
                       Phone
                     </div>
-                    <div class="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate">
+                    <div
+                      class="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate"
+                    >
                       {{ storedUser.phone || storedUser.personal_phone }}
                     </div>
                   </div>
@@ -464,7 +475,9 @@ onUnmounted(() => {
             </div>
 
             <!-- Actions Row -->
-            <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1.5 px-1">
+            <div
+              class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1.5 px-1"
+            >
               <button
                 type="button"
                 @click="handleGoToSettings(close)"
