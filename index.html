@@ -1,41 +1,42 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="shortcut icon" href="/favicon.ico">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="referrer" content="strict-origin-when-cross-origin">
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <title>Ticket Admin Portal</title>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <title>Ticket Admin</title>
     <!-- Early theme initialization to prevent flash of wrong theme on initial splash screen -->
     <script>
-      (function() {
+      ;(function () {
         try {
-          const stored = localStorage.getItem('bronx_theme');
-          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const stored = localStorage.getItem('bronx_theme')
+          const prefersDark =
+            window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
           if (stored === 'dark' || ((!stored || stored === 'system') && prefersDark)) {
-            document.documentElement.classList.add('dark');
+            document.documentElement.classList.add('dark')
           } else {
-            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.remove('dark')
           }
         } catch (_) {}
-      })();
+      })()
     </script>
     <!-- Daily Companion App neutralizing script -->
     <script>
-      (function() {
+      ;(function () {
         if (typeof document !== 'undefined' && !document.querySelector('daily-companion-app')) {
-          const el = document.createElement('daily-companion-app');
-          el.id = 'daily-companion-app';
-          el.className = 'daily-companion-app';
-          el.style.display = 'none';
-          (document.head || document.documentElement).appendChild(el);
+          const el = document.createElement('daily-companion-app')
+          el.id = 'daily-companion-app'
+          el.className = 'daily-companion-app'
+          el.style.display = 'none'
+          ;(document.head || document.documentElement).appendChild(el)
         }
-      })();
+      })()
     </script>
     <style id="app-splash-styles">
       :root {
@@ -62,8 +63,16 @@
         justify-content: center;
         background-color: var(--splash-bg);
         color: var(--splash-title);
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        transition: opacity 0.35s ease, transform 0.35s ease;
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        transition:
+          opacity 0.35s ease,
+          transform 0.35s ease;
         overflow: hidden;
         user-select: none;
         -webkit-user-select: none;
@@ -175,27 +184,56 @@
         animation: splash-pulse-dot 1.2s ease-in-out infinite;
       }
       @keyframes splash-shimmer-run {
-        0% { transform: translateX(-150%); }
-        50% { transform: translateX(100%); }
-        100% { transform: translateX(250%); }
+        0% {
+          transform: translateX(-150%);
+        }
+        50% {
+          transform: translateX(100%);
+        }
+        100% {
+          transform: translateX(250%);
+        }
       }
       @keyframes splash-aura-pulse {
-        0%, 100% { opacity: 0.8; transform: translateY(-24px) scale(1); }
-        50% { opacity: 1; transform: translateY(-24px) scale(1.08); }
+        0%,
+        100% {
+          opacity: 0.8;
+          transform: translateY(-24px) scale(1);
+        }
+        50% {
+          opacity: 1;
+          transform: translateY(-24px) scale(1.08);
+        }
       }
       @keyframes splash-logo-float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-4px); }
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-4px);
+        }
       }
       @keyframes splash-pulse-dot {
-        0%, 100% { opacity: 0.35; transform: scale(0.85); }
-        50% { opacity: 1; transform: scale(1.2); }
+        0%,
+        100% {
+          opacity: 0.35;
+          transform: scale(0.85);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.2);
+        }
       }
     </style>
   </head>
   <body>
     <!-- Neutralizes third-party browser extension (e.g. daily.dev companion) react-modal selector query -->
-    <daily-companion-app id="daily-companion-app" class="daily-companion-app" style="display: none;"></daily-companion-app>
+    <daily-companion-app
+      id="daily-companion-app"
+      class="daily-companion-app"
+      style="display: none"
+    ></daily-companion-app>
 
     <!-- Instant Pre-mount Splash Screen (First Load) -->
     <div id="app-splash-screen" role="status" aria-label="Loading Ticket Admin">
@@ -203,8 +241,17 @@
       <div class="splash-glow-aura"></div>
       <div class="splash-card">
         <div class="splash-logo-container">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"
+            ></path>
             <path d="M13 5v2"></path>
             <path d="M13 17v2"></path>
             <path d="M13 11v2"></path>
